@@ -19,6 +19,7 @@ import pegel
 import rss
 import storage
 import telegram
+import websearch
 
 # ── Logging einrichten ────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -158,6 +159,24 @@ def main() -> None:
         seen = run_rss(seen)
     except Exception as exc:  # noqa: BLE001
         logger.error("RSS: Unerwarteter Fehler: %s", exc)
+
+    # Web-Recherche
+    try:
+        logger.info("─── Web-Recherche startet ───")
+        web_results = websearch.check_web()
+        web_new = 0
+        for entry in web_results:
+            link = entry.get("link", "")
+            if not link or link in seen:
+                continue
+            msg = websearch.format_telegram_message(entry)
+            success = telegram.send_message(msg)
+            if success:
+                seen.add(link)
+                web_new += 1
+        logger.info("Web-Recherche: %d neue Treffer gesendet.", web_new)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Web-Recherche: Unerwarteter Fehler: %s", exc)
 
     # Pegel überwachen
     try:
