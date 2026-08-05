@@ -12,7 +12,7 @@ TELEGRAM_BOT_TOKEN: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 
 # Deine persönliche Chat-ID (Gruppe oder Einzelperson)
 # Ermittle sie mit: https://t.me/userinfobot
-TELEGRAM_CHAT_ID: str = "-1001234567890"  # <-- Hier deine Chat-ID eintragen
+TELEGRAM_CHAT_ID: str = "916729935"
 
 # ── RSS ───────────────────────────────────────────────────────────────────────
 RSS_FEEDS: list[str] = [
