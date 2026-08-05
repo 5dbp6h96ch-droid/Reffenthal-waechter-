@@ -26,6 +26,7 @@ SEARCH_TERMS: list[str] = [
     "Angelhofer Altrhein",
     "Otterstädter Altrhein",
     "Berghäuser Altrhein",
+    "Kiefweiher",
     "Wassertiefe",
     "Wasserstand",
     "Versandung",

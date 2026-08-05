@@ -22,6 +22,7 @@ WEB_SEARCH_QUERIES: list[str] = [
     '"Otterstädter Altrhein" Wasserstand',
     '"Angelhofer Altrhein"',
     '"Berghäuser Altrhein"',
+    '"Kiefweiher" Speyer',
 ]
 
 # Gezielte Suche im Boote-Forum
@@ -31,6 +32,7 @@ FORUM_SEARCH_QUERIES: list[str] = [
     'site:boote-forum.de "Angelhofer Altrhein"',
     'site:boote-forum.de "Berghäuser Altrhein"',
     'site:boote-forum.de "Pegel Speyer" Einfahrt',
+    'site:boote-forum.de Kiefweiher',
 ]
 
 # Gezielte Suche auf Facebook (nur öffentliche Seiten & Gruppen)
@@ -38,6 +40,7 @@ FACEBOOK_SEARCH_QUERIES: list[str] = [
     'site:facebook.com Reffenthal',
     'site:facebook.com "Otterstädter Altrhein"',
     'site:facebook.com "Berghäuser Altrhein"',
+    'site:facebook.com Kiefweiher Speyer',
 ]
 
 # Begriffe, die zwingend im Ergebnis vorkommen müssen
@@ -47,6 +50,7 @@ REQUIRED_TERMS: list[str] = [
     "angelhofer altrhein",
     "berghäuser altrhein",
     "reffenthaler",
+    "kiefweiher",
 ]
 
 
