@@ -15,6 +15,7 @@ import sys
 from datetime import datetime
 
 import config
+import db
 import pegel
 import rss
 import storage
@@ -89,6 +90,9 @@ def run_pegel(state: dict) -> dict:
 
     analysis = pegel.analyze_pegel(current, state)
     updated_state = analysis["updated_state"]
+
+    # Dauerhaft in Datenbank speichern (Wochen-/Monatstrends)
+    db.save_pegel(value_cm, timestamp)
 
     # Niedrigwasser-Warnung hat Vorrang
     if analysis["low_alert"]:
@@ -192,6 +196,7 @@ def main() -> None:
     storage.save_seen(config.SEEN_FILE, seen)
     storage.save_state(config.STATE_FILE, state)
     logger.info("Zustand gespeichert.")
+    db.close()
 
     logger.info("══════════════════════════════════════")
     logger.info("  Fertig.")

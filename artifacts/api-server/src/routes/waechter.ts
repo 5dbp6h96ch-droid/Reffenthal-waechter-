@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
+import { db, pegelHistoryTable } from "@workspace/db";
+import { desc, gte } from "drizzle-orm";
 import { GetWaechterStateResponse, GetWaechterTrefferResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -23,22 +25,55 @@ const SEEN_FILE = path.join(WAECHTER_DIR, "seen.json");
 // Threshold from reffenthal-waechter/config.py
 const PEGEL_LOW_THRESHOLD_CM = 225;
 
+// Wie viele Tage Verlauf das Dashboard anzeigen soll
+const HISTORY_DAYS = 30;
+
 router.get("/waechter/state", async (req, res): Promise<void> => {
   try {
+    // Aktuellen Zustand (letzte Messung, Tagesbericht-Datum) aus state.json lesen
     const raw = await fs.readFile(STATE_FILE, "utf-8");
     const state = JSON.parse(raw);
+
+    // Verlauf der letzten HISTORY_DAYS Tage aus der Datenbank lesen
+    let dbHistory: { cm: number; ts: string }[] = [];
+    try {
+      const since = new Date();
+      since.setDate(since.getDate() - HISTORY_DAYS);
+
+      const rows = await db
+        .select()
+        .from(pegelHistoryTable)
+        .where(gte(pegelHistoryTable.measuredAt, since))
+        .orderBy(desc(pegelHistoryTable.measuredAt))
+        .limit(2000);
+
+      dbHistory = rows.map((r) => ({
+        cm: r.valueCm,
+        ts: r.measuredAt.toISOString(),
+      }));
+    } catch (dbErr) {
+      req.log.warn({ dbErr }, "DB history unavailable – falling back to state.json history");
+    }
+
+    // Wenn die DB noch keine Einträge hat, auf den Verlauf aus state.json zurückfallen
+    const history =
+      dbHistory.length > 0
+        ? dbHistory
+        : Array.isArray(state.history)
+          ? state.history
+          : [];
 
     const data = GetWaechterStateResponse.parse({
       last_pegel_cm: state.last_pegel_cm ?? null,
       last_pegel_time: state.last_pegel_time ?? null,
       last_daily_report_date: state.last_daily_report_date ?? null,
-      history: Array.isArray(state.history) ? state.history : [],
+      history,
       threshold_cm: PEGEL_LOW_THRESHOLD_CM,
     });
 
     res.json(data);
   } catch (err) {
-    req.log.error({ err, file: STATE_FILE }, "Failed to read state.json");
+    req.log.error({ err, file: STATE_FILE }, "Failed to read waechter state");
     res.status(503).json({ error: "Could not load water level data", file: STATE_FILE });
   }
 });
