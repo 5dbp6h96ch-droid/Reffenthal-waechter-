@@ -43,3 +43,14 @@ export const GetWaechterTrefferResponse = zod.object({
 })
 
 
+/**
+ * Returns when the watcher last ran, how many new RSS hits were found, and the last error (if any)
+ * @summary Get watcher run status
+ */
+export const GetWaechterStatusResponse = zod.object({
+  "last_run_at": zod.string().nullable().describe('ISO 8601 timestamp of the last completed watcher run'),
+  "rss_new_count": zod.number().describe('Number of new RSS/web hits found in the last run'),
+  "last_error": zod.string().nullable().describe('Last error message if the run encountered an error, null otherwise'),
+})
+
+

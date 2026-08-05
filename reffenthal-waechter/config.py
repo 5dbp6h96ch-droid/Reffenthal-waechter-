@@ -63,3 +63,4 @@ DAILY_REPORT_HOUR: int = 8
 # ── Dateipfade ────────────────────────────────────────────────────────────────
 SEEN_FILE: str = "seen.json"
 STATE_FILE: str = "state.json"
+RUN_STATUS_FILE: str = "run_status.json"

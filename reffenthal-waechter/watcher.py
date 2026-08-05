@@ -154,6 +154,10 @@ def main() -> None:
             "Bitte in config.py anpassen."
         )
 
+    # Laufstatus-Tracking
+    rss_new_count = 0
+    last_error: str | None = None
+
     # Zustand laden
     seen = storage.load_seen(config.SEEN_FILE)
     state = storage.load_state(config.STATE_FILE)
@@ -161,9 +165,12 @@ def main() -> None:
 
     # RSS überwachen
     try:
+        seen_before = len(seen)
         seen = run_rss(seen)
+        rss_new_count += len(seen) - seen_before
     except Exception as exc:  # noqa: BLE001
         logger.error("RSS: Unerwarteter Fehler: %s", exc)
+        last_error = f"RSS: {exc}"
 
     # Web-Recherche
     try:
@@ -182,21 +189,35 @@ def main() -> None:
             if success:
                 seen.add(norm)
                 web_new += 1
+                rss_new_count += 1
         logger.info("Web-Recherche: %d neue Treffer gesendet.", web_new)
     except Exception as exc:  # noqa: BLE001
         logger.error("Web-Recherche: Unerwarteter Fehler: %s", exc)
+        if last_error is None:
+            last_error = f"Web-Recherche: {exc}"
 
     # Pegel überwachen
     try:
         state = run_pegel(state)
     except Exception as exc:  # noqa: BLE001
         logger.error("Pegel: Unerwarteter Fehler: %s", exc)
+        if last_error is None:
+            last_error = f"Pegel: {exc}"
 
     # Zustand speichern
     storage.save_seen(config.SEEN_FILE, seen)
     storage.save_state(config.STATE_FILE, state)
     logger.info("Zustand gespeichert.")
     db.close()
+
+    # Laufstatus speichern
+    run_status = {
+        "last_run_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "rss_new_count": rss_new_count,
+        "last_error": last_error,
+    }
+    storage.save_run_status(config.RUN_STATUS_FILE, run_status)
+    logger.info("Laufstatus gespeichert: %s", run_status)
 
     logger.info("══════════════════════════════════════")
     logger.info("  Fertig.")

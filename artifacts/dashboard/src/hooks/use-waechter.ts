@@ -3,6 +3,8 @@ import {
   getGetWaechterStateQueryKey,
   useGetWaechterTreffer,
   getGetWaechterTrefferQueryKey,
+  useGetWaechterStatus,
+  getGetWaechterStatusQueryKey,
 } from '@workspace/api-client-react';
 
 const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
@@ -20,6 +22,15 @@ export function useWaechterTreffer() {
   return useGetWaechterTreffer({
     query: {
       queryKey: getGetWaechterTrefferQueryKey(),
+      refetchInterval: REFRESH_INTERVAL_MS,
+    },
+  });
+}
+
+export function useWaechterStatus() {
+  return useGetWaechterStatus({
+    query: {
+      queryKey: getGetWaechterStatusQueryKey(),
       refetchInterval: REFRESH_INTERVAL_MS,
     },
   });

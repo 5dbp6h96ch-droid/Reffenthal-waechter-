@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
 import { db, pegelHistoryTable } from "@workspace/db";
 import { desc, gte } from "drizzle-orm";
-import { GetWaechterStateResponse, GetWaechterTrefferResponse } from "@workspace/api-zod";
+import { GetWaechterStateResponse, GetWaechterStatusResponse, GetWaechterTrefferResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
@@ -21,6 +21,7 @@ const WAECHTER_DIR = path.resolve(__distDir, "../../../reffenthal-waechter");
 
 const STATE_FILE = path.join(WAECHTER_DIR, "state.json");
 const SEEN_FILE = path.join(WAECHTER_DIR, "seen.json");
+const RUN_STATUS_FILE = path.join(WAECHTER_DIR, "run_status.json");
 
 // Threshold from reffenthal-waechter/config.py
 const PEGEL_LOW_THRESHOLD_CM = 225;
@@ -92,6 +93,30 @@ router.get("/waechter/treffer", async (req, res): Promise<void> => {
   } catch (err) {
     req.log.error({ err, file: SEEN_FILE }, "Failed to read seen.json");
     res.status(503).json({ error: "Could not load treffer data", file: SEEN_FILE });
+  }
+});
+
+router.get("/waechter/status", async (req, res): Promise<void> => {
+  try {
+    let raw: string;
+    try {
+      raw = await fs.readFile(RUN_STATUS_FILE, "utf-8");
+    } catch {
+      // File doesn't exist yet – watcher hasn't run
+      raw = JSON.stringify({ last_run_at: null, rss_new_count: 0, last_error: null });
+    }
+    const parsed = JSON.parse(raw);
+
+    const data = GetWaechterStatusResponse.parse({
+      last_run_at: parsed.last_run_at ?? null,
+      rss_new_count: parsed.rss_new_count ?? 0,
+      last_error: parsed.last_error ?? null,
+    });
+
+    res.json(data);
+  } catch (err) {
+    req.log.error({ err, file: RUN_STATUS_FILE }, "Failed to read waechter run status");
+    res.status(503).json({ error: "Could not load watcher run status", file: RUN_STATUS_FILE });
   }
 });
 

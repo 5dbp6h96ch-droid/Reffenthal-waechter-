@@ -1,9 +1,10 @@
 import { Waves, RefreshCw } from 'lucide-react';
-import { useWaechterState, useWaechterTreffer } from '@/hooks/use-waechter';
+import { useWaechterState, useWaechterTreffer, useWaechterStatus } from '@/hooks/use-waechter';
 import { StatusCard } from '@/components/status-card';
 import { MetaCard } from '@/components/meta-card';
 import { PegelChart } from '@/components/pegel-chart';
 import { TrefferList } from '@/components/treffer-list';
+import { WaechterStatusCard } from '@/components/waechter-status-card';
 import { DataError } from '@/components/data-error';
 import { relativeGerman } from '@/lib/format';
 
@@ -22,6 +23,13 @@ export default function Dashboard() {
     isError: isTrefferError,
     refetch: refetchTreffer,
   } = useWaechterTreffer();
+
+  const {
+    data: runStatus,
+    isLoading: isStatusLoading,
+    isError: isStatusError,
+    refetch: refetchStatus,
+  } = useWaechterStatus();
 
   return (
     <div className="min-h-[100dvh] w-full bg-background">
@@ -82,7 +90,8 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div>
+          <div className="flex flex-col gap-4">
+            <WaechterStatusCard status={runStatus} isLoading={isStatusLoading} isError={isStatusError} onRetry={() => refetchStatus()} />
             {isTrefferError ? (
               <DataError title="Treffer-Liste nicht verfügbar" onRetry={() => refetchTreffer()} />
             ) : (

@@ -17,6 +17,7 @@ import type {
 
 import type {
   HealthStatus,
+  WaechterRunStatus,
   WaechterState,
   WaechterTreffer
 } from './api.schemas';
@@ -282,3 +283,46 @@ export function useGetWaechterTreffer<TData = Awaited<ReturnType<typeof getWaech
 
 
 
+
+export const getGetWaechterStatusUrl = () => {
+  return `/api/waechter/status`
+}
+
+/**
+ * Returns when the watcher last ran, how many new RSS hits were found, and the last error (if any)
+ * @summary Get watcher run status
+ */
+export const getWaechterStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<WaechterRunStatus> => {
+  return customFetch<WaechterRunStatus>(getGetWaechterStatusUrl(), {
+    ...options,
+    method: 'GET',
+  });
+}
+
+export const getGetWaechterStatusQueryKey = () => {
+    return [
+    `/api/waechter/status`
+    ] as const;
+}
+
+export const getGetWaechterStatusQueryOptions = <TData = Awaited<ReturnType<typeof getWaechterStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWaechterStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+  const {query: queryOptions, request: requestOptions} = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetWaechterStatusQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWaechterStatus>>> = ({ signal }) => getWaechterStatus({ signal, ...requestOptions });
+  return { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWaechterStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWaechterStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getWaechterStatus>>>
+export type GetWaechterStatusQueryError = ErrorType<unknown>
+
+/**
+ * @summary Get watcher run status
+ */
+export function useGetWaechterStatus<TData = Awaited<ReturnType<typeof getWaechterStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWaechterStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWaechterStatusQueryOptions(options)
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return withQueryKey(query, queryOptions.queryKey);
+}

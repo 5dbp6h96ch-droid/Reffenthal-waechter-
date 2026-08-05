@@ -8,5 +8,6 @@
 
 export * from './healthStatus';
 export * from './pegelEntry';
+export * from './waechterRunStatus';
 export * from './waechterState';
 export * from './waechterTreffer';

@@ -79,6 +79,22 @@ def save_seen(filepath: str, seen: set[str]) -> None:
     _save_json(filepath, list(seen))
 
 
+# ── Run Status (Wächter-Laufstatus) ───────────────────────────────────────────
+
+def load_run_status(filepath: str) -> dict:
+    """Lädt den letzten Wächter-Laufstatus."""
+    return _load_json(filepath, {
+        "last_run_at": None,
+        "rss_new_count": 0,
+        "last_error": None,
+    })
+
+
+def save_run_status(filepath: str, status: dict) -> None:
+    """Speichert den Wächter-Laufstatus."""
+    _save_json(filepath, status)
+
+
 # ── State (Pegel-Verlauf) ─────────────────────────────────────────────────────
 
 def load_state(filepath: str) -> dict:
