@@ -1,0 +1,43 @@
+name: Reffenthal-Wächter
+
+on:
+  # Alle 30 Minuten automatisch ausführen
+  schedule:
+    - cron: "*/30 * * * *"
+
+  # Manuell ausführen über GitHub Actions UI
+  workflow_dispatch:
+
+jobs:
+  watch:
+    name: Wächter ausführen
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python 3.12 einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Abhängigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r reffenthal-waechter/requirements.txt
+
+      - name: Wächter ausführen
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          cd reffenthal-waechter && python watcher.py
+
+      - name: Zustand committen (seen.json + state.json)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reffenthal-waechter/seen.json reffenthal-waechter/state.json
+          git diff --staged --quiet || git commit -m "chore: Wächter-Zustand aktualisiert [skip ci]"
+          git push
