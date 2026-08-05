@@ -25,6 +25,7 @@ SEARCH_TERMS: list[str] = [
     "Reffenthaler",
     "Angelhofer Altrhein",
     "Otterstädter Altrhein",
+    "Berghäuser Altrhein",
     "Wassertiefe",
     "Wasserstand",
     "Versandung",

@@ -21,6 +21,7 @@ WEB_SEARCH_QUERIES: list[str] = [
     '"Otterstädter Altrhein"',
     '"Otterstädter Altrhein" Wasserstand',
     '"Angelhofer Altrhein"',
+    '"Berghäuser Altrhein"',
 ]
 
 # Gezielte Suche im Boote-Forum
@@ -28,6 +29,7 @@ FORUM_SEARCH_QUERIES: list[str] = [
     'site:boote-forum.de Reffenthal',
     'site:boote-forum.de "Otterstädter Altrhein"',
     'site:boote-forum.de "Angelhofer Altrhein"',
+    'site:boote-forum.de "Berghäuser Altrhein"',
     'site:boote-forum.de "Pegel Speyer" Einfahrt',
 ]
 
@@ -36,6 +38,7 @@ REQUIRED_TERMS: list[str] = [
     "reffenthal",
     "otterstädter altrhein",
     "angelhofer altrhein",
+    "berghäuser altrhein",
     "reffenthaler",
 ]
 
