@@ -24,6 +24,7 @@ import Svg, {
 import {
   useGetWaechterState,
   useGetWaechterTreffer,
+  useGetWaechterStatus,
 } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 
@@ -51,6 +52,18 @@ function formatDateTime(iso: string | null): string {
     ' · ' +
     d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
   );
+}
+
+function formatRelativeTime(iso: string | null): string {
+  if (!iso) return 'Nie';
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return 'Gerade eben';
+  if (diffMin < 60) return `vor ${diffMin} Min.`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `vor ${diffH} Std.`;
+  const diffD = Math.floor(diffH / 24);
+  return `vor ${diffD} Tag${diffD === 1 ? '' : 'en'}`;
 }
 
 function getDomain(url: string): string {
@@ -253,12 +266,25 @@ export default function HomeScreen() {
     isRefetching: trefferRefetching,
   } = useGetWaechterTreffer();
 
-  const isRefreshing = stateRefetching || trefferRefetching;
+  const {
+    data: waechterStatus,
+    isLoading: statusLoading,
+    refetch: refetchStatus,
+    isRefetching: statusRefetching,
+  } = useGetWaechterStatus();
+
+  const isRefreshing = stateRefetching || trefferRefetching || statusRefetching;
 
   const onRefresh = () => {
     void refetchState();
     void refetchTreffer();
+    void refetchStatus();
   };
+
+  const lastRunAt = waechterStatus?.last_run_at ?? null;
+  const lastRunMs = lastRunAt ? Date.now() - new Date(lastRunAt).getTime() : null;
+  const isStale = lastRunMs !== null && lastRunMs > 2 * 60 * 60 * 1000;
+  const lastError = waechterStatus?.last_error ?? null;
 
   const currentCm = state?.last_pegel_cm ?? null;
   const threshold = state?.threshold_cm ?? 225;
@@ -546,6 +572,132 @@ export default function HomeScreen() {
               threshold={threshold}
             />
           )}
+        </View>
+
+        {/* ── Wächter-Status Card ── */}
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: colors.radius,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: isStale ? colors.alarm : colors.border,
+            gap: 10,
+          }}
+        >
+          {/* Header */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 10,
+                fontFamily: 'SpaceGrotesk_600SemiBold',
+                color: colors.mutedForeground,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+              }}
+            >
+              Wächter
+            </Text>
+            {isStale && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  backgroundColor: colors.alarm + '22',
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 99,
+                }}
+              >
+                <Feather name="alert-triangle" size={11} color={colors.alarm} />
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontFamily: 'SpaceGrotesk_600SemiBold',
+                    color: colors.alarm,
+                    letterSpacing: 1,
+                  }}
+                >
+                  INAKTIV
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Last run */}
+          {statusLoading ? (
+            <ActivityIndicator color={colors.primary} style={{ alignSelf: 'flex-start' }} />
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Feather
+                name="clock"
+                size={14}
+                color={isStale ? colors.alarm : colors.mutedForeground}
+              />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: isStale ? colors.alarm : colors.foreground,
+                }}
+              >
+                Letzter Lauf:{' '}
+                <Text
+                  style={{
+                    fontFamily: 'SpaceGrotesk_600SemiBold',
+                    color: isStale ? colors.alarm : colors.foreground,
+                  }}
+                >
+                  {formatRelativeTime(lastRunAt)}
+                </Text>
+              </Text>
+            </View>
+          )}
+
+          {/* Last error (only if present) */}
+          {lastError ? (
+            <View
+              style={{
+                backgroundColor: colors.destructive + '18',
+                borderRadius: 8,
+                padding: 10,
+                gap: 4,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Feather name="x-circle" size={13} color={colors.destructive} />
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontFamily: 'SpaceGrotesk_600SemiBold',
+                    color: colors.destructive,
+                    letterSpacing: 1.5,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Letzter Fehler
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.destructive,
+                  opacity: 0.85,
+                }}
+                numberOfLines={3}
+              >
+                {lastError}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* ── Treffer Card ── */}
