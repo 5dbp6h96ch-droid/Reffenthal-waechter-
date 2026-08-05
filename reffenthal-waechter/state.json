@@ -1,0 +1,11 @@
+{
+  "last_pegel_cm": 174,
+  "last_pegel_time": "2026-08-05T15:45:00+02:00",
+  "history": [
+    {
+      "cm": 174,
+      "ts": "2026-08-05T15:45:00+02:00"
+    }
+  ],
+  "last_daily_report_date": "2026-08-05"
+}
