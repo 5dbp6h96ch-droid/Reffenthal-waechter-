@@ -8,7 +8,7 @@ zu konfigurierten Suchbegriffen. Kein API-Key erforderlich.
 import logging
 from datetime import datetime, timedelta
 
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 from config import HTTP_TIMEOUT, SEARCH_TERMS
 
