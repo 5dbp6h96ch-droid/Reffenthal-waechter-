@@ -20,6 +20,7 @@ import rss
 import storage
 import telegram
 import websearch
+from storage import normalize_url
 
 # ── Logging einrichten ────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -167,12 +168,15 @@ def main() -> None:
         web_new = 0
         for entry in web_results:
             link = entry.get("link", "")
-            if not link or link in seen:
+            if not link:
+                continue
+            norm = normalize_url(link)
+            if norm in seen:
                 continue
             msg = websearch.format_telegram_message(entry)
             success = telegram.send_message(msg)
             if success:
-                seen.add(link)
+                seen.add(norm)
                 web_new += 1
         logger.info("Web-Recherche: %d neue Treffer gesendet.", web_new)
     except Exception as exc:  # noqa: BLE001

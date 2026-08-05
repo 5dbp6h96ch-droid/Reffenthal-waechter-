@@ -11,6 +11,11 @@ on:
 permissions:
   contents: write
 
+# Verhindert parallele Läufe – zweiter Run wartet, bis der erste fertig ist
+concurrency:
+  group: reffenthal-waechter
+  cancel-in-progress: false
+
 jobs:
   watch:
     name: Wächter ausführen

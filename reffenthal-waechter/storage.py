@@ -9,6 +9,33 @@ import json
 import logging
 import os
 from typing import Any
+from urllib.parse import urlparse, urlunparse, urlencode, parse_qsl
+
+# Tracking-Parameter die beim Normalisieren entfernt werden
+_STRIP_PARAMS = {
+    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+    "fbclid", "gclid", "ref", "source", "mc_cid", "mc_eid",
+}
+
+
+def normalize_url(url: str) -> str:
+    """Normalisiert eine URL für zuverlässigen Duplikat-Abgleich.
+
+    - Schema und Host werden kleingeschrieben
+    - Trailing-Slash wird entfernt
+    - Tracking-Parameter (utm_*, fbclid, …) werden entfernt
+    - Fragment (#…) wird entfernt
+    """
+    try:
+        p = urlparse(url.strip())
+        host = p.netloc.lower()
+        path = p.path.rstrip("/") or "/"
+        # Query-Parameter filtern
+        params = [(k, v) for k, v in parse_qsl(p.query) if k.lower() not in _STRIP_PARAMS]
+        query = urlencode(params)
+        return urlunparse((p.scheme.lower(), host, path, "", query, ""))
+    except Exception:
+        return url.strip()
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +65,13 @@ def _save_json(filepath: str, data: Any) -> None:
 # ── Seen (RSS-Duplikat-Schutz) ────────────────────────────────────────────────
 
 def load_seen(filepath: str) -> set[str]:
-    """Lädt die Menge bereits gesendeter Eintrags-IDs."""
+    """Lädt die Menge bereits gesendeter Eintrags-IDs.
+
+    URLs werden beim Laden normalisiert, damit alte Einträge auch nach
+    einer URL-Normalisierungsänderung noch als bekannt erkannt werden.
+    """
     data = _load_json(filepath, [])
-    return set(data)
+    return {normalize_url(entry) if entry.startswith("http") else entry for entry in data}
 
 
 def save_seen(filepath: str, seen: set[str]) -> None:
