@@ -22,6 +22,14 @@ WEB_SEARCH_QUERIES: list[str] = [
     '"Angelhofer Altrhein"',
 ]
 
+# Gezielte Suche im Boote-Forum
+FORUM_SEARCH_QUERIES: list[str] = [
+    'site:boote-forum.de Reffenthal',
+    'site:boote-forum.de "Otterstädter Altrhein"',
+    'site:boote-forum.de "Angelhofer Altrhein"',
+    'site:boote-forum.de "Pegel Speyer" Einfahrt',
+]
+
 # Begriffe, die zwingend im Ergebnis vorkommen müssen
 REQUIRED_TERMS: list[str] = [
     "reffenthal",
@@ -73,11 +81,12 @@ def check_web() -> list[dict]:
     """Führt alle Web-Suchanfragen durch und gibt relevante Treffer zurück.
 
     Dedupliziert nach URL und filtert nach Relevanz.
+    Durchsucht allgemeines Web sowie gezielt boote-forum.de.
     """
     seen_links: set[str] = set()
     all_results: list[dict] = []
 
-    for query in WEB_SEARCH_QUERIES:
+    for query in WEB_SEARCH_QUERIES + FORUM_SEARCH_QUERIES:
         entries = search_web(query)
         for entry in entries:
             link = entry.get("link", "")
