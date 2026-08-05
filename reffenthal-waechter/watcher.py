@@ -196,6 +196,27 @@ def main() -> None:
         if last_error is None:
             last_error = f"Web-Recherche: {exc}"
 
+    # Elwis / WSA Schifffahrtsnachrichten
+    try:
+        logger.info("─── Elwis-Check startet ───")
+        elwis_results = elwis.check_elwis()
+        elwis_new = 0
+        for entry in elwis_results:
+            link = entry.get("link", "")
+            if not link:
+                continue
+            norm = normalize_url(link)
+            if norm in seen:
+                continue
+            msg = elwis.format_telegram_message(entry)
+            success = telegram.send_message(msg)
+            if success:
+                seen.add(norm)
+                elwis_new += 1
+        logger.info("Elwis: %d neue Nachrichten gesendet.", elwis_new)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Elwis: Unerwarteter Fehler: %s", exc)
+
     # Pegel überwachen
     try:
         state = run_pegel(state)
