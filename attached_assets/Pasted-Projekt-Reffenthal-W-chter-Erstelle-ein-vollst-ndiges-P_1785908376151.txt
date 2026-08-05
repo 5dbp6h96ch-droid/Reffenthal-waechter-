@@ -1,0 +1,245 @@
+Projekt: Reffenthal-Wächter
+
+Erstelle ein vollständiges Python-Projekt für Replit mit GitHub-Integration.
+
+Ziel
+
+Ein automatischer Wächter, der Informationen rund um den Reffenthal sammelt und per Telegram verschickt.
+
+Das Projekt soll vollständig in Replit entwickelt werden und automatisch mit GitHub synchronisiert werden können.
+
+⸻
+
+GitHub
+
+Das Projekt soll direkt aus einem GitHub-Repository arbeiten.
+
+Folgende Funktionen sollen vorbereitet werden:
+
+* GitHub Repository klonen
+* Änderungen committen
+* Änderungen nach GitHub pushen
+* README automatisch aktualisieren
+* .gitignore erstellen
+* GitHub Actions Workflow erstellen
+* Projekt jederzeit zwischen Replit und GitHub synchronisieren
+
+Erstelle folgende Dateien:
+
+.github/workflows/watcher.yml
+.gitignore
+README.md
+requirements.txt
+
+⸻
+
+Projektstruktur
+
+reffenthal-waechter/
+watcher.py
+config.py
+rss.py
+forum.py
+pegel.py
+telegram.py
+storage.py
+requirements.txt
+README.md
+.gitignore
+seen.json
+state.json
+.github/
+    workflows/
+        watcher.yml
+
+⸻
+
+Funktionen
+
+RSS
+
+RSS überwachen:
+
+https://www.boote-forum.de/external.php?type=rss2
+
+Suchbegriffe
+
+* Reffenthal
+* Reffenthaler
+* Angelhofer Altrhein
+* Otterstädter Altrhein
+* Wassertiefe
+* Wasserstand
+* Versandung
+* Zufahrt
+* Einfahrt
+* Pegel Speyer
+
+Neue Treffer an Telegram senden.
+
+⸻
+
+Pegel
+
+Offiziellen Pegel Speyer regelmäßig abrufen.
+
+Speichern:
+
+* letzter Pegel
+* Uhrzeit
+* Verlauf
+
+Telegram senden wenn
+
+* Pegel sich mindestens 5 cm verändert
+* Pegel unter 260 cm fällt
+
+⸻
+
+Telegram
+
+Telegram Bot API
+
+Bot Token über Replit Secrets
+
+TELEGRAM_BOT_TOKEN
+
+Chat-ID in config.py
+
+⸻
+
+Speicherung
+
+seen.json
+
+state.json
+
+Keine Doppelmeldungen.
+
+⸻
+
+Logging
+
+Ausführliches Logging.
+
+Beispiel
+
+RSS gestartet
+RSS Einträge: 8
+Pegel:
+286 cm
+Telegram:
+Nachricht gesendet
+Fertig.
+
+⸻
+
+Fehlerbehandlung
+
+Programm darf niemals abstürzen.
+
+Bei Fehlern
+
+* RSS
+* Pegel
+* Telegram
+
+nur Log-Ausgabe erzeugen.
+
+⸻
+
+Konfiguration
+
+config.py
+
+Suchbegriffe
+
+Grenzwerte
+
+Telegram
+
+HTTP Timeout
+
+User Agent
+
+⸻
+
+Anforderungen
+
+Python 3.12+
+
+Benutzen:
+
+requests
+
+beautifulsoup4
+
+feedparser
+
+Keine Browserautomatisierung.
+
+Kein Selenium.
+
+Keine Captcha-Umgehung.
+
+PEP8.
+
+Docstrings.
+
+⸻
+
+Replit
+
+Das Projekt soll direkt in Replit lauffähig sein.
+
+Alle benötigten Pakete automatisch installieren.
+
+Replit Secrets verwenden.
+
+Start über
+
+python watcher.py
+
+⸻
+
+GitHub
+
+Das Projekt soll mit GitHub verbunden sein.
+
+Nach jeder Änderung soll erklärt werden:
+
+* wie committen
+* wie pushen
+* wie synchronisieren
+
+GitHub Actions Workflow erzeugen.
+
+Workflow alle 30 Minuten ausführen.
+
+⸻
+
+README
+
+README automatisch erstellen.
+
+Mit
+
+Installation
+
+Replit
+
+GitHub
+
+Secrets
+
+Telegram
+
+GitHub Actions
+
+Fehlerbehebung
+
+Projektübersicht
+
+⸻
+
+Erstelle den vollständigen Code aller Dateien und liefere ein sofort lauffähiges Projekt.
