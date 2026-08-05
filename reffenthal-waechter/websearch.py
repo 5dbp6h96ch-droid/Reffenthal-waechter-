@@ -118,22 +118,30 @@ def check_web() -> list[dict]:
     return all_results
 
 
+def _escape_md(text: str) -> str:
+    """Escaped Sonderzeichen für Telegram MarkdownV1."""
+    for ch in ('_', '*', '`', '['):
+        text = text.replace(ch, f'\\{ch}')
+    return text
+
+
 def format_telegram_message(entry: dict) -> str:
     """Formatiert ein Web-Suchergebnis als Telegram-Nachricht."""
-    title = entry.get("title", "Kein Titel")
+    title = _escape_md(entry.get("title", "Kein Titel"))
     link = entry.get("link", "")
     body = entry.get("body", "")
-    query = entry.get("query", "")
+    query = _escape_md(entry.get("query", ""))
 
     # Vorschautext kürzen
     snippet = body[:200].strip()
     if len(body) > 200:
         snippet += "…"
+    snippet = _escape_md(snippet)
 
     return (
         f"🔎 *Neuer Web-Treffer*\n\n"
         f"*{title}*\n\n"
         f"_{snippet}_\n\n"
         f"🔍 Suche: {query}\n"
-        f"🔗 {link}"
+        f"🔗 [Zum Artikel]({link})"
     )

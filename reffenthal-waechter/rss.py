@@ -125,12 +125,20 @@ def check_all_feeds() -> list[RssEntry]:
     return all_results
 
 
+def _escape_md(text: str) -> str:
+    """Escaped Sonderzeichen für Telegram MarkdownV1."""
+    for ch in ('_', '*', '`', '['):
+        text = text.replace(ch, f'\\{ch}')
+    return text
+
+
 def format_telegram_message(entry: RssEntry) -> str:
     """Formatiert einen RSS-Treffer als Telegram-Nachricht."""
-    terms_str = ", ".join(entry.matched_terms)
+    title = _escape_md(entry.title)
+    terms_str = _escape_md(", ".join(entry.matched_terms))
     return (
         f"📰 *Neuer Forentreffer*\n\n"
-        f"*{entry.title}*\n\n"
+        f"*{title}*\n\n"
         f"🔍 Suchbegriffe: {terms_str}\n"
-        f"🔗 {entry.link}"
+        f"🔗 [Zum Beitrag]({entry.link})"
     )
