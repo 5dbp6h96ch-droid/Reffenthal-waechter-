@@ -44,6 +44,11 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
+# Reffenthal-Wächter runtime state (mutable, not source artifacts)
+reffenthal-waechter/seen.json
+reffenthal-waechter/state.json
+reffenthal-waechter/run_status.json
+
 # Replit
 .cache/
 .local/
