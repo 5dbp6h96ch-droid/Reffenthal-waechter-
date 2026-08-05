@@ -152,6 +152,37 @@ def format_change_message(value_cm: int, delta_cm: int | None, timestamp: str) -
     )
 
 
+def format_daily_report_message(value_cm: int, timestamp: str, history: list) -> str:
+    """Formatiert den täglichen Pegel-Bericht für Telegram."""
+    try:
+        dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        ts_str = dt.strftime("%d.%m.%Y %H:%M Uhr")
+    except (ValueError, AttributeError):
+        ts_str = timestamp
+
+    # Trend aus den letzten Einträgen (max. 6 = ~3 Stunden)
+    trend = ""
+    if len(history) >= 2:
+        recent = history[-6:]
+        delta = recent[-1]["cm"] - recent[0]["cm"]
+        if delta > 2:
+            trend = f"\n📈 Tendenz: steigend ({delta:+d} cm)"
+        elif delta < -2:
+            trend = f"\n📉 Tendenz: fallend ({delta:+d} cm)"
+        else:
+            trend = "\n➡️ Tendenz: stabil"
+
+    status = ""
+    if value_cm < PEGEL_LOW_THRESHOLD_CM:
+        status = f"\n⚠️ Unter Schwelle ({PEGEL_LOW_THRESHOLD_CM} cm)!"
+
+    return (
+        f"🌅 *Täglicher Pegel-Bericht – Speyer*\n\n"
+        f"🌊 Aktuell: *{value_cm} cm*{trend}{status}\n"
+        f"🕐 Stand: {ts_str}"
+    )
+
+
 def format_low_alert_message(value_cm: int, timestamp: str) -> str:
     """Formatiert eine Niedrigwasser-Warnung für Telegram."""
     try:

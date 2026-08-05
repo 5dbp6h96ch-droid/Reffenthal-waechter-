@@ -56,6 +56,7 @@ def load_state(filepath: str) -> dict:
         "last_pegel_cm": None,
         "last_pegel_time": None,
         "history": [],
+        "last_daily_report_date": None,
     })
 
 

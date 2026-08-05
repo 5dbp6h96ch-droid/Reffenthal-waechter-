@@ -12,6 +12,8 @@ Start: python watcher.py
 import logging
 import sys
 
+from datetime import datetime
+
 import config
 import pegel
 import rss
@@ -107,6 +109,22 @@ def run_pegel(state: dict) -> dict:
     else:
         logger.info("Pegel: Keine signifikante Änderung (< %d cm).",
                     config.PEGEL_CHANGE_THRESHOLD_CM)
+
+    # Tagesbericht prüfen
+    now = datetime.now()
+    today_str = now.strftime("%Y-%m-%d")
+    last_report = state.get("last_daily_report_date")
+
+    if now.hour >= config.DAILY_REPORT_HOUR and last_report != today_str:
+        msg = pegel.format_daily_report_message(
+            value_cm, timestamp, updated_state["history"]
+        )
+        success = telegram.send_message(msg)
+        if success:
+            updated_state["last_daily_report_date"] = today_str
+            logger.info("Pegel: Tagesbericht gesendet.")
+        else:
+            logger.warning("Pegel: Tagesbericht konnte nicht gesendet werden.")
 
     return updated_state
 

@@ -54,6 +54,10 @@ USER_AGENT: str = (
     "+https://github.com/reffenthal-waechter)"
 )
 
+# ── Tagesbericht ──────────────────────────────────────────────────────────────
+# Stunde (0–23), zu der der tägliche Pegelstand gesendet wird
+DAILY_REPORT_HOUR: int = 8
+
 # ── Dateipfade ────────────────────────────────────────────────────────────────
 SEEN_FILE: str = "seen.json"
 STATE_FILE: str = "state.json"
