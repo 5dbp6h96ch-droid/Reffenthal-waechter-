@@ -14,22 +14,27 @@ from config import HTTP_TIMEOUT, SEARCH_TERMS
 
 logger = logging.getLogger(__name__)
 
-# Suchbegriffe speziell für die Web-Recherche
+# Suchbegriffe speziell für die Web-Recherche (möglichst präzise)
 WEB_SEARCH_QUERIES: list[str] = [
-    "Reffenthal Altrhein",
-    "Reffenthal Pegel Speyer",
-    "Otterstädter Altrhein Wasserstand",
-    "Angelhofer Altrhein aktuell",
+    '"Reffenthal"',
+    '"Reffenthal" Pegel',
+    '"Otterstädter Altrhein" Wasserstand',
+    '"Angelhofer Altrhein"',
 ]
 
-# Maximales Alter eines Suchergebnisses in Tagen
-MAX_AGE_DAYS: int = 3
+# Begriffe, die zwingend im Ergebnis vorkommen müssen
+REQUIRED_TERMS: list[str] = [
+    "reffenthal",
+    "otterstädter altrhein",
+    "angelhofer altrhein",
+    "reffenthaler",
+]
 
 
 def _is_relevant(title: str, body: str) -> bool:
-    """Prüft ob ein Suchergebnis relevante Suchbegriffe enthält."""
+    """Prüft ob ein Suchergebnis einen der Pflichtbegriffe enthält."""
     combined = f"{title} {body}".lower()
-    return any(term.lower() in combined for term in SEARCH_TERMS)
+    return any(term.lower() in combined for term in REQUIRED_TERMS)
 
 
 def search_web(query: str, max_results: int = 5) -> list[dict]:
@@ -77,6 +82,10 @@ def check_web() -> list[dict]:
         for entry in entries:
             link = entry.get("link", "")
             if not link or link in seen_links:
+                continue
+            # Nur Ergebnisse mit Pflichtbegriffen durchlassen
+            if not _is_relevant(entry.get("title", ""), entry.get("body", "")):
+                logger.debug("Websuche: Übersprungen (nicht relevant): %s", entry.get("title"))
                 continue
             seen_links.add(link)
             all_results.append(entry)
