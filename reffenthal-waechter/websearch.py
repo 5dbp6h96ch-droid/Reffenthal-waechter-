@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 WEB_SEARCH_QUERIES: list[str] = [
     '"Reffenthal"',
     '"Reffenthal" Pegel',
+    '"Otterstädter Altrhein"',
     '"Otterstädter Altrhein" Wasserstand',
     '"Angelhofer Altrhein"',
 ]
