@@ -5,16 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-export interface HealthStatus {
-  status: string;
-}
-
-export interface PegelEntry {
-  /** Water level in centimeters */
-  cm: number;
-  /** ISO 8601 timestamp of the measurement */
-  ts: string;
-}
+import type { PegelEntry } from './pegelEntry';
 
 export interface WaechterState {
   /**
@@ -37,11 +28,3 @@ export interface WaechterState {
   /** Alert threshold in centimeters (225 cm) */
   threshold_cm: number;
 }
-
-export interface WaechterTreffer {
-  /** List of URLs that have been sent as Telegram alerts */
-  urls: string[];
-  /** Total number of seen URLs */
-  count: number;
-}
-
