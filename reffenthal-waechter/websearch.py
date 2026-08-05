@@ -33,6 +33,13 @@ FORUM_SEARCH_QUERIES: list[str] = [
     'site:boote-forum.de "Pegel Speyer" Einfahrt',
 ]
 
+# Gezielte Suche auf Facebook (nur öffentliche Seiten & Gruppen)
+FACEBOOK_SEARCH_QUERIES: list[str] = [
+    'site:facebook.com Reffenthal',
+    'site:facebook.com "Otterstädter Altrhein"',
+    'site:facebook.com "Berghäuser Altrhein"',
+]
+
 # Begriffe, die zwingend im Ergebnis vorkommen müssen
 REQUIRED_TERMS: list[str] = [
     "reffenthal",
@@ -90,7 +97,7 @@ def check_web() -> list[dict]:
     seen_links: set[str] = set()
     all_results: list[dict] = []
 
-    for query in WEB_SEARCH_QUERIES + FORUM_SEARCH_QUERIES:
+    for query in WEB_SEARCH_QUERIES + FORUM_SEARCH_QUERIES + FACEBOOK_SEARCH_QUERIES:
         entries = search_web(query)
         for entry in entries:
             link = entry.get("link", "")
