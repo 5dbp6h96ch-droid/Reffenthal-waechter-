@@ -41,7 +41,7 @@ PEGEL_API_URL: str = (
 )
 
 # Alarm-Schwelle: Pegel unter diesem Wert → Warnung
-PEGEL_LOW_THRESHOLD_CM: int = 260
+PEGEL_LOW_THRESHOLD_CM: int = 225
 
 # Mindestveränderung in cm, ab der ein Update gesendet wird
 PEGEL_CHANGE_THRESHOLD_CM: int = 5
