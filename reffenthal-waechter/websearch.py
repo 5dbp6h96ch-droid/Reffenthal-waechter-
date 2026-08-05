@@ -43,7 +43,7 @@ FACEBOOK_SEARCH_QUERIES: list[str] = [
     'site:facebook.com Kiefweiher Speyer',
 ]
 
-# Begriffe, die zwingend im Ergebnis vorkommen müssen
+# Begriffe, die zwingend im Ergebnis vorkommen müssen (Orts-Bezug)
 REQUIRED_TERMS: list[str] = [
     "reffenthal",
     "otterstädter altrhein",
@@ -53,11 +53,34 @@ REQUIRED_TERMS: list[str] = [
     "kiefweiher",
 ]
 
+# Mindestens eines dieser Wörter muss vorkommen (Boot-Bezug).
+# Ausnahme: Ergebnisse von boote-forum.de sind immer relevant.
+BOAT_TERMS: list[str] = [
+    # Fahrzeugtypen
+    "boot", "boote", "yacht", "yachten", "sportboot", "motorboot",
+    "segelboot", "hausboot", "kajak", "kanu", "schiff",
+    # Nautik & Infrastruktur
+    "tiefgang", "slipanlage", "slip", "anker", "ankern",
+    "liegeplatz", "marina", "schleuse", "fahrwasser", "fahrrinne",
+    # Gewässer & Pegelzustand
+    "einfahrt", "zufahrt", "wassertiefe", "versandung",
+    "pegelstand", "wasserstand", "niedrigwasser", "pegel",
+]
 
-def _is_relevant(title: str, body: str) -> bool:
-    """Prüft ob ein Suchergebnis einen der Pflichtbegriffe enthält."""
+
+def _is_relevant(title: str, body: str, link: str = "") -> bool:
+    """Prüft ob ein Suchergebnis Orts- UND Boot-Bezug hat.
+
+    Ergebnisse von boote-forum.de sind immer relevant (Boot-Kontext gesichert).
+    """
     combined = f"{title} {body}".lower()
-    return any(term.lower() in combined for term in REQUIRED_TERMS)
+    has_location = any(term.lower() in combined for term in REQUIRED_TERMS)
+    if not has_location:
+        return False
+    # Boote-Forum-Treffer brauchen keinen weiteren Boot-Check
+    if "boote-forum.de" in link.lower():
+        return True
+    return any(term in combined for term in BOAT_TERMS)
 
 
 def search_web(query: str, max_results: int = 5) -> list[dict]:
@@ -108,7 +131,7 @@ def check_web() -> list[dict]:
             if not link or link in seen_links:
                 continue
             # Nur Ergebnisse mit Pflichtbegriffen durchlassen
-            if not _is_relevant(entry.get("title", ""), entry.get("body", "")):
+            if not _is_relevant(entry.get("title", ""), entry.get("body", ""), entry.get("link", "")):
                 logger.debug("Websuche: Übersprungen (nicht relevant): %s", entry.get("title"))
                 continue
             seen_links.add(link)
