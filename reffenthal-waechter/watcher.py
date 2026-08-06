@@ -14,8 +14,10 @@ import sys
 
 from datetime import datetime
 
+import clubs
 import config
 import db
+import elwis
 import pegel
 import rss
 import storage
@@ -195,6 +197,25 @@ def main() -> None:
         logger.error("Web-Recherche: Unerwarteter Fehler: %s", exc)
         if last_error is None:
             last_error = f"Web-Recherche: {exc}"
+
+    # Club- und Hafenwebseiten auf Neuigkeiten prüfen
+    try:
+        logger.info("─── Club-Check startet ───")
+        club_results = clubs.check_clubs(seen)
+        clubs_new = 0
+        for entry in club_results:
+            dedup_key = entry["dedup_key"]
+            msg = clubs.format_telegram_message(entry)
+            success = telegram.send_message(msg)
+            if success:
+                seen.add(dedup_key)
+                clubs_new += 1
+                rss_new_count += 1
+        logger.info("Clubs: %d neue Meldungen gesendet.", clubs_new)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Clubs: Unerwarteter Fehler: %s", exc)
+        if last_error is None:
+            last_error = f"Clubs: {exc}"
 
     # Elwis / WSA Schifffahrtsnachrichten (Rhein km 380–435)
     try:
