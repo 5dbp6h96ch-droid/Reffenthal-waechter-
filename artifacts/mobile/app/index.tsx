@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Svg, {
@@ -27,6 +28,24 @@ import {
   useGetWaechterStatus,
 } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
+
+// ─── Time range ──────────────────────────────────────────────────────────────
+
+type TimeRange = 7 | 30 | 90;
+const TIME_RANGE_OPTIONS: { label: string; value: TimeRange }[] = [
+  { label: '7 T', value: 7 },
+  { label: '30 T', value: 30 },
+  { label: '3 M', value: 90 },
+];
+const STORAGE_KEY = 'pegel_chart_range';
+
+function filterHistory(
+  history: { cm: number; ts: string }[],
+  days: TimeRange,
+): { cm: number; ts: string }[] {
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  return history.filter((h) => new Date(h.ts).getTime() >= cutoff);
+}
 
 // ─── Chart constants ────────────────────────────────────────────────────────
 
@@ -249,6 +268,24 @@ export default function HomeScreen() {
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom;
+
+  const [chartRange, setChartRange] = useState<TimeRange>(30);
+
+  // Load persisted range on mount
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then((val) => {
+        if (val === '7' || val === '30' || val === '90') {
+          setChartRange(Number(val) as TimeRange);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleRangeChange = (range: TimeRange) => {
+    setChartRange(range);
+    AsyncStorage.setItem(STORAGE_KEY, String(range)).catch(() => {});
+  };
 
   const {
     data: state,
@@ -513,17 +550,66 @@ export default function HomeScreen() {
             gap: 12,
           }}
         >
-          <Text
+          {/* Header row: label + range tabs */}
+          <View
             style={{
-              fontSize: 10,
-              fontFamily: 'SpaceGrotesk_600SemiBold',
-              color: colors.mutedForeground,
-              letterSpacing: 2,
-              textTransform: 'uppercase',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}
           >
-            Verlauf · 30 Tage
-          </Text>
+            <Text
+              style={{
+                fontSize: 10,
+                fontFamily: 'SpaceGrotesk_600SemiBold',
+                color: colors.mutedForeground,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+              }}
+            >
+              Verlauf
+            </Text>
+
+            {/* Range selector tabs */}
+            <View
+              style={{
+                flexDirection: 'row',
+                backgroundColor: colors.muted,
+                borderRadius: 8,
+                padding: 2,
+                gap: 2,
+              }}
+            >
+              {TIME_RANGE_OPTIONS.map(({ label, value }) => {
+                const active = chartRange === value;
+                return (
+                  <TouchableOpacity
+                    key={value}
+                    onPress={() => handleRangeChange(value)}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                      backgroundColor: active ? colors.card : 'transparent',
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontFamily: active
+                          ? 'SpaceGrotesk_600SemiBold'
+                          : 'SpaceGrotesk_400Regular',
+                        color: active ? colors.foreground : colors.mutedForeground,
+                      }}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
           {stateLoading ? (
             <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
@@ -570,7 +656,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ) : (
             <PegelChart
-              history={state?.history ?? []}
+              history={filterHistory(state?.history ?? [], chartRange)}
               threshold={threshold}
             />
           )}
