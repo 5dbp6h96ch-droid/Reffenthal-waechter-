@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
 import { db, pegelHistoryTable } from "@workspace/db";
 import { desc, gte } from "drizzle-orm";
-import { GetWaechterStateResponse, GetWaechterStatusResponse, GetWaechterTrefferResponse } from "@workspace/api-zod";
+import { GetWaechterStateResponse, GetWaechterStatusResponse, GetWaechterTrefferResponse, GetWaechterClubsResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
@@ -22,6 +22,7 @@ const WAECHTER_DIR = path.resolve(__distDir, "../../../reffenthal-waechter");
 const STATE_FILE = path.join(WAECHTER_DIR, "state.json");
 const SEEN_FILE = path.join(WAECHTER_DIR, "seen.json");
 const RUN_STATUS_FILE = path.join(WAECHTER_DIR, "run_status.json");
+const CLUBS_FILE = path.join(WAECHTER_DIR, "clubs_seen.json");
 
 // Threshold from reffenthal-waechter/config.py
 const PEGEL_LOW_THRESHOLD_CM = 225;
@@ -93,6 +94,30 @@ router.get("/waechter/treffer", async (req, res): Promise<void> => {
   } catch (err) {
     req.log.error({ err, file: SEEN_FILE }, "Failed to read seen.json");
     res.status(503).json({ error: "Could not load treffer data", file: SEEN_FILE });
+  }
+});
+
+router.get("/waechter/clubs", async (req, res): Promise<void> => {
+  try {
+    let raw: string;
+    try {
+      raw = await fs.readFile(CLUBS_FILE, "utf-8");
+    } catch {
+      // File doesn't exist yet – watcher hasn't found any club hits
+      raw = "[]";
+    }
+    const parsed = JSON.parse(raw);
+    const clubs = Array.isArray(parsed) ? parsed : [];
+
+    const data = GetWaechterClubsResponse.parse({
+      clubs,
+      count: clubs.length,
+    });
+
+    res.json(data);
+  } catch (err) {
+    req.log.error({ err, file: CLUBS_FILE }, "Failed to read clubs_seen.json");
+    res.status(503).json({ error: "Could not load club data", file: CLUBS_FILE });
   }
 });
 

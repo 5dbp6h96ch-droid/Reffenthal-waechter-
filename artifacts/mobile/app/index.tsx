@@ -26,6 +26,7 @@ import {
   useGetWaechterState,
   useGetWaechterTreffer,
   useGetWaechterStatus,
+  useGetWaechterClubs,
 } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 
@@ -310,12 +311,21 @@ export default function HomeScreen() {
     isRefetching: statusRefetching,
   } = useGetWaechterStatus();
 
-  const isRefreshing = stateRefetching || trefferRefetching || statusRefetching;
+  const {
+    data: clubsData,
+    isLoading: clubsLoading,
+    isError: clubsError,
+    refetch: refetchClubs,
+    isRefetching: clubsRefetching,
+  } = useGetWaechterClubs();
+
+  const isRefreshing = stateRefetching || trefferRefetching || statusRefetching || clubsRefetching;
 
   const onRefresh = () => {
     void refetchState();
     void refetchTreffer();
     void refetchStatus();
+    void refetchClubs();
   };
 
   const lastRunAt = waechterStatus?.last_run_at ?? null;
@@ -1129,6 +1139,183 @@ export default function HomeScreen() {
                     name="external-link"
                     size={14}
                     color={colors.mutedForeground}
+                  />
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
+
+        {/* ── Vereine Card ── */}
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: colors.radius,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            gap: 12,
+          }}
+        >
+          {/* Section header */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 10,
+                fontFamily: 'SpaceGrotesk_600SemiBold',
+                color: colors.mutedForeground,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+              }}
+            >
+              Vereine
+            </Text>
+            {clubsData != null && clubsData.count > 0 && (
+              <View
+                style={{
+                  backgroundColor: colors.muted,
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                  borderRadius: 99,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: 'SpaceGrotesk_600SemiBold',
+                    color: colors.accent,
+                  }}
+                >
+                  {clubsData.count}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Clubs content */}
+          {clubsLoading ? (
+            <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : clubsError ? (
+            <TouchableOpacity
+              style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
+              onPress={() => void refetchClubs()}
+            >
+              <Feather name="alert-circle" size={20} color={colors.destructive} />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.destructive,
+                }}
+              >
+                Fehler beim Laden
+              </Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  backgroundColor: colors.muted,
+                  paddingHorizontal: 14,
+                  paddingVertical: 7,
+                  borderRadius: 8,
+                  marginTop: 4,
+                }}
+              >
+                <Feather name="refresh-cw" size={13} color={colors.foreground} />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontFamily: 'SpaceGrotesk_500Medium',
+                    color: colors.foreground,
+                  }}
+                >
+                  Erneut versuchen
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : !clubsData?.clubs.length ? (
+            <View style={{ alignItems: 'center', paddingVertical: 16, gap: 6 }}>
+              <Feather name="anchor" size={20} color={colors.mutedForeground} />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.mutedForeground,
+                }}
+              >
+                Keine Vereinsmeldungen
+              </Text>
+            </View>
+          ) : (
+            clubsData.clubs.slice().reverse().slice(0, 10).map((club, i, arr) => {
+              const isLast = i === arr.length - 1;
+              return (
+                <TouchableOpacity
+                  key={club.dedup_key}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    gap: 10,
+                    paddingVertical: 10,
+                    borderBottomWidth: isLast ? 0 : 1,
+                    borderBottomColor: colors.border,
+                  }}
+                  onPress={() => void Linking.openURL(club.url)}
+                  activeOpacity={0.65}
+                >
+                  {/* Icon badge */}
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      backgroundColor: colors.muted,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Text style={{ fontSize: 16 }}>{club.icon}</Text>
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontFamily: 'SpaceGrotesk_600SemiBold',
+                        color: colors.foreground,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {club.name}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontFamily: 'SpaceGrotesk_400Regular',
+                        color: colors.mutedForeground,
+                        marginTop: 2,
+                        lineHeight: 16,
+                      }}
+                      numberOfLines={2}
+                    >
+                      {club.snippet}
+                    </Text>
+                  </View>
+                  <Feather
+                    name="external-link"
+                    size={14}
+                    color={colors.mutedForeground}
+                    style={{ marginTop: 2 }}
                   />
                 </TouchableOpacity>
               );

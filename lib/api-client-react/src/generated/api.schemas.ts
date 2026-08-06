@@ -45,6 +45,28 @@ export interface WaechterTreffer {
   count: number;
 }
 
+export interface WaechterClubHit {
+  /** Club or harbour name */
+  name: string;
+  /** Emoji icon for the club */
+  icon: string;
+  /** URL of the club website */
+  url: string;
+  /** Relevant text snippet from the page */
+  snippet: string;
+  /** Deduplication key (club:domain:hash) */
+  dedup_key: string;
+  /** ISO 8601 timestamp when first seen */
+  seen_at: string;
+}
+
+export interface WaechterClubs {
+  /** List of club/harbour website hits */
+  clubs: WaechterClubHit[];
+  /** Total number of club hits */
+  count: number;
+}
+
 export interface WaechterRunStatus {
   /**
    * ISO 8601 timestamp of the last completed watcher run

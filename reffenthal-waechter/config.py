@@ -64,3 +64,4 @@ DAILY_REPORT_HOUR: int = 8
 SEEN_FILE: str = "seen.json"
 STATE_FILE: str = "state.json"
 RUN_STATUS_FILE: str = "run_status.json"
+CLUBS_FILE: str = "clubs_seen.json"

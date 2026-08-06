@@ -110,3 +110,15 @@ def load_state(filepath: str) -> dict:
 def save_state(filepath: str, state: dict) -> None:
     """Speichert den Pegel-Zustand."""
     _save_json(filepath, state)
+
+
+# ── Clubs (Vereins-Treffer) ───────────────────────────────────────────────────
+
+def load_clubs_seen(filepath: str) -> list[dict]:
+    """Lädt die Liste gesendeter Club-Treffer."""
+    return _load_json(filepath, [])
+
+
+def save_clubs_seen(filepath: str, clubs: list[dict]) -> None:
+    """Speichert die Liste gesendeter Club-Treffer."""
+    _save_json(filepath, clubs)

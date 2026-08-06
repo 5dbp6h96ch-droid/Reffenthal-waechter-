@@ -17,6 +17,7 @@ import type {
 
 import type {
   HealthStatus,
+  WaechterClubs,
   WaechterRunStatus,
   WaechterState,
   WaechterTreffer
@@ -283,6 +284,49 @@ export function useGetWaechterTreffer<TData = Awaited<ReturnType<typeof getWaech
 
 
 
+
+export const getGetWaechterClubsUrl = () => {
+  return `/api/waechter/clubs`
+}
+
+/**
+ * Returns club/harbour website hits found by the watcher
+ * @summary Get club website hits
+ */
+export const getWaechterClubs = async ( options?: Parameters<typeof customFetch>[1]): Promise<WaechterClubs> => {
+  return customFetch<WaechterClubs>(getGetWaechterClubsUrl(), {
+    ...options,
+    method: 'GET',
+  });
+}
+
+export const getGetWaechterClubsQueryKey = () => {
+    return [
+    `/api/waechter/clubs`
+    ] as const;
+}
+
+export const getGetWaechterClubsQueryOptions = <TData = Awaited<ReturnType<typeof getWaechterClubs>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWaechterClubs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+  const {query: queryOptions, request: requestOptions} = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetWaechterClubsQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWaechterClubs>>> = ({ signal }) => getWaechterClubs({ signal, ...requestOptions });
+  return { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWaechterClubs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWaechterClubsQueryResult = NonNullable<Awaited<ReturnType<typeof getWaechterClubs>>>
+export type GetWaechterClubsQueryError = ErrorType<unknown>
+
+/**
+ * @summary Get club website hits
+ */
+export function useGetWaechterClubs<TData = Awaited<ReturnType<typeof getWaechterClubs>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWaechterClubs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWaechterClubsQueryOptions(options)
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return withQueryKey(query, queryOptions.queryKey);
+}
 
 export const getGetWaechterStatusUrl = () => {
   return `/api/waechter/status`

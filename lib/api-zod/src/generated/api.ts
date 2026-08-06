@@ -44,6 +44,23 @@ export const GetWaechterTrefferResponse = zod.object({
 
 
 /**
+ * Returns club/harbour website hits found by the watcher
+ * @summary Get club website hits
+ */
+export const GetWaechterClubsResponse = zod.object({
+  "clubs": zod.array(zod.object({
+    "name": zod.string().describe('Club or harbour name'),
+    "icon": zod.string().describe('Emoji icon for the club'),
+    "url": zod.string().describe('URL of the club website'),
+    "snippet": zod.string().describe('Relevant text snippet from the page'),
+    "dedup_key": zod.string().describe('Deduplication key (club:domain:hash)'),
+    "seen_at": zod.string().describe('ISO 8601 timestamp when first seen'),
+  })).describe('List of club/harbour website hits'),
+  "count": zod.number().describe('Total number of club hits'),
+})
+
+
+/**
  * Returns when the watcher last ran, how many new RSS hits were found, and the last error (if any)
  * @summary Get watcher run status
  */

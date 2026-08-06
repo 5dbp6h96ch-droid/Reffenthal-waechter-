@@ -81,6 +81,29 @@ if (STATIC_MODE) {
       }
     }
 
+    // /api/waechter/clubs → clubs_seen.json
+    if (url.endsWith('/api/waechter/clubs')) {
+      try {
+        const r = await _origFetch(`${GITHUB_RAW}/clubs_seen.json`, {
+          signal: init?.signal,
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const raw = await r.json();
+        const clubs = Array.isArray(raw) ? raw : [];
+        const data = { clubs, count: clubs.length };
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch {
+        const fallback = { clubs: [], count: 0 };
+        return new Response(JSON.stringify(fallback), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // /api/waechter/status → run_status.json (404-Fallback wenn nicht committed)
     if (url.endsWith('/api/waechter/status')) {
       try {

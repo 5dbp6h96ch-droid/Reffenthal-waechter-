@@ -201,6 +201,8 @@ def main() -> None:
     # Club- und Hafenwebseiten auf Neuigkeiten prüfen
     try:
         logger.info("─── Club-Check startet ───")
+        clubs_seen_list = storage.load_clubs_seen(config.CLUBS_FILE)
+        clubs_seen_keys = {e["dedup_key"] for e in clubs_seen_list}
         club_results = clubs.check_clubs(seen)
         clubs_new = 0
         for entry in club_results:
@@ -211,6 +213,18 @@ def main() -> None:
                 seen.add(dedup_key)
                 clubs_new += 1
                 rss_new_count += 1
+                # Persistiere vollständigen Treffer in clubs_seen.json
+                if dedup_key not in clubs_seen_keys:
+                    clubs_seen_list.append({
+                        "name": entry["name"],
+                        "icon": entry["icon"],
+                        "url": entry["url"],
+                        "snippet": entry["snippet"],
+                        "dedup_key": dedup_key,
+                        "seen_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    })
+                    clubs_seen_keys.add(dedup_key)
+        storage.save_clubs_seen(config.CLUBS_FILE, clubs_seen_list)
         logger.info("Clubs: %d neue Meldungen gesendet.", clubs_new)
     except Exception as exc:  # noqa: BLE001
         logger.error("Clubs: Unerwarteter Fehler: %s", exc)
