@@ -1,0 +1,79 @@
+name: Reffenthal Mobile → GitHub Pages
+
+on:
+  # Bei jedem Push auf main automatisch deployen
+  push:
+    branches: [main]
+    paths:
+      - "artifacts/mobile/**"
+      - "lib/api-client-react/**"
+      - ".github/workflows/deploy-pages.yml"
+
+  # Manuell auslösbar
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Nur ein Deploy gleichzeitig
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Web-Export bauen
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: pnpm einrichten
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Abhängigkeiten installieren
+        run: pnpm install --frozen-lockfile
+
+      - name: Expo Web exportieren
+        env:
+          # Basis-Pfad: muss mit dem GitHub-Repository-Namen übereinstimmen
+          EXPO_ROUTER_BASE_URL: /Reffenthal-waechter-
+          # Origin für Expo Router (GitHub Pages URL)
+          EXPO_PUBLIC_ORIGIN: https://${{ github.repository_owner }}.github.io
+          # API-Server URL (optional: als GitHub Variable setzen wenn deployed)
+          EXPO_PUBLIC_DOMAIN: ${{ vars.API_DOMAIN }}
+        run: |
+          cd artifacts/mobile
+          pnpm exec expo export --platform web --output-dir dist
+
+      - name: GitHub Pages konfigurieren
+        uses: actions/configure-pages@v5
+
+      - name: Artefakt hochladen
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: artifacts/mobile/dist
+
+  deploy:
+    name: Auf GitHub Pages veröffentlichen
+    runs-on: ubuntu-latest
+    needs: build
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Auf GitHub Pages deployen
+        id: deployment
+        uses: actions/deploy-pages@v4
