@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "name": "1. MBC Speyer",
+    "icon": "⚓",
+    "url": "https://mbc-speyer.de/",
+    "snippet": "ABSAGE: WHITE NIGHT 4. August 2026 Aufgrund des Niedrigwassers müssen wir dieses Jahr leider unsere legendäre White Night absagen! Wir bitten um Euer Verständnis und freuen uns auf Euch in 2027! Weiterlesen …",
+    "dedup_key": "club:mbc-speyer.de:e25889e601cf",
+    "seen_at": "2026-08-06T04:27:07Z"
+  },
+  {
+    "name": "MYCL Kiefweiher",
+    "icon": "🚤",
+    "url": "https://www.mycl.de/",
+    "snippet": "Willkommen beim Motor-Yacht-Club Ludwigshafen e. V. Geschichte des MYCL e.V. Unser Verein wurde im April 1965 in Lampertheim (Hessen) gegründet. Das häufig auftretende Niedrigwasser des Altrheinarmes verbunden mit der Geruchsbelästigung waren der Anlass, beginnend im Frühjahr …",
+    "dedup_key": "club:mycl.de:7460b9d9229b",
+    "seen_at": "2026-08-06T04:27:07Z"
+  }
+]
