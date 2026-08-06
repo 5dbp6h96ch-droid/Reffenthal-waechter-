@@ -6,11 +6,15 @@ Liest konfigurierte RSS-Feeds und filtert Einträge nach Suchbegriffen.
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 import feedparser
 import requests
 
 from config import HTTP_TIMEOUT, RSS_FEEDS, SEARCH_TERMS, USER_AGENT
+
+# Einträge älter als N Tage werden ignoriert
+MAX_ENTRY_AGE_DAYS: int = 7
 
 logger = logging.getLogger(__name__)
 
@@ -84,12 +88,26 @@ def fetch_feed(feed_url: str) -> list[RssEntry]:
     entries_total = len(feed.entries)
     logger.info("RSS Einträge: %d", entries_total)
 
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=MAX_ENTRY_AGE_DAYS)
+
     results: list[RssEntry] = []
     for entry in feed.entries:
         title = getattr(entry, "title", "")
         summary = getattr(entry, "summary", "")
         link = getattr(entry, "link", "")
         combined = f"{title} {summary}"
+
+        # Datum prüfen: Eintrag darf nicht älter als MAX_ENTRY_AGE_DAYS sein
+        pub = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
+        if pub is not None:
+            try:
+                import calendar
+                pub_dt = datetime.fromtimestamp(calendar.timegm(pub), tz=timezone.utc)
+                if pub_dt < cutoff:
+                    logger.debug("RSS: Eintrag zu alt (%s), übersprungen: %s", pub_dt.date(), title[:50])
+                    continue
+            except Exception:
+                pass  # Kein Datum → trotzdem verarbeiten
 
         matched = _contains_search_term(combined)
         if not matched:
