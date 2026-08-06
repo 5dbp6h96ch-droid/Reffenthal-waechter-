@@ -50,8 +50,9 @@ jobs:
           EXPO_ROUTER_BASE_URL: /Reffenthal-waechter-
           # Origin für Expo Router (GitHub Pages URL)
           EXPO_PUBLIC_ORIGIN: https://${{ github.repository_owner }}.github.io
-          # API-Server URL (optional: als GitHub Variable setzen wenn deployed)
-          EXPO_PUBLIC_DOMAIN: ${{ vars.API_DOMAIN }}
+          # Statischer Datenmodus: liest direkt aus den öffentlichen JSON-Dateien
+          # auf GitHub statt von einem API-Server.
+          EXPO_PUBLIC_STATIC_DATA: "true"
         run: |
           cd artifacts/mobile
           pnpm exec expo export --platform web --output-dir dist
