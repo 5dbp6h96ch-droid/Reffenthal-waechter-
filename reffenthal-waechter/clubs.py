@@ -56,6 +56,13 @@ CLUBS: list[dict] = [
             "http://www.wcc-kiefweiher.de/",
         ],
     },
+    {
+        "name": "MCK Mannheim (Motoryachtclub Kurpfalz)",
+        "icon": "🏙️",
+        "urls": [
+            "https://www.mck-mannheim.de/",
+        ],
+    },
 ]
 
 # Schlüsselwörter: Mindestens eines muss in einem News-Absatz vorkommen
