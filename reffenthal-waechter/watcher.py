@@ -273,9 +273,75 @@ def main() -> None:
     storage.save_run_status(config.RUN_STATUS_FILE, run_status)
     logger.info("Laufstatus gespeichert: %s", run_status)
 
+    # Zustandsdateien auf GitHub committen damit GitHub Pages aktuelle Daten hat
+    _git_commit_state()
+
     logger.info("══════════════════════════════════════")
     logger.info("  Fertig.")
     logger.info("══════════════════════════════════════")
+
+
+def _git_commit_state() -> None:
+    """Committed state.json / seen.json / clubs_seen.json auf GitHub.
+
+    Nur aktiv wenn GITHUB_TOKEN gesetzt ist.
+    Fehler werden geloggt aber nicht weitergeworfen.
+    """
+    import os
+    import subprocess
+
+    token = os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        return
+
+    repo_url = f"https://x-access-token:{token}@github.com/5dbp6h96ch-droid/Reffenthal-waechter-.git"
+    git_log = logging.getLogger("git")
+
+    try:
+        # Arbeitsverzeichnis ist das Repo-Root (eine Ebene über watcher.py)
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+        def run(args: list[str]) -> subprocess.CompletedProcess:
+            return subprocess.run(
+                args, cwd=root, capture_output=True, text=True, timeout=30
+            )
+
+        # Aktuelle Remote-Änderungen holen (non-fatal)
+        run(["git", "fetch", repo_url, "main"])
+
+        # Dateien stagen
+        files = [
+            "reffenthal-waechter/state.json",
+            "reffenthal-waechter/seen.json",
+            "reffenthal-waechter/clubs_seen.json",
+        ]
+        run(["git", "add", "--force"] + files)
+
+        # Prüfen ob es Änderungen gibt
+        diff = run(["git", "diff", "--cached", "--quiet"])
+        if diff.returncode == 0:
+            git_log.debug("Git: Keine Änderungen, kein Commit nötig.")
+            return
+
+        run(["git", "config", "user.email", "waechter@replit.local"])
+        run(["git", "config", "user.name", "Reffenthal-Wächter"])
+
+        run(["git", "commit", "-m", "chore: Wächter-Zustand aktualisiert [skip ci]"])
+
+        result = run(["git", "push", repo_url, "main"])
+        if result.returncode == 0:
+            git_log.info("Git: Zustand erfolgreich gepusht.")
+        else:
+            # Bei Konflikt: fetch + rebase + push
+            run(["git", "fetch", repo_url, "main"])
+            run(["git", "rebase", "FETCH_HEAD"])
+            result2 = run(["git", "push", repo_url, "main"])
+            if result2.returncode == 0:
+                git_log.info("Git: Zustand nach Rebase gepusht.")
+            else:
+                git_log.warning("Git: Push fehlgeschlagen: %s", result2.stderr[:200])
+    except Exception as exc:  # noqa: BLE001
+        git_log.warning("Git: Fehler beim State-Commit: %s", exc)
 
 
 if __name__ == "__main__":

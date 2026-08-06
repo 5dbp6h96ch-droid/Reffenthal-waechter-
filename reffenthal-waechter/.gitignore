@@ -22,8 +22,8 @@ replit.nix
 .config/
 
 # Daten & Zustand
-seen.json
-state.json
+# seen.json und state.json werden absichtlich getrackt –
+# GitHub Pages liest sie direkt über raw.githubusercontent.com
 *.log
 
 # Secrets
