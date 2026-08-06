@@ -1,9 +1,5 @@
-import React, { useCallback, useEffect } from 'react';
-import {
-  QueryClient,
-  QueryClientProvider,
-  useQueryClient,
-} from '@tanstack/react-query';
+import React, { useEffect } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -18,32 +14,100 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl } from '@workspace/api-client-react';
-import type {
-  WaechterRunStatus,
-  WaechterState,
-  WaechterTreffer,
-} from '@workspace/api-client-react';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-// ── Modus-Erkennung ──────────────────────────────────────────────────────────
-// EXPO_PUBLIC_STATIC_DATA=true → GitHub Pages Modus:
-//   Daten kommen direkt von den öffentlichen JSON-Dateien auf GitHub.
-// Andernfalls: normaler API-Server-Modus.
+// ── Konfiguration ─────────────────────────────────────────────────────────────
 const STATIC_MODE = process.env.EXPO_PUBLIC_STATIC_DATA === 'true';
 
 const GITHUB_RAW =
   'https://raw.githubusercontent.com/5dbp6h96ch-droid/Reffenthal-waechter-/main/reffenthal-waechter';
 
-const PEGEL_THRESHOLD_CM = 225;
+// ── Statischer Modus: fetch-Interceptor ──────────────────────────────────────
+// Leitet API-Pfade auf die öffentlichen JSON-Dateien auf GitHub um.
+// Kein API-Server erforderlich. seen.json ist ein Array von Strings.
+if (STATIC_MODE) {
+  const _origFetch = globalThis.fetch.bind(globalThis);
 
-// Query-Keys müssen exakt mit den generierten Hooks übereinstimmen.
-const QK_STATE = ['/api/waechter/state'] as const;
-const QK_TREFFER = ['/api/waechter/treffer'] as const;
-const QK_STATUS = ['/api/waechter/status'] as const;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const url =
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : (input as Request).url;
 
-// ── API-Server-Konfiguration (nicht-statischer Modus) ────────────────────────
+    // /api/waechter/state → state.json (+ threshold_cm ergänzen)
+    if (url.endsWith('/api/waechter/state')) {
+      try {
+        const r = await _origFetch(`${GITHUB_RAW}/state.json`, {
+          signal: init?.signal,
+        });
+        const raw = await r.json();
+        const data = { ...raw, threshold_cm: 225 };
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch {
+        return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // /api/waechter/treffer → seen.json (Array von Strings, HTTP-URLs filtern)
+    if (url.endsWith('/api/waechter/treffer')) {
+      try {
+        const r = await _origFetch(`${GITHUB_RAW}/seen.json`, {
+          signal: init?.signal,
+        });
+        const raw: unknown[] = await r.json();
+        const urls = Array.isArray(raw)
+          ? raw.filter((s): s is string => typeof s === 'string' && s.startsWith('http'))
+          : [];
+        const data = { urls, count: urls.length };
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch {
+        return new Response(JSON.stringify({ urls: [], count: 0 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // /api/waechter/status → run_status.json (404-Fallback wenn nicht committed)
+    if (url.endsWith('/api/waechter/status')) {
+      try {
+        const r = await _origFetch(`${GITHUB_RAW}/run_status.json`, {
+          signal: init?.signal,
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const raw = await r.json();
+        return new Response(JSON.stringify(raw), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch {
+        // run_status.json wird nicht auf GitHub committed → leeren Fallback liefern
+        const fallback = { last_run_at: null, rss_new_count: 0, last_error: null };
+        return new Response(JSON.stringify(fallback), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    return _origFetch(input, init);
+  };
+}
+
+// ── API-Server-Konfiguration (normaler Modus) ─────────────────────────────────
 if (!STATIC_MODE && process.env.EXPO_PUBLIC_DOMAIN) {
   setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
 }
@@ -52,80 +116,12 @@ if (!STATIC_MODE && process.env.EXPO_PUBLIC_DOMAIN) {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: STATIC_MODE ? Infinity : 60_000,
-      // Im statischen Modus kein automatischer Refetch via React Query –
-      // StaticDataProvider übernimmt das selbst per setInterval.
-      refetchInterval: STATIC_MODE ? false : 5 * 60 * 1000,
+      staleTime: STATIC_MODE ? 5 * 60 * 1_000 : 60_000,
+      refetchInterval: STATIC_MODE ? 5 * 60 * 1_000 : 5 * 60 * 1_000,
       retry: STATIC_MODE ? false : 2,
-      // Im statischen Modus Queries deaktivieren; Daten kommen via setQueryData.
-      enabled: !STATIC_MODE,
     },
   },
 });
-
-// ── StaticDataProvider ────────────────────────────────────────────────────────
-// Wird nur gerendert wenn STATIC_MODE = true.
-// Lädt state.json, run_status.json und seen.json von GitHub und befüllt
-// den React Query Cache, sodass alle bestehenden Hooks sofort Daten sehen.
-function StaticDataProvider({ children }: { children: React.ReactNode }) {
-  const qc = useQueryClient();
-
-  const loadFromGitHub = useCallback(async () => {
-    const [stateRes, statusRes, seenRes] = await Promise.allSettled([
-      fetch(`${GITHUB_RAW}/state.json`).then((r) => r.json()),
-      fetch(`${GITHUB_RAW}/run_status.json`).then((r) => r.json()),
-      fetch(`${GITHUB_RAW}/seen.json`).then((r) => r.json()),
-    ]);
-
-    // ── WaechterState ──────────────────────────────────────────────────────
-    if (stateRes.status === 'fulfilled') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const raw = stateRes.value as any;
-      const waechterState: WaechterState = {
-        last_pegel_cm: raw.last_pegel_cm ?? null,
-        last_pegel_time: raw.last_pegel_time ?? null,
-        last_daily_report_date: raw.last_daily_report_date ?? null,
-        history: Array.isArray(raw.history) ? raw.history : [],
-        threshold_cm: PEGEL_THRESHOLD_CM,
-      };
-      qc.setQueryData(QK_STATE, waechterState);
-    }
-
-    // ── WaechterRunStatus ──────────────────────────────────────────────────
-    if (statusRes.status === 'fulfilled') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const raw = statusRes.value as any;
-      const runStatus: WaechterRunStatus = {
-        last_run_at: raw.last_run_at ?? null,
-        rss_new_count: raw.rss_new_count ?? 0,
-        last_error: raw.last_error ?? null,
-      };
-      qc.setQueryData(QK_STATUS, runStatus);
-    }
-
-    // ── WaechterTreffer ────────────────────────────────────────────────────
-    // seen.json enthält alle bekannten Schlüssel (RSS-URLs, elwis:, club:, …).
-    // Nur echte URLs (beginnend mit http) werden als Treffer angezeigt.
-    if (seenRes.status === 'fulfilled') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const seen = seenRes.value as any;
-      const urls: string[] = Object.keys(seen).filter((k: string) =>
-        k.startsWith('http'),
-      );
-      const treffer: WaechterTreffer = { urls, count: urls.length };
-      qc.setQueryData(QK_TREFFER, treffer);
-    }
-  }, [qc]);
-
-  useEffect(() => {
-    void loadFromGitHub();
-    // Alle 5 Minuten neu laden (passend zum Wächter-Intervall von 30 min).
-    const interval = setInterval(() => void loadFromGitHub(), 5 * 60 * 1_000);
-    return () => clearInterval(interval);
-  }, [loadFromGitHub]);
-
-  return <>{children}</>;
-}
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 function RootLayoutNav() {
@@ -157,21 +153,11 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          {STATIC_MODE ? (
-            <StaticDataProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <KeyboardProvider>
-                  <RootLayoutNav />
-                </KeyboardProvider>
-              </GestureHandlerRootView>
-            </StaticDataProvider>
-          ) : (
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
-          )}
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <KeyboardProvider>
+              <RootLayoutNav />
+            </KeyboardProvider>
+          </GestureHandlerRootView>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
