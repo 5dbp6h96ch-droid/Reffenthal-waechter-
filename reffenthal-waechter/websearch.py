@@ -25,15 +25,10 @@ WEB_SEARCH_QUERIES: list[str] = [
     '"Kiefweiher" Speyer',
 ]
 
-# Gezielte Suche im Boote-Forum
-FORUM_SEARCH_QUERIES: list[str] = [
-    'site:boote-forum.de Reffenthal',
-    'site:boote-forum.de "Otterstädter Altrhein"',
-    'site:boote-forum.de "Angelhofer Altrhein"',
-    'site:boote-forum.de "Berghäuser Altrhein"',
-    'site:boote-forum.de "Pegel Speyer" Einfahrt',
-    'site:boote-forum.de Kiefweiher',
-]
+# Boote-Forum wird ausschließlich über RSS überwacht (rss.py) –
+# dort greift der 7-Tage-Filter zuverlässig.
+# site:-Suchen bei DuckDuckGo ignorieren timelimit="w" oft und liefern
+# jahrelang alte Threads zurück.
 
 # Gezielte Suche auf Facebook (nur öffentliche Seiten & Gruppen)
 FACEBOOK_SEARCH_QUERIES: list[str] = [
@@ -124,7 +119,7 @@ def check_web() -> list[dict]:
     seen_links: set[str] = set()
     all_results: list[dict] = []
 
-    for query in WEB_SEARCH_QUERIES + FORUM_SEARCH_QUERIES + FACEBOOK_SEARCH_QUERIES:
+    for query in WEB_SEARCH_QUERIES + FACEBOOK_SEARCH_QUERIES:
         entries = search_web(query)
         for entry in entries:
             link = entry.get("link", "")
