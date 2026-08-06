@@ -41,29 +41,38 @@ if (STATIC_MODE) {
           ? input.toString()
           : (input as Request).url;
 
+    // Hilfsfunktion: GitHub Raw fetchen ohne AbortSignal weiterzugeben.
+    // React Query's AbortController darf nicht an interne Fetches propagiert
+    // werden – ein früher Abort würde sonst den Catch-Block triggern und
+    // leere Daten liefern statt einen Fehler zu werfen.
+    const rawFetch = (rawUrl: string) => _origFetch(rawUrl);
+
     // /api/waechter/state → state.json (+ threshold_cm ergänzen)
     if (url.endsWith('/api/waechter/state')) {
       try {
-        const r = await _origFetch(`${GITHUB_RAW}/state.json`, {
-          signal: init?.signal,
-        });
+        const r = await rawFetch(`${GITHUB_RAW}/state.json`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json();
-        const data = { ...raw, threshold_cm: 225 };
+        const data = { ...raw, threshold_cm: raw.threshold_cm ?? 225 };
         return new Response(JSON.stringify(data), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
-      } catch {
-        return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+      } catch (err) {
+        // AbortError neu werfen damit React Query es korrekt behandelt
+        if (err instanceof Error && err.name === 'AbortError') throw err;
+        return new Response(
+          JSON.stringify({ last_pegel_cm: null, last_pegel_time: null, last_daily_report_date: null, history: [], threshold_cm: 225 }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
       }
     }
 
     // /api/waechter/treffer → seen.json (Array von Strings, HTTP-URLs filtern)
     if (url.endsWith('/api/waechter/treffer')) {
       try {
-        const r = await _origFetch(`${GITHUB_RAW}/seen.json`, {
-          signal: init?.signal,
-        });
+        const r = await rawFetch(`${GITHUB_RAW}/seen.json`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw: unknown[] = await r.json();
         const urls = Array.isArray(raw)
           ? raw.filter((s): s is string => typeof s === 'string' && s.startsWith('http'))
@@ -73,7 +82,8 @@ if (STATIC_MODE) {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
-      } catch {
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') throw err;
         return new Response(JSON.stringify({ urls: [], count: 0 }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -84,9 +94,7 @@ if (STATIC_MODE) {
     // /api/waechter/clubs → clubs_seen.json
     if (url.endsWith('/api/waechter/clubs')) {
       try {
-        const r = await _origFetch(`${GITHUB_RAW}/clubs_seen.json`, {
-          signal: init?.signal,
-        });
+        const r = await rawFetch(`${GITHUB_RAW}/clubs_seen.json`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json();
         const clubs = Array.isArray(raw) ? raw : [];
@@ -95,9 +103,9 @@ if (STATIC_MODE) {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
-      } catch {
-        const fallback = { clubs: [], count: 0 };
-        return new Response(JSON.stringify(fallback), {
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') throw err;
+        return new Response(JSON.stringify({ clubs: [], count: 0 }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -107,17 +115,16 @@ if (STATIC_MODE) {
     // /api/waechter/status → run_status.json (404-Fallback wenn nicht committed)
     if (url.endsWith('/api/waechter/status')) {
       try {
-        const r = await _origFetch(`${GITHUB_RAW}/run_status.json`, {
-          signal: init?.signal,
-        });
+        const r = await rawFetch(`${GITHUB_RAW}/run_status.json`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json();
         return new Response(JSON.stringify(raw), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
-      } catch {
-        // run_status.json wird nicht auf GitHub committed → leeren Fallback liefern
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') throw err;
+        // run_status.json wird nicht auf GitHub committed → leeren Fallback
         const fallback = { last_run_at: null, rss_new_count: 0, last_error: null };
         return new Response(JSON.stringify(fallback), {
           status: 200,
