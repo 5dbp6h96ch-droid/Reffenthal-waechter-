@@ -345,7 +345,7 @@ export default function HomeScreen() {
                 textTransform: 'uppercase',
               }}
             >
-              Reffenthal
+              Rhein Infos
             </Text>
           </View>
 
@@ -700,7 +700,7 @@ export default function HomeScreen() {
           ) : null}
         </View>
 
-        {/* ── Treffer Card ── */}
+        {/* ── NEWS Card ── */}
         <View
           style={{
             backgroundColor: colors.card,
@@ -728,7 +728,7 @@ export default function HomeScreen() {
                 textTransform: 'uppercase',
               }}
             >
-              Treffer
+              NEWS
             </Text>
             {treffer != null && (
               <View
@@ -806,12 +806,12 @@ export default function HomeScreen() {
                   color: colors.mutedForeground,
                 }}
               >
-                Noch keine Treffer
+                Noch keine News
               </Text>
             </View>
           ) : (
-            treffer.urls.map((url, i) => {
-              const isLast = i === treffer.urls.length - 1;
+            treffer.urls.slice().reverse().slice(0, 10).map((url, i, arr) => {
+              const isLast = i === arr.length - 1;
               return (
                 <TouchableOpacity
                   key={`${url}-${i}`}
