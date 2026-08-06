@@ -285,6 +285,8 @@ export default function HomeScreen() {
   const lastRunMs = lastRunAt ? Date.now() - new Date(lastRunAt).getTime() : null;
   const isStale = lastRunMs !== null && lastRunMs > 2 * 60 * 60 * 1000;
   const lastError = waechterStatus?.last_error ?? null;
+  const neverRan = !statusLoading && !lastRunAt;
+  const rssNewCount = waechterStatus?.rss_new_count ?? 0;
 
   const currentCm = state?.last_pegel_cm ?? null;
   const threshold = state?.threshold_cm ?? 225;
@@ -574,6 +576,140 @@ export default function HomeScreen() {
           )}
         </View>
 
+        {/* ── Meta Card ── */}
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: colors.radius,
+            borderWidth: 1,
+            borderColor: colors.border,
+            overflow: 'hidden',
+          }}
+        >
+          {/* Schwellenwert */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 16,
+              paddingVertical: 13,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+              <Feather name="sliders" size={13} color={colors.mutedForeground} />
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.mutedForeground,
+                  letterSpacing: 1.5,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Schwellenwert
+              </Text>
+            </View>
+            <Text
+              style={{
+                fontSize: 13,
+                fontFamily: 'SpaceGrotesk_600SemiBold',
+                color: colors.foreground,
+              }}
+            >
+              {threshold} cm
+            </Text>
+          </View>
+
+          <View style={{ height: 1, backgroundColor: colors.border }} />
+
+          {/* Letzter Tagesbericht */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 16,
+              paddingVertical: 13,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+              <Feather name="calendar" size={13} color={colors.mutedForeground} />
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.mutedForeground,
+                  letterSpacing: 1.5,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Letzter Bericht
+              </Text>
+            </View>
+            {stateLoading ? (
+              <ActivityIndicator size="small" color={colors.mutedForeground} />
+            ) : (
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.foreground,
+                }}
+              >
+                {state?.last_daily_report_date
+                  ? new Date(state.last_daily_report_date).toLocaleDateString('de-DE', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })
+                  : '—'}
+              </Text>
+            )}
+          </View>
+
+          <View style={{ height: 1, backgroundColor: colors.border }} />
+
+          {/* News gesamt */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 16,
+              paddingVertical: 13,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+              <Feather name="list" size={13} color={colors.mutedForeground} />
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.mutedForeground,
+                  letterSpacing: 1.5,
+                  textTransform: 'uppercase',
+                }}
+              >
+                News gesamt
+              </Text>
+            </View>
+            {trefferLoading ? (
+              <ActivityIndicator size="small" color={colors.mutedForeground} />
+            ) : (
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.foreground,
+                }}
+              >
+                {treffer?.count ?? 0}
+              </Text>
+            )}
+          </View>
+        </View>
+
         {/* ── Wächter-Status Card ── */}
         <View
           style={{
@@ -581,7 +717,7 @@ export default function HomeScreen() {
             borderRadius: colors.radius,
             padding: 16,
             borderWidth: 1,
-            borderColor: isStale ? colors.alarm : colors.border,
+            borderColor: isStale || neverRan ? colors.alarm : colors.border,
             gap: 10,
           }}
         >
@@ -631,32 +767,86 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Last run */}
+          {/* Last run + rss_new_count */}
           {statusLoading ? (
             <ActivityIndicator color={colors.primary} style={{ alignSelf: 'flex-start' }} />
           ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Feather
-                name="clock"
-                size={14}
-                color={isStale ? colors.alarm : colors.mutedForeground}
-              />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: isStale ? colors.alarm : colors.foreground,
-                }}
-              >
-                Letzter Lauf:{' '}
+            <View
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Feather
+                  name="clock"
+                  size={14}
+                  color={isStale || neverRan ? colors.alarm : colors.mutedForeground}
+                />
                 <Text
                   style={{
-                    fontFamily: 'SpaceGrotesk_600SemiBold',
-                    color: isStale ? colors.alarm : colors.foreground,
+                    fontSize: 13,
+                    fontFamily: 'SpaceGrotesk_400Regular',
+                    color: isStale || neverRan ? colors.alarm : colors.foreground,
                   }}
                 >
-                  {formatRelativeTime(lastRunAt)}
+                  Letzter Lauf:{' '}
+                  <Text
+                    style={{
+                      fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color: isStale || neverRan ? colors.alarm : colors.foreground,
+                    }}
+                  >
+                    {neverRan ? 'Nie' : formatRelativeTime(lastRunAt)}
+                  </Text>
                 </Text>
+              </View>
+
+              {/* Neue Treffer (rss_new_count) */}
+              {!neverRan && (
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontFamily: 'SpaceGrotesk_400Regular',
+                      color: colors.mutedForeground,
+                    }}
+                  >
+                    Neue Treffer
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontFamily: 'SpaceGrotesk_700Bold',
+                      color: rssNewCount > 0 ? colors.accent : colors.foreground,
+                    }}
+                  >
+                    {rssNewCount}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Never ran warning */}
+          {neverRan && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 7,
+                backgroundColor: colors.alarm + '18',
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                paddingVertical: 8,
+              }}
+            >
+              <Feather name="alert-triangle" size={13} color={colors.alarm} />
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.alarm,
+                }}
+              >
+                Wächter wurde noch nicht ausgeführt.
               </Text>
             </View>
           )}
