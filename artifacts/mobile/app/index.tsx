@@ -1316,7 +1316,7 @@ export default function HomeScreen() {
                         width: 32,
                         height: 32,
                         borderRadius: 8,
-                        backgroundColor: finding ? colors.accent + '22' : colors.muted,
+                        backgroundColor: finding ? colors.primary + '22' : colors.muted,
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,

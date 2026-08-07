@@ -1,89 +1,89 @@
 /**
- * Design tokens derived from the sibling Reffenthal Dashboard web artifact.
- * Color theme: "Pegelkarte" — warm survey-chart paper, petrol ink, reed green / brick red status.
- * Font: Space Grotesk.
+ * Design tokens — Apple Human Interface Guidelines inspired.
+ * Color theme: "Rhein Infos" — clean iOS light blue, system colors, generous radius.
+ * Font: Space Grotesk (SF Pro-like in weight distribution).
  */
 
 const colors = {
   light: {
     // Legacy aliases
-    text: '#0D2228',
-    tint: '#143D45',
+    text: '#1C1C1E',
+    tint: '#007AFF',
 
-    background: '#EFE8DA',       // hsl(42 28% 94%)  — warm survey paper
-    foreground: '#0D2228',       // hsl(197 42% 12%) — dark petrol
+    background: '#EBF3FC',         // soft sky blue background
+    foreground: '#1C1C1E',         // iOS near-black
 
-    card: '#F7F4ED',             // hsl(40 33% 97%)  — near-white paper
-    cardForeground: '#0D2228',
+    card: '#FFFFFF',               // pure white cards
+    cardForeground: '#1C1C1E',
 
-    primary: '#143D45',          // hsl(191 62% 22%) — deep petrol teal
-    primaryForeground: '#F5F1E8',
+    primary: '#007AFF',            // iOS System Blue
+    primaryForeground: '#FFFFFF',
 
-    secondary: '#DDD5C5',        // hsl(36 30% 88%)  — warm grey
-    secondaryForeground: '#1A3540',
+    secondary: '#DCEcFA',          // pale blue
+    secondaryForeground: '#1C1C1E',
 
-    muted: '#E1D9CA',            // hsl(38 22% 89%)  — muted paper
-    mutedForeground: '#516970',  // hsl(197 15% 38%) — subdued text
+    muted: '#F0F7FF',              // barely-blue muted surface
+    mutedForeground: '#8E8E93',    // iOS Gray
 
-    accent: '#C96C18',           // hsl(32 70% 47%)  — amber orange
-    accentForeground: '#F5F1E8',
+    accent: '#FF9500',             // iOS Orange — threshold indicator
+    accentForeground: '#FFFFFF',
 
-    destructive: '#AE2B1C',      // hsl(7 68% 42%)   — brick red
-    destructiveForeground: '#F5F1E8',
+    destructive: '#FF3B30',        // iOS Red
+    destructiveForeground: '#FFFFFF',
 
-    border: '#CEC4B0',           // hsl(40 20% 82%)  — warm border
-    input: '#CEC4B0',
+    border: '#C8DFF7',             // light blue border
+    input: '#C8DFF7',
 
     // Domain-specific status tokens
-    safe: '#2B6444',             // hsl(152 42% 30%) — reed green
-    safeForeground: '#F5F1E8',
-    alarm: '#AE2B1C',            // hsl(7 68% 42%)   — brick red
-    alarmForeground: '#F5F1E8',
+    safe: '#34C759',               // iOS Green
+    safeForeground: '#FFFFFF',
+    alarm: '#FF3B30',              // iOS Red
+    alarmForeground: '#FFFFFF',
 
     // Chart colors
-    chartLine: '#2E6B4C',        // hsl(152 42% 34%) — chart green
-    chartLineAlarm: '#B43020',   // hsl(7 68% 45%)   — chart red
+    chartLine: '#34C759',
+    chartLineAlarm: '#FF3B30',
   },
 
   dark: {
-    text: '#EDE6D9',
-    tint: '#4BA3B5',
+    text: '#EBEBF5',
+    tint: '#0A84FF',
 
-    background: '#0D2228',       // hsl(197 42% 12%)
-    foreground: '#EDE6D9',       // hsl(42 25% 92%)
+    background: '#0A1929',         // deep navy
+    foreground: '#EBEBF5',
 
-    card: '#142E38',
-    cardForeground: '#EDE6D9',
+    card: '#152233',
+    cardForeground: '#EBEBF5',
 
-    primary: '#4BA3B5',
-    primaryForeground: '#0D2228',
+    primary: '#0A84FF',            // iOS Blue (dark)
+    primaryForeground: '#FFFFFF',
 
-    secondary: '#1E3E48',
-    secondaryForeground: '#EDE6D9',
+    secondary: '#1A2E44',
+    secondaryForeground: '#EBEBF5',
 
-    muted: '#1A3540',
-    mutedForeground: '#7FA8B0',
+    muted: '#112030',
+    mutedForeground: '#98989F',    // iOS Gray (dark)
 
-    accent: '#D97E30',
-    accentForeground: '#0D2228',
+    accent: '#FF9F0A',             // iOS Orange (dark)
+    accentForeground: '#000000',
 
-    destructive: '#C44030',
-    destructiveForeground: '#F5F1E8',
+    destructive: '#FF453A',        // iOS Red (dark)
+    destructiveForeground: '#FFFFFF',
 
-    border: '#1E3E48',
-    input: '#1E3E48',
+    border: '#1A2E44',
+    input: '#1A2E44',
 
-    safe: '#3A8A5C',
-    safeForeground: '#0D2228',
-    alarm: '#C44030',
-    alarmForeground: '#F5F1E8',
+    safe: '#32D74B',               // iOS Green (dark)
+    safeForeground: '#000000',
+    alarm: '#FF453A',              // iOS Red (dark)
+    alarmForeground: '#FFFFFF',
 
-    chartLine: '#3A8A5C',
-    chartLineAlarm: '#C44030',
+    chartLine: '#32D74B',
+    chartLineAlarm: '#FF453A',
   },
 
-  // Border radius synced from web --radius: 0.625rem
-  radius: 10,
+  // Apple-style generous radius
+  radius: 14,
 };
 
 export default colors;
