@@ -314,6 +314,7 @@ def _git_commit_state() -> None:
             "reffenthal-waechter/state.json",
             "reffenthal-waechter/seen.json",
             "reffenthal-waechter/clubs_seen.json",
+            "reffenthal-waechter/run_status.json",
         ]
         run(["git", "add", "--force"] + files)
 

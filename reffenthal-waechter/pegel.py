@@ -20,8 +20,8 @@ from config import (
 
 logger = logging.getLogger(__name__)
 
-# Maximale Einträge im Verlauf
-MAX_HISTORY = 96  # ca. 48 Stunden bei 30-Minuten-Intervall
+# Maximale Einträge im Verlauf (WSV-API liefert 15-Min-Takt → 4 × 24 × 90 = 8640 für 90 Tage)
+MAX_HISTORY = 8640  # ~90 Tage bei 15-Minuten-Intervall
 
 
 def fetch_pegel() -> dict | None:

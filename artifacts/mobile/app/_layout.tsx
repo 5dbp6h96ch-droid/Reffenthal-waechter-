@@ -91,21 +91,28 @@ if (STATIC_MODE) {
       }
     }
 
-    // /api/waechter/clubs → clubs_seen.json
+    // /api/waechter/clubs → clubs_seen.json + statische known_clubs Liste
     if (url.endsWith('/api/waechter/clubs')) {
+      const KNOWN_CLUBS = [
+        { name: '1. MBC Speyer',                       icon: '⚓', url: 'https://mbc-speyer.de/' },
+        { name: 'Yachthafen Speyer',                   icon: '🚢', url: 'https://yachthafen-speyer.de/' },
+        { name: 'YC Otterstadt (Angelhofer Altrhein)', icon: '⛵', url: 'https://ycoa.de/' },
+        { name: 'MYCL Kiefweiher',                    icon: '🚤', url: 'https://www.mycl.de/' },
+        { name: 'WCC Kiefweiher',                     icon: '🏕️', url: 'http://www.wcc-kiefweiher.de/' },
+        { name: 'MCK Kurpfalz Mannheim',              icon: '🏙️', url: 'https://www.mck-mannheim.de/' },
+      ];
       try {
         const r = await rawFetch(`${GITHUB_RAW}/clubs_seen.json`);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const raw = await r.json();
-        const clubs = Array.isArray(raw) ? raw : [];
-        const data = { clubs, count: clubs.length };
+        const raw = r.ok ? await r.json() : [];
+        const clubsArr = Array.isArray(raw) ? raw : [];
+        const data = { clubs: clubsArr, count: clubsArr.length, known_clubs: KNOWN_CLUBS };
         return new Response(JSON.stringify(data), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') throw err;
-        return new Response(JSON.stringify({ clubs: [], count: 0 }), {
+        return new Response(JSON.stringify({ clubs: [], count: 0, known_clubs: KNOWN_CLUBS }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });

@@ -1242,84 +1242,95 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
-          ) : !clubsData?.clubs.length ? (
-            <View style={{ alignItems: 'center', paddingVertical: 16, gap: 6 }}>
-              <Feather name="anchor" size={20} color={colors.mutedForeground} />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.mutedForeground,
-                }}
-              >
-                Keine Vereinsmeldungen
-              </Text>
-            </View>
           ) : (
-            clubsData.clubs.slice().reverse().slice(0, 10).map((club, i, arr) => {
-              const isLast = i === arr.length - 1;
-              return (
-                <TouchableOpacity
-                  key={club.dedup_key}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'flex-start',
-                    gap: 10,
-                    paddingVertical: 10,
-                    borderBottomWidth: isLast ? 0 : 1,
-                    borderBottomColor: colors.border,
-                  }}
-                  onPress={() => void Linking.openURL(club.url)}
-                  activeOpacity={0.65}
-                >
-                  {/* Icon badge */}
-                  <View
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
-                      backgroundColor: colors.muted,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Text style={{ fontSize: 16 }}>{club.icon}</Text>
-                  </View>
+            (() => {
+              // Zeige alle überwachten Vereine; Meldungen werden drunter eingeblendet
+              const knownClubs = clubsData?.known_clubs ?? [];
+              const findings = clubsData?.clubs ?? [];
 
-                  <View style={{ flex: 1 }}>
-                    <Text
+              // Für schnellen Domain-Abgleich
+              const domainOf = (u: string) => {
+                try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; }
+              };
+
+              // Letzten Treffer pro Domain (findings sind chronologisch, letzter = neuester)
+              const latestByDomain = new Map<string, typeof findings[0]>();
+              for (const f of findings) {
+                const d = domainOf(f.url);
+                latestByDomain.set(d, f);
+              }
+
+              type RowItem = { name: string; icon: string; url: string };
+              const rows: RowItem[] = knownClubs.length > 0 ? knownClubs : findings.slice().reverse().slice(0, 10).map(f => ({
+                name: f.name, icon: f.icon, url: f.url,
+              }));
+
+              return rows.map((club: RowItem, i: number) => {
+                const finding = latestByDomain.get(domainOf(club.url));
+                const isLast = i === rows.length - 1;
+                return (
+                  <TouchableOpacity
+                    key={club.url}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'flex-start',
+                      gap: 10,
+                      paddingVertical: 10,
+                      borderBottomWidth: isLast ? 0 : 1,
+                      borderBottomColor: colors.border,
+                    }}
+                    onPress={() => void Linking.openURL(club.url)}
+                    activeOpacity={0.65}
+                  >
+                    {/* Icon badge */}
+                    <View
                       style={{
-                        fontSize: 13,
-                        fontFamily: 'SpaceGrotesk_600SemiBold',
-                        color: colors.foreground,
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        backgroundColor: finding ? colors.accent + '22' : colors.muted,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
                       }}
-                      numberOfLines={1}
                     >
-                      {club.name}
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontFamily: 'SpaceGrotesk_400Regular',
-                        color: colors.mutedForeground,
-                        marginTop: 2,
-                        lineHeight: 16,
-                      }}
-                      numberOfLines={2}
-                    >
-                      {club.snippet}
-                    </Text>
-                  </View>
-                  <Feather
-                    name="external-link"
-                    size={14}
-                    color={colors.mutedForeground}
-                    style={{ marginTop: 2 }}
-                  />
-                </TouchableOpacity>
-              );
-            })
+                      <Text style={{ fontSize: 16 }}>{club.icon}</Text>
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontFamily: 'SpaceGrotesk_600SemiBold',
+                          color: colors.foreground,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {club.name}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontFamily: 'SpaceGrotesk_400Regular',
+                          color: finding ? colors.mutedForeground : colors.mutedForeground + '88',
+                          marginTop: 2,
+                          lineHeight: 16,
+                        }}
+                        numberOfLines={2}
+                      >
+                        {finding ? finding.snippet : 'Keine aktuellen Meldungen'}
+                      </Text>
+                    </View>
+                    <Feather
+                      name="external-link"
+                      size={14}
+                      color={colors.mutedForeground}
+                      style={{ marginTop: 2 }}
+                    />
+                  </TouchableOpacity>
+                );
+              });
+            })()
           )}
         </View>
       </ScrollView>

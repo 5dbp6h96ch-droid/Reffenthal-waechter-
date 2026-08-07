@@ -57,6 +57,11 @@ export const GetWaechterClubsResponse = zod.object({
     "seen_at": zod.string().describe('ISO 8601 timestamp when first seen'),
   })).describe('List of club/harbour website hits'),
   "count": zod.number().describe('Total number of club hits'),
+  "known_clubs": zod.array(zod.object({
+    "name": zod.string().describe('Club or harbour name'),
+    "icon": zod.string().describe('Emoji icon for the club'),
+    "url": zod.string().describe('Homepage URL of the club'),
+  })).describe('All monitored clubs (regardless of findings)'),
 })
 
 

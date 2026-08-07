@@ -60,11 +60,22 @@ export interface WaechterClubHit {
   seen_at: string;
 }
 
+export interface WaechterKnownClub {
+  /** Club or harbour name */
+  name: string;
+  /** Emoji icon for the club */
+  icon: string;
+  /** Homepage URL of the club */
+  url: string;
+}
+
 export interface WaechterClubs {
   /** List of club/harbour website hits */
   clubs: WaechterClubHit[];
   /** Total number of club hits */
   count: number;
+  /** All monitored clubs (regardless of findings) */
+  known_clubs: WaechterKnownClub[];
 }
 
 export interface WaechterRunStatus {

@@ -97,6 +97,16 @@ router.get("/waechter/treffer", async (req, res): Promise<void> => {
   }
 });
 
+// Alle überwachten Vereine (spiegelt clubs.py)
+const KNOWN_CLUBS = [
+  { name: "1. MBC Speyer",                  icon: "⚓", url: "https://mbc-speyer.de/" },
+  { name: "Yachthafen Speyer",              icon: "🚢", url: "https://yachthafen-speyer.de/" },
+  { name: "YC Otterstadt (Angelhofer Altrhein)", icon: "⛵", url: "https://ycoa.de/" },
+  { name: "MYCL Kiefweiher",               icon: "🚤", url: "https://www.mycl.de/" },
+  { name: "WCC Kiefweiher",                icon: "🏕️", url: "http://www.wcc-kiefweiher.de/" },
+  { name: "MCK Kurpfalz Mannheim",         icon: "🏙️", url: "https://www.mck-mannheim.de/" },
+];
+
 router.get("/waechter/clubs", async (req, res): Promise<void> => {
   try {
     let raw: string;
@@ -112,6 +122,7 @@ router.get("/waechter/clubs", async (req, res): Promise<void> => {
     const data = GetWaechterClubsResponse.parse({
       clubs,
       count: clubs.length,
+      known_clubs: KNOWN_CLUBS,
     });
 
     res.json(data);
