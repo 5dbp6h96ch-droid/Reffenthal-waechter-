@@ -27,6 +27,7 @@ import {
   useGetWaechterTreffer,
   useGetWaechterStatus,
   useGetWaechterClubs,
+  useGetNfb,
 } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 
@@ -347,13 +348,22 @@ export default function HomeScreen() {
     isRefetching: clubsRefetching,
   } = useGetWaechterClubs();
 
-  const isRefreshing = stateRefetching || trefferRefetching || statusRefetching || clubsRefetching;
+  const {
+    data: nfbData,
+    isLoading: nfbLoading,
+    isError: nfbError,
+    refetch: refetchNfb,
+    isRefetching: nfbRefetching,
+  } = useGetNfb();
+
+  const isRefreshing = stateRefetching || trefferRefetching || statusRefetching || clubsRefetching || nfbRefetching;
 
   const onRefresh = () => {
     void refetchState();
     void refetchTreffer();
     void refetchStatus();
     void refetchClubs();
+    void refetchNfb();
   };
 
   const lastRunAt = waechterStatus?.last_run_at ?? null;
@@ -1359,6 +1369,275 @@ export default function HomeScreen() {
                 );
               });
             })()
+          )}
+        </View>
+
+        {/* ── NfB-Meldungen Card ── */}
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: colors.radius,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            gap: 12,
+          }}
+        >
+          {/* Section header */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.mutedForeground,
+                  letterSpacing: 2,
+                  textTransform: 'uppercase',
+                }}
+              >
+                NfB
+              </Text>
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.mutedForeground,
+                  opacity: 0.6,
+                }}
+              >
+                km 380–415
+              </Text>
+            </View>
+            {nfbData != null && nfbData.count > 0 && (
+              <View
+                style={{
+                  backgroundColor: colors.muted,
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                  borderRadius: 99,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: 'SpaceGrotesk_600SemiBold',
+                    color: colors.accent,
+                  }}
+                >
+                  {nfbData.count}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* NfB content */}
+          {nfbLoading ? (
+            <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : nfbError ? (
+            <TouchableOpacity
+              style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
+              onPress={() => void refetchNfb()}
+            >
+              <Feather name="alert-circle" size={20} color={colors.destructive} />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.destructive,
+                }}
+              >
+                Fehler beim Laden
+              </Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  backgroundColor: colors.muted,
+                  paddingHorizontal: 14,
+                  paddingVertical: 7,
+                  borderRadius: 8,
+                  marginTop: 4,
+                }}
+              >
+                <Feather name="refresh-cw" size={13} color={colors.foreground} />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontFamily: 'SpaceGrotesk_500Medium',
+                    color: colors.foreground,
+                  }}
+                >
+                  Erneut versuchen
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : !nfbData?.meldungen.length ? (
+            <View style={{ alignItems: 'center', paddingVertical: 16, gap: 6 }}>
+              <Feather name="check-circle" size={20} color={colors.mutedForeground} />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.mutedForeground,
+                }}
+              >
+                Keine aktiven Meldungen
+              </Text>
+            </View>
+          ) : (
+            nfbData.meldungen.map((m, i) => {
+              const isLast = i === nfbData.meldungen.length - 1;
+              const kmRange =
+                m.km_von != null && m.km_bis != null
+                  ? `km ${m.km_von}–${m.km_bis}`
+                  : m.km_von != null
+                    ? `km ${m.km_von}`
+                    : null;
+              const validity =
+                m.gueltig_ab || m.gueltig_bis
+                  ? [m.gueltig_ab, m.gueltig_bis].filter(Boolean).join(' – ')
+                  : null;
+
+              return (
+                <View
+                  key={m.nfb_id}
+                  style={{
+                    paddingVertical: 10,
+                    borderBottomWidth: isLast ? 0 : 1,
+                    borderBottomColor: colors.border,
+                    gap: 6,
+                  }}
+                >
+                  {/* Top row: NfB-ID + "NEU" badge */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontFamily: 'SpaceGrotesk_500Medium',
+                        color: colors.mutedForeground,
+                      }}
+                    >
+                      {m.nfb_id}
+                    </Text>
+                    {m.is_new && (
+                      <View
+                        style={{
+                          backgroundColor: colors.accent + '28',
+                          paddingHorizontal: 7,
+                          paddingVertical: 2,
+                          borderRadius: 99,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 9,
+                            fontFamily: 'SpaceGrotesk_700Bold',
+                            color: colors.accent,
+                            letterSpacing: 1.5,
+                          }}
+                        >
+                          NEU
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Title */}
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color: m.is_new ? colors.foreground : colors.foreground,
+                      lineHeight: 18,
+                    }}
+                  >
+                    {m.titel}
+                  </Text>
+
+                  {/* Meta row: km range + validity */}
+                  {(kmRange || validity) && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {kmRange && (
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <Feather name="map-pin" size={11} color={colors.mutedForeground} />
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontFamily: 'SpaceGrotesk_400Regular',
+                              color: colors.mutedForeground,
+                            }}
+                          >
+                            {kmRange}
+                          </Text>
+                        </View>
+                      )}
+                      {validity && (
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <Feather name="calendar" size={11} color={colors.mutedForeground} />
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontFamily: 'SpaceGrotesk_400Regular',
+                              color: colors.mutedForeground,
+                            }}
+                          >
+                            {validity}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* ELWIS link */}
+                  {m.url && (
+                    <TouchableOpacity
+                      onPress={() => void Linking.openURL(m.url!)}
+                      activeOpacity={0.65}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}
+                    >
+                      <Feather name="external-link" size={11} color={colors.primary} />
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontFamily: 'SpaceGrotesk_500Medium',
+                          color: colors.primary,
+                        }}
+                        numberOfLines={1}
+                      >
+                        ELWIS
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })
           )}
         </View>
       </ScrollView>

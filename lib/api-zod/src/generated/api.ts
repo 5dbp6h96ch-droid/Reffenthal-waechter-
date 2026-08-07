@@ -49,19 +49,19 @@ export const GetWaechterTrefferResponse = zod.object({
  */
 export const GetWaechterClubsResponse = zod.object({
   "clubs": zod.array(zod.object({
-    "name": zod.string().describe('Club or harbour name'),
-    "icon": zod.string().describe('Emoji icon for the club'),
-    "url": zod.string().describe('URL of the club website'),
-    "snippet": zod.string().describe('Relevant text snippet from the page'),
-    "dedup_key": zod.string().describe('Deduplication key (club:domain:hash)'),
-    "seen_at": zod.string().describe('ISO 8601 timestamp when first seen'),
-  })).describe('List of club/harbour website hits'),
+  "name": zod.string().describe('Club or harbour name'),
+  "icon": zod.string().describe('Emoji icon for the club'),
+  "url": zod.string().describe('URL of the club website'),
+  "snippet": zod.string().describe('Relevant text snippet from the page'),
+  "dedup_key": zod.string().describe('Deduplication key (club:domain:hash)'),
+  "seen_at": zod.string().describe('ISO 8601 timestamp when first seen')
+})).describe('List of club\/harbour website hits'),
   "count": zod.number().describe('Total number of club hits'),
   "known_clubs": zod.array(zod.object({
-    "name": zod.string().describe('Club or harbour name'),
-    "icon": zod.string().describe('Emoji icon for the club'),
-    "url": zod.string().describe('Homepage URL of the club'),
-  })).describe('All monitored clubs (regardless of findings)'),
+  "name": zod.string().describe('Club or harbour name'),
+  "icon": zod.string().describe('Emoji icon for the club'),
+  "url": zod.string().describe('Homepage URL of the club')
+})).describe('All monitored clubs (regardless of findings)')
 })
 
 
@@ -71,8 +71,28 @@ export const GetWaechterClubsResponse = zod.object({
  */
 export const GetWaechterStatusResponse = zod.object({
   "last_run_at": zod.string().nullable().describe('ISO 8601 timestamp of the last completed watcher run'),
-  "rss_new_count": zod.number().describe('Number of new RSS/web hits found in the last run'),
-  "last_error": zod.string().nullable().describe('Last error message if the run encountered an error, null otherwise'),
+  "rss_new_count": zod.number().describe('Number of new RSS\/web hits found in the last run'),
+  "last_error": zod.string().nullable().describe('Last error message if the run encountered an error, null otherwise')
+})
+
+
+/**
+ * Returns active Nachrichtenblatt für Binnenschifffahrt (NfB) notices for Rhein km 380–415
+ * @summary Get active NfB notices
+ */
+export const GetNfbResponse = zod.object({
+  "meldungen": zod.array(zod.object({
+  "nfb_id": zod.string().describe('NfB identifier (e.g. 2026\/1911)'),
+  "titel": zod.string().describe('Title of the NfB notice'),
+  "km_von": zod.number().nullable().describe('Start of the affected river kilometre range'),
+  "km_bis": zod.number().nullable().describe('End of the affected river kilometre range'),
+  "gueltig_ab": zod.string().nullable().describe('Validity start date (ISO 8601 or text)'),
+  "gueltig_bis": zod.string().nullable().describe('Validity end date (ISO 8601 or text)'),
+  "url": zod.string().nullable().describe('ELWIS source URL'),
+  "first_seen": zod.string().describe('ISO 8601 timestamp when the notice was first recorded'),
+  "is_new": zod.boolean().describe('True if first_seen is within the last 24 hours')
+})).describe('Active NfB notices ordered newest first'),
+  "count": zod.number().describe('Total number of active NfB notices')
 })
 
 

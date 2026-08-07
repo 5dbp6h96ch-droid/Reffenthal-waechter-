@@ -17,6 +17,7 @@ import type {
 
 import type {
   HealthStatus,
+  NfbList,
   WaechterClubs,
   WaechterRunStatus,
   WaechterState,
@@ -284,8 +285,11 @@ export function useGetWaechterTreffer<TData = Awaited<ReturnType<typeof getWaech
 
 
 
-
 export const getGetWaechterClubsUrl = () => {
+
+
+
+
   return `/api/waechter/clubs`
 }
 
@@ -294,41 +298,76 @@ export const getGetWaechterClubsUrl = () => {
  * @summary Get club website hits
  */
 export const getWaechterClubs = async ( options?: Parameters<typeof customFetch>[1]): Promise<WaechterClubs> => {
-  return customFetch<WaechterClubs>(getGetWaechterClubsUrl(), {
+
+  return customFetch<WaechterClubs>(getGetWaechterClubsUrl(),
+  {
     ...options,
-    method: 'GET',
-  });
-}
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
 
 export const getGetWaechterClubsQueryKey = () => {
     return [
     `/api/waechter/clubs`
     ] as const;
-}
+    }
+
 
 export const getGetWaechterClubsQueryOptions = <TData = Awaited<ReturnType<typeof getWaechterClubs>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWaechterClubs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
-  const {query: queryOptions, request: requestOptions} = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? getGetWaechterClubsQueryKey();
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWaechterClubs>>> = ({ signal }) => getWaechterClubs({ signal, ...requestOptions });
-  return { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWaechterClubs>>, TError, TData> & { queryKey: QueryKey }
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWaechterClubsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWaechterClubs>>> = ({ signal }) => getWaechterClubs({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWaechterClubs>>, TError, TData> & { queryKey: QueryKey }
 }
 
 export type GetWaechterClubsQueryResult = NonNullable<Awaited<ReturnType<typeof getWaechterClubs>>>
 export type GetWaechterClubsQueryError = ErrorType<unknown>
 
+
 /**
  * @summary Get club website hits
  */
+
 export function useGetWaechterClubs<TData = Awaited<ReturnType<typeof getWaechterClubs>>, TError = ErrorType<unknown>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWaechterClubs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
   const queryOptions = getGetWaechterClubsQueryOptions(options)
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+
+
+
+
+
+
 export const getGetWaechterStatusUrl = () => {
+
+
+
+
   return `/api/waechter/status`
 }
 
@@ -337,36 +376,146 @@ export const getGetWaechterStatusUrl = () => {
  * @summary Get watcher run status
  */
 export const getWaechterStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<WaechterRunStatus> => {
-  return customFetch<WaechterRunStatus>(getGetWaechterStatusUrl(), {
+
+  return customFetch<WaechterRunStatus>(getGetWaechterStatusUrl(),
+  {
     ...options,
-    method: 'GET',
-  });
-}
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
 
 export const getGetWaechterStatusQueryKey = () => {
     return [
     `/api/waechter/status`
     ] as const;
-}
+    }
+
 
 export const getGetWaechterStatusQueryOptions = <TData = Awaited<ReturnType<typeof getWaechterStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWaechterStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
-  const {query: queryOptions, request: requestOptions} = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? getGetWaechterStatusQueryKey();
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWaechterStatus>>> = ({ signal }) => getWaechterStatus({ signal, ...requestOptions });
-  return { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWaechterStatus>>, TError, TData> & { queryKey: QueryKey }
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWaechterStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWaechterStatus>>> = ({ signal }) => getWaechterStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWaechterStatus>>, TError, TData> & { queryKey: QueryKey }
 }
 
 export type GetWaechterStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getWaechterStatus>>>
 export type GetWaechterStatusQueryError = ErrorType<unknown>
 
+
 /**
  * @summary Get watcher run status
  */
+
 export function useGetWaechterStatus<TData = Awaited<ReturnType<typeof getWaechterStatus>>, TError = ErrorType<unknown>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWaechterStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
   const queryOptions = getGetWaechterStatusQueryOptions(options)
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
+
+
+export const getGetNfbUrl = () => {
+
+
+
+
+  return `/api/nfb`
+}
+
+/**
+ * Returns active Nachrichtenblatt für Binnenschifffahrt (NfB) notices for Rhein km 380–415
+ * @summary Get active NfB notices
+ */
+export const getNfb = async ( options?: Parameters<typeof customFetch>[1]): Promise<NfbList> => {
+
+  return customFetch<NfbList>(getGetNfbUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetNfbQueryKey = () => {
+    return [
+    `/api/nfb`
+    ] as const;
+    }
+
+
+export const getGetNfbQueryOptions = <TData = Awaited<ReturnType<typeof getNfb>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getNfb>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetNfbQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getNfb>>> = ({ signal }) => getNfb({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getNfb>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetNfbQueryResult = NonNullable<Awaited<ReturnType<typeof getNfb>>>
+export type GetNfbQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get active NfB notices
+ */
+
+export function useGetNfb<TData = Awaited<ReturnType<typeof getNfb>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getNfb>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetNfbQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+

@@ -7,7 +7,12 @@
  */
 
 export * from './healthStatus';
+export * from './nfbList';
+export * from './nfbMeldung';
 export * from './pegelEntry';
+export * from './waechterClubHit';
+export * from './waechterClubs';
+export * from './waechterKnownClub';
 export * from './waechterRunStatus';
 export * from './waechterState';
 export * from './waechterTreffer';

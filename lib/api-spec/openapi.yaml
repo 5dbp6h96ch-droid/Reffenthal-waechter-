@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: waechter
     description: Reffenthal-Wächter monitoring data
+  - name: nfb
+    description: Nachrichtenblatt für Binnenschifffahrt (NfB) notices
 paths:
   /healthz:
     get:
@@ -55,6 +57,20 @@ paths:
               schema:
                 $ref: "#/components/schemas/WaechterTreffer"
 
+  /waechter/clubs:
+    get:
+      operationId: getWaechterClubs
+      tags: [waechter]
+      summary: Get club website hits
+      description: Returns club/harbour website hits found by the watcher
+      responses:
+        "200":
+          description: Club website hits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WaechterClubs"
+
   /waechter/status:
     get:
       operationId: getWaechterStatus
@@ -68,6 +84,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WaechterRunStatus"
+
+  /nfb:
+    get:
+      operationId: getNfb
+      tags: [nfb]
+      summary: Get active NfB notices
+      description: Returns active Nachrichtenblatt für Binnenschifffahrt (NfB) notices for Rhein km 380–415
+      responses:
+        "200":
+          description: Active NfB notices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NfbList"
 
 components:
   schemas:
@@ -150,3 +180,126 @@ components:
         - last_run_at
         - rss_new_count
         - last_error
+
+    WaechterClubHit:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Club or harbour name
+        icon:
+          type: string
+          description: Emoji icon for the club
+        url:
+          type: string
+          description: URL of the club website
+        snippet:
+          type: string
+          description: Relevant text snippet from the page
+        dedup_key:
+          type: string
+          description: Deduplication key (club:domain:hash)
+        seen_at:
+          type: string
+          description: ISO 8601 timestamp when first seen
+      required:
+        - name
+        - icon
+        - url
+        - snippet
+        - dedup_key
+        - seen_at
+
+    WaechterKnownClub:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Club or harbour name
+        icon:
+          type: string
+          description: Emoji icon for the club
+        url:
+          type: string
+          description: Homepage URL of the club
+      required:
+        - name
+        - icon
+        - url
+
+    WaechterClubs:
+      type: object
+      properties:
+        clubs:
+          type: array
+          items:
+            $ref: "#/components/schemas/WaechterClubHit"
+          description: List of club/harbour website hits
+        count:
+          type: number
+          description: Total number of club hits
+        known_clubs:
+          type: array
+          items:
+            $ref: "#/components/schemas/WaechterKnownClub"
+          description: All monitored clubs (regardless of findings)
+      required:
+        - clubs
+        - count
+        - known_clubs
+
+    NfbMeldung:
+      type: object
+      properties:
+        nfb_id:
+          type: string
+          description: "NfB identifier (e.g. 2026/1911)"
+        titel:
+          type: string
+          description: Title of the NfB notice
+        km_von:
+          type: ["number", "null"]
+          description: Start of the affected river kilometre range
+        km_bis:
+          type: ["number", "null"]
+          description: End of the affected river kilometre range
+        gueltig_ab:
+          type: ["string", "null"]
+          description: "Validity start date (ISO 8601 or text)"
+        gueltig_bis:
+          type: ["string", "null"]
+          description: "Validity end date (ISO 8601 or text)"
+        url:
+          type: ["string", "null"]
+          description: ELWIS source URL
+        first_seen:
+          type: string
+          description: ISO 8601 timestamp when the notice was first recorded
+        is_new:
+          type: boolean
+          description: True if first_seen is within the last 24 hours
+      required:
+        - nfb_id
+        - titel
+        - km_von
+        - km_bis
+        - gueltig_ab
+        - gueltig_bis
+        - url
+        - first_seen
+        - is_new
+
+    NfbList:
+      type: object
+      properties:
+        meldungen:
+          type: array
+          items:
+            $ref: "#/components/schemas/NfbMeldung"
+          description: Active NfB notices ordered newest first
+        count:
+          type: number
+          description: Total number of active NfB notices
+      required:
+        - meldungen
+        - count

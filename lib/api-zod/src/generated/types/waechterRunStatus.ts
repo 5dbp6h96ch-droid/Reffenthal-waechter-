@@ -8,15 +8,15 @@
 
 export interface WaechterRunStatus {
   /**
-   * ISO 8601 timestamp of the last completed watcher run
-   * @nullable
-   */
+     * ISO 8601 timestamp of the last completed watcher run
+     * @nullable
+     */
   last_run_at: string | null;
   /** Number of new RSS/web hits found in the last run */
   rss_new_count: number;
   /**
-   * Last error message if the run encountered an error, null otherwise
-   * @nullable
-   */
+     * Last error message if the run encountered an error, null otherwise
+     * @nullable
+     */
   last_error: string | null;
 }

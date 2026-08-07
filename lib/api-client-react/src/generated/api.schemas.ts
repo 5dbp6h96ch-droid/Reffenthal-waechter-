@@ -45,6 +45,21 @@ export interface WaechterTreffer {
   count: number;
 }
 
+export interface WaechterRunStatus {
+  /**
+     * ISO 8601 timestamp of the last completed watcher run
+     * @nullable
+     */
+  last_run_at: string | null;
+  /** Number of new RSS/web hits found in the last run */
+  rss_new_count: number;
+  /**
+     * Last error message if the run encountered an error, null otherwise
+     * @nullable
+     */
+  last_error: string | null;
+}
+
 export interface WaechterClubHit {
   /** Club or harbour name */
   name: string;
@@ -78,18 +93,46 @@ export interface WaechterClubs {
   known_clubs: WaechterKnownClub[];
 }
 
-export interface WaechterRunStatus {
+export interface NfbMeldung {
+  /** NfB identifier (e.g. 2026/1911) */
+  nfb_id: string;
+  /** Title of the NfB notice */
+  titel: string;
   /**
-   * ISO 8601 timestamp of the last completed watcher run
-   * @nullable
-   */
-  last_run_at: string | null;
-  /** Number of new RSS/web hits found in the last run */
-  rss_new_count: number;
+     * Start of the affected river kilometre range
+     * @nullable
+     */
+  km_von: number | null;
   /**
-   * Last error message if the run encountered an error, null otherwise
-   * @nullable
-   */
-  last_error: string | null;
+     * End of the affected river kilometre range
+     * @nullable
+     */
+  km_bis: number | null;
+  /**
+     * Validity start date (ISO 8601 or text)
+     * @nullable
+     */
+  gueltig_ab: string | null;
+  /**
+     * Validity end date (ISO 8601 or text)
+     * @nullable
+     */
+  gueltig_bis: string | null;
+  /**
+     * ELWIS source URL
+     * @nullable
+     */
+  url: string | null;
+  /** ISO 8601 timestamp when the notice was first recorded */
+  first_seen: string;
+  /** True if first_seen is within the last 24 hours */
+  is_new: boolean;
+}
+
+export interface NfbList {
+  /** Active NfB notices ordered newest first */
+  meldungen: NfbMeldung[];
+  /** Total number of active NfB notices */
+  count: number;
 }
 
