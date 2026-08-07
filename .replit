@@ -20,6 +20,10 @@ author = "agent"
 task = "workflow.run"
 args = "Reffenthal-Wächter"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "NfB-Monitor"
+
 [[workflows.workflow]]
 name = "Reffenthal-Wächter"
 author = "agent"
@@ -30,6 +34,14 @@ args = "cd reffenthal-waechter && python watcher.py"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "NfB-Monitor"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/nfb-monitor && python app.py"
 
 [agent]
 stack = "PNPM_WORKSPACE"

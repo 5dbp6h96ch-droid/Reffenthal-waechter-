@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NfB-Monitor – Rhein km {{ km_von }}–{{ km_bis }}</title>
+  <style>
+    /* ── Reset & Basis ──────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────────── */
+    header {
+      background: #1a365d;
+      color: #fff;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.35);
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+
+    .badge {
+      background: #2b6cb0;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: .8rem;
+      white-space: nowrap;
+    }
+
+    /* ── Hauptcontainer ─────────────────────────────────────────────────────── */
+    main {
+      max-width: 1200px;
+      margin: 28px auto;
+      padding: 0 16px;
+    }
+
+    /* ── Infoleiste ─────────────────────────────────────────────────────────── */
+    .meta-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .meta-bar p {
+      color: #4a5568;
+      font-size: .85rem;
+    }
+
+    /* Manueller Scan-Button */
+    .btn-scan {
+      background: #2b6cb0;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 18px;
+      font-size: .85rem;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-scan:hover { background: #2c5282; }
+
+    /* ── Legende ────────────────────────────────────────────────────────────── */
+    .legend {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      font-size: .82rem;
+      color: #4a5568;
+    }
+    .legend span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .dot-new  { background: #38a169; }
+    .dot-norm { background: #a0aec0; }
+
+    /* ── Tabelle ────────────────────────────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.12);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      background: #2d3748;
+      color: #e2e8f0;
+    }
+
+    thead th {
+      padding: 12px 14px;
+      text-align: left;
+      font-size: .78rem;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #e2e8f0;
+      transition: background .1s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #ebf8ff; }
+
+    /* Neue Meldungen grün markieren */
+    tbody tr.is-new {
+      background: #f0fff4;
+    }
+    tbody tr.is-new:hover { background: #c6f6d5; }
+
+    td {
+      padding: 11px 14px;
+      vertical-align: top;
+      line-height: 1.45;
+    }
+
+    /* NfB-ID – monospace für bessere Lesbarkeit */
+    .td-id {
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: .82rem;
+      color: #2d3748;
+      white-space: nowrap;
+    }
+
+    .td-titel { min-width: 200px; }
+
+    .td-km {
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      color: #2b6cb0;
+      font-weight: 600;
+    }
+
+    .td-date {
+      white-space: nowrap;
+      color: #4a5568;
+      font-size: .82rem;
+    }
+
+    /* ⚓ Link */
+    .link-icon {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #2b6cb0;
+      text-decoration: none;
+      font-size: .82rem;
+      white-space: nowrap;
+    }
+    .link-icon:hover { text-decoration: underline; }
+
+    /* „Neu"-Label */
+    .label-new {
+      display: inline-block;
+      background: #38a169;
+      color: #fff;
+      font-size: .68rem;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 20px;
+      margin-left: 6px;
+      vertical-align: middle;
+      letter-spacing: .04em;
+    }
+
+    /* ── Leer-Zustand ───────────────────────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 52px 16px;
+      color: #718096;
+    }
+    .empty svg { margin-bottom: 14px; opacity: .4; }
+    .empty p   { font-size: 1rem; }
+
+    /* ── Footer ─────────────────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 24px 16px;
+      font-size: .78rem;
+      color: #a0aec0;
+    }
+    footer a { color: #a0aec0; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <h1>⚓ NfB-Monitor</h1>
+  <span class="badge">Rhein km {{ km_von }}–{{ km_bis }}</span>
+</header>
+
+<!-- ── Hauptinhalt ── -->
+<main>
+
+  <!-- Infoleiste -->
+  <div class="meta-bar">
+    <p>
+      Aktive Nachrichten für die Binnenschifffahrt (Rhein km {{ km_von }}–{{ km_bis }}).
+      Abgelaufene Meldungen werden automatisch ausgeblendet.
+      {% if last_scan %}
+        Letzter Scan: <strong>{{ last_scan[:16]|replace("T"," ") }} UTC</strong>.
+      {% endif %}
+    </p>
+
+    <!-- Manuellen Scan auslösen -->
+    <form action="scan-now" method="post" onsubmit="return triggerScan(this);">
+      <button class="btn-scan" type="submit">🔄 Jetzt scannen</button>
+    </form>
+  </div>
+
+  <!-- Legende -->
+  <div class="legend">
+    <span><span class="dot dot-new"></span> Neue Meldung (letzte {{ new_hours }} Stunden)</span>
+    <span><span class="dot dot-norm"></span> Bekannte Meldung</span>
+  </div>
+
+  <!-- Tabelle -->
+  <div class="card">
+    {% if meldungen %}
+    <table>
+      <thead>
+        <tr>
+          <th>NfB-ID</th>
+          <th>Titel</th>
+          <th>Rhein-km von</th>
+          <th>Rhein-km bis</th>
+          <th>Gültig ab</th>
+          <th>Gültig bis</th>
+          <th>Link</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in meldungen %}
+        <tr class="{{ 'is-new' if m.is_new else '' }}">
+
+          <!-- NfB-ID -->
+          <td class="td-id">
+            {{ m.nfb_id }}
+            {% if m.is_new %}
+              <span class="label-new">NEU</span>
+            {% endif %}
+          </td>
+
+          <!-- Titel -->
+          <td class="td-titel">{{ m.titel or "–" }}</td>
+
+          <!-- Rhein-km -->
+          <td class="td-km">
+            {{ "%.1f"|format(m.km_von) if m.km_von is not none else "–" }}
+          </td>
+          <td class="td-km">
+            {{ "%.1f"|format(m.km_bis) if m.km_bis is not none else "–" }}
+          </td>
+
+          <!-- Gültigkeitszeitraum -->
+          <td class="td-date">{{ m.gueltig_ab or "–" }}</td>
+          <td class="td-date">{{ m.gueltig_bis or "–" }}</td>
+
+          <!-- Link -->
+          <td>
+            {% if m.url %}
+            <a class="link-icon" href="{{ m.url }}" target="_blank" rel="noopener">
+              🔗 ELWIS
+            </a>
+            {% else %}
+            –
+            {% endif %}
+          </td>
+
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% else %}
+    <!-- Leer-Zustand -->
+    <div class="empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.5">
+        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+      </svg>
+      <p>Keine aktiven NfBs für Rhein km {{ km_von }}–{{ km_bis }} gefunden.</p>
+      <p style="margin-top:8px;font-size:.82rem;color:#a0aec0;">
+        Der nächste automatische Scan läuft in ≤ 30 Minuten.
+      </p>
+    </div>
+    {% endif %}
+  </div>
+
+</main>
+
+<!-- ── Footer ── -->
+<footer>
+  Datenquelle:
+  <a href="https://www.elwis.de/DE/dynamisch/Nfb/" target="_blank" rel="noopener">
+    ELWIS – Elektronisches Wasserstraßen-Informationssystem
+  </a>
+  &nbsp;·&nbsp; Scan-Intervall: 30 Minuten
+</footer>
+
+<script>
+/**
+ * Manueller Scan: Formular per fetch absenden und Seite nach Abschluss
+ * neu laden – verhindert versehentliche Doppelübermittlung per Reload.
+ */
+function triggerScan(form) {
+  const btn = form.querySelector("button");
+  btn.disabled = true;
+  btn.textContent = "⏳ Läuft …";
+
+  fetch("scan-now", { method: "POST" })
+    .then(r => r.json())
+    .then(data => {
+      btn.textContent = "✅ Fertig";
+      setTimeout(() => location.reload(), 800);
+    })
+    .catch(err => {
+      btn.textContent = "❌ Fehler";
+      btn.disabled = false;
+      console.error("Scan-Fehler:", err);
+    });
+
+  return false;   // Standardformular-Submit unterdrücken
+}
+</script>
+
+</body>
+</html>

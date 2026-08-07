@@ -52,3 +52,4 @@ reffenthal-waechter/run_status.json
 # Replit
 .cache/
 .local/
+nfb-monitor/nfb.db
