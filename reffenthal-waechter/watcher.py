@@ -329,18 +329,14 @@ def _git_commit_state() -> None:
 
         run(["git", "commit", "-m", "chore: Wächter-Zustand aktualisiert [skip ci]"])
 
-        result = run(["git", "push", repo_url, "main"])
+        # Force-Push: Der Wächter hat immer den aktuellsten Zustand (hat gerade gelesen+geschrieben).
+        # Andere Pushes (z.B. Code-Deployments) landen auf anderem Inhalt als den Datendateien,
+        # daher ist ein force-push für die JSON-Datendateien sicher.
+        result = run(["git", "push", "--force", repo_url, "main"])
         if result.returncode == 0:
             git_log.info("Git: Zustand erfolgreich gepusht.")
         else:
-            # Bei Konflikt: fetch + rebase + push
-            run(["git", "fetch", repo_url, "main"])
-            run(["git", "rebase", "FETCH_HEAD"])
-            result2 = run(["git", "push", repo_url, "main"])
-            if result2.returncode == 0:
-                git_log.info("Git: Zustand nach Rebase gepusht.")
-            else:
-                git_log.warning("Git: Push fehlgeschlagen: %s", result2.stderr[:200])
+            git_log.warning("Git: Push fehlgeschlagen: %s", result.stderr[:200])
     except Exception as exc:  # noqa: BLE001
         git_log.warning("Git: Fehler beim State-Commit: %s", exc)
 
