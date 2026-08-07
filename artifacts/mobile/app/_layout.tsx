@@ -119,6 +119,28 @@ if (STATIC_MODE) {
       }
     }
 
+    // /api/nfb → nfb.json auf GitHub (leere Liste als Fallback)
+    if (url.endsWith('/api/nfb')) {
+      try {
+        const r = await rawFetch(`${GITHUB_RAW}/nfb.json`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const raw = await r.json();
+        // nfb.json hat Format { meldungen: [...], count: N }
+        const meldungen = Array.isArray(raw?.meldungen) ? raw.meldungen : [];
+        return new Response(JSON.stringify({ meldungen, count: meldungen.length }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') throw err;
+        // Noch keine nfb.json committed → leere Liste zeigen statt Fehler
+        return new Response(JSON.stringify({ meldungen: [], count: 0 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // /api/waechter/status → run_status.json (404-Fallback wenn nicht committed)
     if (url.endsWith('/api/waechter/status')) {
       try {

@@ -170,6 +170,43 @@ def run_scan() -> None:
 
     logger.info("Scan fertig: %d Treffer, %d davon neu.", len(treffer), neue)
 
+    # nfb.json für GitHub Pages schreiben
+    _export_nfb_json()
+
+
+def _export_nfb_json() -> None:
+    """
+    Schreibt alle aktiven NfBs als nfb.json ins Wächter-Verzeichnis,
+    damit die statische GitHub-Pages-App sie laden kann.
+    """
+    import json
+    threshold_new = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    try:
+        with get_db() as con:
+            rows = con.execute("""
+                SELECT nfb_id, titel, km_von, km_bis, gueltig_ab,
+                       gueltig_bis, url, first_seen,
+                       (first_seen > ?) AS is_new
+                FROM nfb WHERE expired = 0
+                ORDER BY first_seen DESC
+            """, (threshold_new,)).fetchall()
+        meldungen = [dict(r) for r in rows]
+        payload = {"meldungen": meldungen, "count": len(meldungen)}
+
+        # Ziel: reffenthal-waechter/nfb.json (von GitHub Raw gelesen)
+        out_path = os.path.join(
+            os.path.dirname(__file__),   # artifacts/nfb-monitor/
+            "..", "..",                  # → workspace root
+            "reffenthal-waechter",
+            "nfb.json",
+        )
+        out_path = os.path.normpath(out_path)
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        logger.info("nfb.json exportiert: %d Einträge → %s", len(meldungen), out_path)
+    except Exception as exc:
+        logger.warning("nfb.json Export fehlgeschlagen: %s", exc)
+
 
 # ── Flask-Routen ───────────────────────────────────────────────────────────────
 @app.route("/")
