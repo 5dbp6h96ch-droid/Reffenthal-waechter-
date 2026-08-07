@@ -46,10 +46,11 @@ router.get("/waechter/state", async (req, res): Promise<void> => {
         .select()
         .from(pegelHistoryTable)
         .where(gte(pegelHistoryTable.measuredAt, since))
-        .orderBy(desc(pegelHistoryTable.measuredAt))
+        .orderBy(desc(pegelHistoryTable.measuredAt)) // newest-first from DB
         .limit(2000);
 
-      dbHistory = rows.map((r) => ({
+      // Reverse to chronological order (oldest-first) for consistent chart rendering
+      dbHistory = rows.reverse().map((r) => ({
         cm: r.valueCm,
         ts: r.measuredAt.toISOString(),
       }));

@@ -53,8 +53,8 @@ function filterHistory(
 const SCREEN_W = Dimensions.get('window').width;
 const CARD_PADDING = 16;
 const CHART_W = SCREEN_W - CARD_PADDING * 2 - 32; // full card minus side padding
-const CHART_H = 130;
-const PAD = { top: 10, right: 8, bottom: 22, left: 38 };
+const CHART_H = 140;
+const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -142,8 +142,8 @@ function PegelChart({ history, threshold }: PegelChartProps) {
     );
   }
 
-  // History arrives newest-first; reverse to get chronological order
-  const raw = [...history].reverse();
+  // History is chronological (oldest-first) — do NOT reverse
+  const raw = [...history];
   // Downsample: max 200 points for performance
   const step = Math.max(1, Math.floor(raw.length / 200));
   const data = raw.filter((_, i) => i % step === 0);
@@ -151,7 +151,7 @@ function PegelChart({ history, threshold }: PegelChartProps) {
   const cmValues = data.map((d) => d.cm);
   const dataMin = Math.min(...cmValues);
   const dataMax = Math.max(...cmValues);
-  const padding = Math.max(10, (dataMax - dataMin) * 0.15);
+  const padding = Math.max(10, (dataMax - dataMin) * 0.12);
   const minCm = Math.min(dataMin, threshold) - padding;
   const maxCm = Math.max(dataMax, threshold) + padding;
   const range = maxCm - minCm || 1;
@@ -175,16 +175,38 @@ function PegelChart({ history, threshold }: PegelChartProps) {
     ` L${PAD.left.toFixed(1)},${baseY} Z`;
 
   const threshY = toY(threshold);
+  // last entry = newest = rightmost dot
   const lastCm = data[data.length - 1].cm;
   const isAlarm = lastCm < threshold;
   const lineColor = isAlarm ? colors.alarm : colors.safe;
 
-  // Y-axis: show 3 evenly-spaced values
+  // Y-axis: 3 evenly-spaced values
   const yTicks = [
     Math.round(maxCm - padding),
     Math.round((minCm + maxCm) / 2),
     Math.round(minCm + padding),
   ];
+
+  // X-axis time labels (4 evenly-spaced)
+  const startMs = new Date(data[0].ts).getTime();
+  const endMs   = new Date(data[data.length - 1].ts).getTime();
+  const totalMs = endMs - startMs || 1;
+  const totalDays = totalMs / 86_400_000;
+  const xTicks = Array.from({ length: 5 }, (_, i) => {
+    const frac = i / 4;
+    const ms   = startMs + frac * totalMs;
+    const x    = PAD.left + frac * plotW;
+    const d    = new Date(ms);
+    let label: string;
+    if (totalDays <= 8) {
+      label = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+    } else if (totalDays <= 35) {
+      label = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+    } else {
+      label = d.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
+    }
+    return { x, label, anchor: i === 0 ? 'start' : i === 4 ? 'end' : 'middle' };
+  });
 
   return (
     <Svg width={CHART_W} height={CHART_H}>
@@ -220,14 +242,16 @@ function PegelChart({ history, threshold }: PegelChartProps) {
         strokeDasharray="5,3"
         strokeOpacity={0.85}
       />
+      {/* Threshold label — inside right edge to avoid clipping */}
       <SvgText
-        x={CHART_W - PAD.right + 2}
-        y={threshY + 4}
+        x={CHART_W - PAD.right - 2}
+        y={threshY - 3}
         fontSize={8}
         fill={colors.accent}
+        textAnchor="end"
         opacity={0.85}
       >
-        {threshold}
+        {threshold} cm
       </SvgText>
 
       {/* Area fill */}
@@ -243,20 +267,24 @@ function PegelChart({ history, threshold }: PegelChartProps) {
         strokeLinejoin="round"
       />
 
-      {/* Latest point dot */}
-      <Circle
-        cx={toX(n)}
-        cy={toY(lastCm)}
-        r={4}
-        fill={lineColor}
-      />
-      <Circle
-        cx={toX(n)}
-        cy={toY(lastCm)}
-        r={7}
-        fill={lineColor}
-        fillOpacity={0.2}
-      />
+      {/* Latest point dot (rightmost = newest) */}
+      <Circle cx={toX(n)} cy={toY(lastCm)} r={4} fill={lineColor} />
+      <Circle cx={toX(n)} cy={toY(lastCm)} r={7} fill={lineColor} fillOpacity={0.2} />
+
+      {/* X-axis time labels */}
+      {xTicks.map((tick, i) => (
+        <SvgText
+          key={i}
+          x={tick.x}
+          y={CHART_H - 4}
+          fontSize={8}
+          fill={colors.mutedForeground}
+          textAnchor={tick.anchor as 'start' | 'middle' | 'end'}
+          opacity={0.75}
+        >
+          {tick.label}
+        </SvgText>
+      ))}
     </Svg>
   );
 }
