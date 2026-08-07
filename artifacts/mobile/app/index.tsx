@@ -300,6 +300,7 @@ export default function HomeScreen() {
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   const [chartRange, setChartRange] = useState<TimeRange>(30);
+  const [nfbOpen, setNfbOpen] = useState(true);
 
   // Load persisted range on mount
   useEffect(() => {
@@ -1383,8 +1384,10 @@ export default function HomeScreen() {
             gap: 12,
           }}
         >
-          {/* Section header */}
-          <View
+          {/* Section header – anklickbar zum Auf-/Zuklappen */}
+          <TouchableOpacity
+            onPress={() => setNfbOpen(o => !o)}
+            activeOpacity={0.7}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -1414,30 +1417,37 @@ export default function HomeScreen() {
                 km 380–415
               </Text>
             </View>
-            {nfbData != null && nfbData.count > 0 && (
-              <View
-                style={{
-                  backgroundColor: colors.muted,
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                  borderRadius: 99,
-                }}
-              >
-                <Text
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {nfbData != null && nfbData.count > 0 && (
+                <View
                   style={{
-                    fontSize: 11,
-                    fontFamily: 'SpaceGrotesk_600SemiBold',
-                    color: colors.accent,
+                    backgroundColor: colors.muted,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 99,
                   }}
                 >
-                  {nfbData.count}
-                </Text>
-              </View>
-            )}
-          </View>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color: colors.accent,
+                    }}
+                  >
+                    {nfbData.count}
+                  </Text>
+                </View>
+              )}
+              <Feather
+                name={nfbOpen ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={colors.mutedForeground}
+              />
+            </View>
+          </TouchableOpacity>
 
-          {/* NfB content */}
-          {nfbLoading ? (
+          {/* NfB content – nur sichtbar wenn aufgeklappt */}
+          {nfbOpen && (nfbLoading ? (
             <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
               <ActivityIndicator color={colors.primary} />
             </View>
@@ -1638,7 +1648,7 @@ export default function HomeScreen() {
                 </View>
               );
             })
-          )}
+          ))}
         </View>
       </ScrollView>
     </View>
