@@ -54,18 +54,44 @@ if (STATIC_MODE) {
     // leere Daten liefern statt einen Fehler zu werfen.
     const rawFetch = (rawUrl: string) => _origFetch(rawUrl);
 
-    // /api/waechter/state → state.json (+ threshold_cm ergänzen)
+    // /api/waechter/state → state.json + Pegelonline 30-Tage-Verlauf
     if (url.endsWith('/api/waechter/state')) {
       try {
         const r = await rawFetch(`${GITHUB_RAW}/state.json`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json();
+
+        // Pegelonline: 30 Tage Messwerte direkt laden (client-seitig, kein Server nötig)
+        let history: { cm: number; ts: string }[] = Array.isArray(raw?.history) ? raw.history : [];
+        try {
+          const pegelR = await rawFetch(
+            'https://pegelonline.wsv.de/webservices/rest-api/v2/stations/SPEYER/W/measurements.json?start=P30D',
+          );
+          if (pegelR.ok) {
+            const measurements = await pegelR.json();
+            if (Array.isArray(measurements)) {
+              const pegelHistory = (measurements as { timestamp: string; value: number }[]).map(m => ({
+                cm: Math.round(m.value),
+                ts: m.timestamp,
+              }));
+              // Merge: Pegelonline liefert die Basis, state.json-Einträge füllen neuere Lücken
+              const pegelLastMs = pegelHistory.length > 0
+                ? new Date(pegelHistory[pegelHistory.length - 1].ts).getTime()
+                : 0;
+              const stateNewer = history.filter(h => new Date(h.ts).getTime() > pegelLastMs);
+              history = [...pegelHistory, ...stateNewer];
+            }
+          }
+        } catch {
+          // Pegelonline nicht erreichbar – state.json-Verlauf reicht als Fallback
+        }
+
         return new Response(
           JSON.stringify({
             last_pegel_cm: raw?.last_pegel_cm ?? null,
             last_pegel_time: raw?.last_pegel_time ?? null,
             last_daily_report_date: raw?.last_daily_report_date ?? null,
-            history: raw?.history ?? [],
+            history,
             threshold_cm: raw?.threshold_cm ?? 225,
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },

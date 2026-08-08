@@ -67,6 +67,39 @@ def fetch_pegel() -> dict | None:
         return None
 
 
+def fetch_history(days: int = 30) -> list[dict]:
+    """Lädt die historischen Pegel-Messwerte der letzten N Tage von Pegelonline.
+
+    Returns:
+        Liste von {'cm': int, 'ts': str} – chronologisch aufsteigend.
+    """
+    url = (
+        "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/"
+        f"SPEYER/W/measurements.json?start=P{days}D"
+    )
+    headers = {"User-Agent": USER_AGENT}
+    try:
+        response = requests.get(url, headers=headers, timeout=HTTP_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+        history = []
+        for m in data:
+            try:
+                history.append({
+                    "cm": int(round(float(m["value"]))),
+                    "ts": m["timestamp"],
+                })
+            except (KeyError, TypeError, ValueError):
+                continue
+        logger.info(
+            "Pegel: %d historische Messwerte geladen (%d Tage).", len(history), days
+        )
+        return history
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning("Pegel: Historische Daten konnten nicht geladen werden: %s", exc)
+        return []
+
+
 def analyze_pegel(current: dict, state: dict) -> dict:
     """Vergleicht den aktuellen Pegel mit dem gespeicherten Zustand.
 

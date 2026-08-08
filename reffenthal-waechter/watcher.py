@@ -164,6 +164,21 @@ def main() -> None:
     state = storage.load_state(config.STATE_FILE)
     logger.info("Bekannte RSS-Einträge: %d", len(seen))
 
+    # Verlauf aus Pegelonline nachladen wenn er dünn ist (< 1 Tag ≈ 96 Werte)
+    if len(state.get("history", [])) < 96:
+        logger.info("Pegel: Verlauf leer – lade 30 Tage historische Daten von Pegelonline.")
+        hist = pegel.fetch_history(30)
+        if hist:
+            existing_ts = {h["ts"] for h in state.get("history", [])}
+            merged = [h for h in hist if h["ts"] not in existing_ts]
+            merged += state.get("history", [])
+            merged.sort(key=lambda h: h["ts"])
+            state = {**state, "history": merged[-pegel.MAX_HISTORY:]}
+            storage.save_state(config.STATE_FILE, state)
+            logger.info(
+                "Pegel: %d Einträge im Verlauf nach Seeding.", len(state["history"])
+            )
+
     # RSS überwachen
     try:
         seen_before = len(seen)

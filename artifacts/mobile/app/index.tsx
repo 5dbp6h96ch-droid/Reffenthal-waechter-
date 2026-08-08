@@ -306,9 +306,9 @@ export default function HomeScreen() {
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   const [chartRange, setChartRange] = useState<TimeRange>(30);
-  const [newsOpen, setNewsOpen] = useState(true);
-  const [vereineOpen, setVereineOpen] = useState(true);
-  const [nfbOpen, setNfbOpen] = useState(true);
+  const [newsOpen, setNewsOpen] = useState(false);
+  const [vereineOpen, setVereineOpen] = useState(false);
+  const [nfbOpen, setNfbOpen] = useState(false);
 
   // NfB km-Bereich
   const NFB_KM_DEFAULT_VON = 380;
@@ -866,6 +866,525 @@ export default function HomeScreen() {
               threshold={threshold}
             />
           )}
+        </View>
+
+        {/* ── NfB-Meldungen Card ── */}
+        <View
+          ref={nfbCardRef}
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: colors.radius,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: nfbNewCount > 0 ? colors.accent : colors.border,
+            gap: 12,
+          }}
+        >
+          {/* Section header – anklickbar zum Auf-/Zuklappen */}
+          <TouchableOpacity
+            onPress={() => { if (!nfbKmEdit) setNfbOpen(o => !o); }}
+            activeOpacity={0.7}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.mutedForeground,
+                  letterSpacing: 2,
+                  textTransform: 'uppercase',
+                }}
+              >
+                NfB
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {nfbNewCount > 0 && (
+                <View
+                  style={{
+                    backgroundColor: colors.accent,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 99,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontFamily: 'SpaceGrotesk_700Bold',
+                      color: '#FFFFFF',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    {nfbNewCount} NEU
+                  </Text>
+                </View>
+              )}
+              {nfbData != null && nfbData.count > 0 && nfbNewCount === 0 && (
+                <View
+                  style={{
+                    backgroundColor: colors.muted,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 99,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color: colors.accent,
+                    }}
+                  >
+                    {nfbData.count}
+                  </Text>
+                </View>
+              )}
+              <Feather
+                name={nfbOpen ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={nfbNewCount > 0 ? colors.accent : colors.mutedForeground}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Last-updated hint */}
+          {nfbDataUpdatedAt > 0 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -6 }}>
+              {nfbError && (
+                <Feather name="alert-circle" size={11} color="#E8620A" />
+              )}
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: nfbError ? '#E8620A' : colors.mutedForeground,
+                  opacity: nfbError ? 1 : 0.6,
+                }}
+              >
+                {nfbError
+                  ? `Fehler beim Aktualisieren · Stand ${formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}`
+                  : `Aktualisiert ${formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}`}
+              </Text>
+            </View>
+          )}
+
+          {/* km-Bereich – immer sichtbar, editierbar */}
+          {nfbKmEdit ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                backgroundColor: colors.muted,
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+              }}
+            >
+              <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                km
+              </Text>
+              <TextInput
+                value={nfbKmInputVon}
+                onChangeText={setNfbKmInputVon}
+                keyboardType="number-pad"
+                returnKeyType="next"
+                onSubmitEditing={() => nfbKmBisRef.current?.focus()}
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.foreground,
+                  backgroundColor: colors.card,
+                  borderRadius: 6,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  minWidth: 52,
+                  textAlign: 'center',
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+                selectTextOnFocus
+              />
+              <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>–</Text>
+              <TextInput
+                ref={nfbKmBisRef}
+                value={nfbKmInputBis}
+                onChangeText={setNfbKmInputBis}
+                keyboardType="number-pad"
+                returnKeyType="done"
+                onSubmitEditing={applyNfbKm}
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.foreground,
+                  backgroundColor: colors.card,
+                  borderRadius: 6,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  minWidth: 52,
+                  textAlign: 'center',
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+                selectTextOnFocus
+              />
+              <TouchableOpacity
+                onPress={applyNfbKm}
+                style={{
+                  marginLeft: 4,
+                  backgroundColor: colors.primary,
+                  borderRadius: 6,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                }}
+              >
+                <Feather name="check" size={14} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={() => setNfbKmEdit(true)}
+              activeOpacity={0.7}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                alignSelf: 'flex-start',
+                backgroundColor: colors.muted,
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+              }}
+            >
+              <Feather name="map-pin" size={12} color={colors.mutedForeground} />
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontFamily: 'SpaceGrotesk_500Medium',
+                  color: colors.mutedForeground,
+                }}
+              >
+                km {nfbKmVon}–{nfbKmBis}
+              </Text>
+              <Feather name="edit-2" size={11} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          )}
+
+          {/* Benachrichtigungs-Toggle */}
+          {Platform.OS !== 'web' && (
+            <View>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: colors.muted,
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                  {/* Icon and label reflect effective state (user pref + OS permission) */}
+                  <Feather
+                    name={nfbNotifEnabled ? 'bell' : 'bell-off'}
+                    size={13}
+                    color={nfbNotifEnabled ? colors.foreground : colors.mutedForeground}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontFamily: 'SpaceGrotesk_500Medium',
+                      color: colors.foreground,
+                    }}
+                  >
+                    Benachrichtigungen
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color:
+                        nfbNotifEnabled && nfbOsPermission !== 'denied'
+                          ? colors.safe
+                          : colors.mutedForeground,
+                    }}
+                  >
+                    {nfbNotifEnabled && nfbOsPermission !== 'denied' ? 'AN' : 'AUS'}
+                  </Text>
+                </View>
+                {/* Switch always reflects the user's stored preference (not OS state).
+                    This way the user can always explicitly opt out, even when OS is denied. */}
+                <Switch
+                  value={nfbNotifEnabled}
+                  onValueChange={toggleNfbNotif}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+              {/* OS denied hint — shown only when the user wants alerts ON but OS blocks them */}
+              {nfbOsPermission === 'denied' && nfbNotifEnabled && (
+                <TouchableOpacity
+                  onPress={() => void Linking.openSettings()}
+                  activeOpacity={0.7}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    marginTop: 6,
+                    backgroundColor: colors.alarm + '18',
+                    borderRadius: 7,
+                    paddingHorizontal: 10,
+                    paddingVertical: 7,
+                  }}
+                >
+                  <Feather name="alert-circle" size={13} color={colors.alarm} />
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontFamily: 'SpaceGrotesk_400Regular',
+                      color: colors.alarm,
+                      flex: 1,
+                    }}
+                  >
+                    Benachrichtigungen sind in den Systemeinstellungen gesperrt.
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                      backgroundColor: colors.alarm + '28',
+                      borderRadius: 6,
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontFamily: 'SpaceGrotesk_600SemiBold',
+                        color: colors.alarm,
+                      }}
+                    >
+                      Einstellungen öffnen
+                    </Text>
+                    <Feather name="external-link" size={11} color={colors.alarm} />
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* NfB content – nur sichtbar wenn aufgeklappt */}
+          {nfbOpen && (nfbLoading ? (
+            <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : nfbError ? (
+            <TouchableOpacity
+              style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
+              onPress={() => void refetchNfb()}
+            >
+              <Feather name="alert-circle" size={20} color={colors.destructive} />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.destructive,
+                }}
+              >
+                Fehler beim Laden
+              </Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  backgroundColor: colors.muted,
+                  paddingHorizontal: 14,
+                  paddingVertical: 7,
+                  borderRadius: 8,
+                  marginTop: 4,
+                }}
+              >
+                <Feather name="refresh-cw" size={13} color={colors.foreground} />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontFamily: 'SpaceGrotesk_500Medium',
+                    color: colors.foreground,
+                  }}
+                >
+                  Erneut versuchen
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : !nfbData?.meldungen.length ? (
+            <View style={{ alignItems: 'center', paddingVertical: 16, gap: 6 }}>
+              <Feather name="check-circle" size={20} color={colors.mutedForeground} />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.mutedForeground,
+                }}
+              >
+                Keine aktiven Meldungen
+              </Text>
+            </View>
+          ) : (
+            nfbData.meldungen.map((m: NfbMeldung, i: number) => {
+              const isLast = i === nfbData.meldungen.length - 1;
+              const kmRange =
+                m.km_von != null && m.km_bis != null
+                  ? `km ${m.km_von}–${m.km_bis}`
+                  : m.km_von != null
+                    ? `km ${m.km_von}`
+                    : null;
+              const validity =
+                m.gueltig_ab || m.gueltig_bis
+                  ? [m.gueltig_ab, m.gueltig_bis].filter(Boolean).join(' – ')
+                  : null;
+
+              return (
+                <View
+                  key={m.nfb_id}
+                  style={{
+                    paddingVertical: 10,
+                    borderBottomWidth: isLast ? 0 : 1,
+                    borderBottomColor: colors.border,
+                    gap: 6,
+                  }}
+                >
+                  {/* Top row: NfB-ID + "NEU" badge */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontFamily: 'SpaceGrotesk_500Medium',
+                        color: colors.mutedForeground,
+                      }}
+                    >
+                      {m.nfb_id}
+                    </Text>
+                    {m.is_new && (
+                      <View
+                        style={{
+                          backgroundColor: colors.accent + '28',
+                          paddingHorizontal: 7,
+                          paddingVertical: 2,
+                          borderRadius: 99,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 9,
+                            fontFamily: 'SpaceGrotesk_700Bold',
+                            color: colors.accent,
+                            letterSpacing: 1.5,
+                          }}
+                        >
+                          NEU
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Title */}
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color: m.is_new ? colors.foreground : colors.foreground,
+                      lineHeight: 18,
+                    }}
+                  >
+                    {m.titel}
+                  </Text>
+
+                  {/* Meta row: km range + validity */}
+                  {(kmRange || validity) && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {kmRange && (
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <Feather name="map-pin" size={11} color={colors.mutedForeground} />
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontFamily: 'SpaceGrotesk_400Regular',
+                              color: colors.mutedForeground,
+                            }}
+                          >
+                            {kmRange}
+                          </Text>
+                        </View>
+                      )}
+                      {validity && (
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <Feather name="calendar" size={11} color={colors.mutedForeground} />
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontFamily: 'SpaceGrotesk_400Regular',
+                              color: colors.mutedForeground,
+                            }}
+                          >
+                            {validity}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* ELWIS link */}
+                  {m.url && (
+                    <TouchableOpacity
+                      onPress={() => void Linking.openURL(m.url!)}
+                      activeOpacity={0.65}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}
+                    >
+                      <Feather name="external-link" size={11} color={colors.primary} />
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontFamily: 'SpaceGrotesk_500Medium',
+                          color: colors.primary,
+                        }}
+                        numberOfLines={1}
+                      >
+                        ELWIS
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })
+          ))}
         </View>
 
         {/* ── Meta Card ── */}
@@ -1548,524 +2067,6 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* ── NfB-Meldungen Card ── */}
-        <View
-          ref={nfbCardRef}
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: colors.radius,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: nfbNewCount > 0 ? colors.accent : colors.border,
-            gap: 12,
-          }}
-        >
-          {/* Section header – anklickbar zum Auf-/Zuklappen */}
-          <TouchableOpacity
-            onPress={() => { if (!nfbKmEdit) setNfbOpen(o => !o); }}
-            activeOpacity={0.7}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text
-                style={{
-                  fontSize: 10,
-                  fontFamily: 'SpaceGrotesk_600SemiBold',
-                  color: colors.mutedForeground,
-                  letterSpacing: 2,
-                  textTransform: 'uppercase',
-                }}
-              >
-                NfB
-              </Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {nfbNewCount > 0 && (
-                <View
-                  style={{
-                    backgroundColor: colors.accent,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 99,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontFamily: 'SpaceGrotesk_700Bold',
-                      color: '#FFFFFF',
-                      letterSpacing: 1,
-                    }}
-                  >
-                    {nfbNewCount} NEU
-                  </Text>
-                </View>
-              )}
-              {nfbData != null && nfbData.count > 0 && nfbNewCount === 0 && (
-                <View
-                  style={{
-                    backgroundColor: colors.muted,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 99,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontFamily: 'SpaceGrotesk_600SemiBold',
-                      color: colors.accent,
-                    }}
-                  >
-                    {nfbData.count}
-                  </Text>
-                </View>
-              )}
-              <Feather
-                name={nfbOpen ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color={nfbNewCount > 0 ? colors.accent : colors.mutedForeground}
-              />
-            </View>
-          </TouchableOpacity>
-
-          {/* Last-updated hint */}
-          {nfbDataUpdatedAt > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -6 }}>
-              {nfbError && (
-                <Feather name="alert-circle" size={11} color="#E8620A" />
-              )}
-              <Text
-                style={{
-                  fontSize: 10,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: nfbError ? '#E8620A' : colors.mutedForeground,
-                  opacity: nfbError ? 1 : 0.6,
-                }}
-              >
-                {nfbError
-                  ? `Fehler beim Aktualisieren · Stand ${formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}`
-                  : `Aktualisiert ${formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}`}
-              </Text>
-            </View>
-          )}
-
-          {/* km-Bereich – immer sichtbar, editierbar */}
-          {nfbKmEdit ? (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                backgroundColor: colors.muted,
-                borderRadius: 8,
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
-                km
-              </Text>
-              <TextInput
-                value={nfbKmInputVon}
-                onChangeText={setNfbKmInputVon}
-                keyboardType="number-pad"
-                returnKeyType="next"
-                onSubmitEditing={() => nfbKmBisRef.current?.focus()}
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_600SemiBold',
-                  color: colors.foreground,
-                  backgroundColor: colors.card,
-                  borderRadius: 6,
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  minWidth: 52,
-                  textAlign: 'center',
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-                selectTextOnFocus
-              />
-              <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>–</Text>
-              <TextInput
-                ref={nfbKmBisRef}
-                value={nfbKmInputBis}
-                onChangeText={setNfbKmInputBis}
-                keyboardType="number-pad"
-                returnKeyType="done"
-                onSubmitEditing={applyNfbKm}
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_600SemiBold',
-                  color: colors.foreground,
-                  backgroundColor: colors.card,
-                  borderRadius: 6,
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  minWidth: 52,
-                  textAlign: 'center',
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-                selectTextOnFocus
-              />
-              <TouchableOpacity
-                onPress={applyNfbKm}
-                style={{
-                  marginLeft: 4,
-                  backgroundColor: colors.primary,
-                  borderRadius: 6,
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                }}
-              >
-                <Feather name="check" size={14} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={() => setNfbKmEdit(true)}
-              activeOpacity={0.7}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                alignSelf: 'flex-start',
-                backgroundColor: colors.muted,
-                borderRadius: 8,
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-              }}
-            >
-              <Feather name="map-pin" size={12} color={colors.mutedForeground} />
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontFamily: 'SpaceGrotesk_500Medium',
-                  color: colors.mutedForeground,
-                }}
-              >
-                km {nfbKmVon}–{nfbKmBis}
-              </Text>
-              <Feather name="edit-2" size={11} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          )}
-
-          {/* Benachrichtigungs-Toggle */}
-          {Platform.OS !== 'web' && (
-            <View>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  backgroundColor: colors.muted,
-                  borderRadius: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                  {/* Icon and label reflect effective state (user pref + OS permission) */}
-                  <Feather
-                    name={nfbNotifEnabled ? 'bell' : 'bell-off'}
-                    size={13}
-                    color={nfbNotifEnabled ? colors.foreground : colors.mutedForeground}
-                  />
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontFamily: 'SpaceGrotesk_500Medium',
-                      color: colors.foreground,
-                    }}
-                  >
-                    Benachrichtigungen
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontFamily: 'SpaceGrotesk_600SemiBold',
-                      color:
-                        nfbNotifEnabled && nfbOsPermission !== 'denied'
-                          ? colors.safe
-                          : colors.mutedForeground,
-                    }}
-                  >
-                    {nfbNotifEnabled && nfbOsPermission !== 'denied' ? 'AN' : 'AUS'}
-                  </Text>
-                </View>
-                {/* Switch always reflects the user's stored preference (not OS state).
-                    This way the user can always explicitly opt out, even when OS is denied. */}
-                <Switch
-                  value={nfbNotifEnabled}
-                  onValueChange={toggleNfbNotif}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor="#ffffff"
-                />
-              </View>
-              {/* OS denied hint — shown only when the user wants alerts ON but OS blocks them */}
-              {nfbOsPermission === 'denied' && nfbNotifEnabled && (
-                <TouchableOpacity
-                  onPress={() => void Linking.openSettings()}
-                  activeOpacity={0.7}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 6,
-                    marginTop: 6,
-                    backgroundColor: colors.alarm + '18',
-                    borderRadius: 7,
-                    paddingHorizontal: 10,
-                    paddingVertical: 7,
-                  }}
-                >
-                  <Feather name="alert-circle" size={13} color={colors.alarm} />
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontFamily: 'SpaceGrotesk_400Regular',
-                      color: colors.alarm,
-                      flex: 1,
-                    }}
-                  >
-                    Benachrichtigungen sind in den Systemeinstellungen gesperrt.
-                  </Text>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 4,
-                      backgroundColor: colors.alarm + '28',
-                      borderRadius: 6,
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontFamily: 'SpaceGrotesk_600SemiBold',
-                        color: colors.alarm,
-                      }}
-                    >
-                      Einstellungen öffnen
-                    </Text>
-                    <Feather name="external-link" size={11} color={colors.alarm} />
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-
-          {/* NfB content – nur sichtbar wenn aufgeklappt */}
-          {nfbOpen && (nfbLoading ? (
-            <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
-              <ActivityIndicator color={colors.primary} />
-            </View>
-          ) : nfbError ? (
-            <TouchableOpacity
-              style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
-              onPress={() => void refetchNfb()}
-            >
-              <Feather name="alert-circle" size={20} color={colors.destructive} />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.destructive,
-                }}
-              >
-                Fehler beim Laden
-              </Text>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  backgroundColor: colors.muted,
-                  paddingHorizontal: 14,
-                  paddingVertical: 7,
-                  borderRadius: 8,
-                  marginTop: 4,
-                }}
-              >
-                <Feather name="refresh-cw" size={13} color={colors.foreground} />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontFamily: 'SpaceGrotesk_500Medium',
-                    color: colors.foreground,
-                  }}
-                >
-                  Erneut versuchen
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ) : !nfbData?.meldungen.length ? (
-            <View style={{ alignItems: 'center', paddingVertical: 16, gap: 6 }}>
-              <Feather name="check-circle" size={20} color={colors.mutedForeground} />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.mutedForeground,
-                }}
-              >
-                Keine aktiven Meldungen
-              </Text>
-            </View>
-          ) : (
-            nfbData.meldungen.map((m: NfbMeldung, i: number) => {
-              const isLast = i === nfbData.meldungen.length - 1;
-              const kmRange =
-                m.km_von != null && m.km_bis != null
-                  ? `km ${m.km_von}–${m.km_bis}`
-                  : m.km_von != null
-                    ? `km ${m.km_von}`
-                    : null;
-              const validity =
-                m.gueltig_ab || m.gueltig_bis
-                  ? [m.gueltig_ab, m.gueltig_bis].filter(Boolean).join(' – ')
-                  : null;
-
-              return (
-                <View
-                  key={m.nfb_id}
-                  style={{
-                    paddingVertical: 10,
-                    borderBottomWidth: isLast ? 0 : 1,
-                    borderBottomColor: colors.border,
-                    gap: 6,
-                  }}
-                >
-                  {/* Top row: NfB-ID + "NEU" badge */}
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontFamily: 'SpaceGrotesk_500Medium',
-                        color: colors.mutedForeground,
-                      }}
-                    >
-                      {m.nfb_id}
-                    </Text>
-                    {m.is_new && (
-                      <View
-                        style={{
-                          backgroundColor: colors.accent + '28',
-                          paddingHorizontal: 7,
-                          paddingVertical: 2,
-                          borderRadius: 99,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            fontSize: 9,
-                            fontFamily: 'SpaceGrotesk_700Bold',
-                            color: colors.accent,
-                            letterSpacing: 1.5,
-                          }}
-                        >
-                          NEU
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Title */}
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      fontFamily: 'SpaceGrotesk_600SemiBold',
-                      color: m.is_new ? colors.foreground : colors.foreground,
-                      lineHeight: 18,
-                    }}
-                  >
-                    {m.titel}
-                  </Text>
-
-                  {/* Meta row: km range + validity */}
-                  {(kmRange || validity) && (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                      {kmRange && (
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 4,
-                          }}
-                        >
-                          <Feather name="map-pin" size={11} color={colors.mutedForeground} />
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              fontFamily: 'SpaceGrotesk_400Regular',
-                              color: colors.mutedForeground,
-                            }}
-                          >
-                            {kmRange}
-                          </Text>
-                        </View>
-                      )}
-                      {validity && (
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 4,
-                          }}
-                        >
-                          <Feather name="calendar" size={11} color={colors.mutedForeground} />
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              fontFamily: 'SpaceGrotesk_400Regular',
-                              color: colors.mutedForeground,
-                            }}
-                          >
-                            {validity}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-
-                  {/* ELWIS link */}
-                  {m.url && (
-                    <TouchableOpacity
-                      onPress={() => void Linking.openURL(m.url!)}
-                      activeOpacity={0.65}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}
-                    >
-                      <Feather name="external-link" size={11} color={colors.primary} />
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          fontFamily: 'SpaceGrotesk_500Medium',
-                          color: colors.primary,
-                        }}
-                        numberOfLines={1}
-                      >
-                        ELWIS
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })
-          ))}
-        </View>
       </ScrollView>
     </View>
   );

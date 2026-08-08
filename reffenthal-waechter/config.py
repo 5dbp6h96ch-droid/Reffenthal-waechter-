@@ -33,6 +33,9 @@ SEARCH_TERMS: list[str] = [
     "Zufahrt",
     "Einfahrt",
     "Pegel Speyer",
+    "Boot",
+    "Motorboot",
+    "Segelboot",
 ]
 
 # ── Pegel ─────────────────────────────────────────────────────────────────────
