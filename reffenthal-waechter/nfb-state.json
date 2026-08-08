@@ -1,7 +1,33 @@
 {
-  "last_id": 2071,
+  "last_id": 2151,
   "year": 2026,
-  "active": [],
-  "alerted": [],
-  "updated_at": "2026-08-08T00:00:00+00:00"
+  "active": [
+    {
+      "nfb_id": "2026/2136",
+      "titel": "Nachricht wegen Bauarbeiten: Stillliegeverbot",
+      "km_von": 780.5,
+      "km_bis": 780.5,
+      "gueltig_ab": "3. Aug. 2026 00:00\n                                Uhr",
+      "gueltig_bis": "9. Aug. 2026 23:59\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2136",
+      "expired": false,
+      "first_seen": "2026-08-08T15:39:52.686299+00:00"
+    },
+    {
+      "nfb_id": "2026/2137",
+      "titel": "Nachricht wegen Bauarbeiten: Stillliegeverbot",
+      "km_von": 780.5,
+      "km_bis": 780.5,
+      "gueltig_ab": "24. Aug. 2026 00:00\n                                Uhr",
+      "gueltig_bis": "6. Sep. 2026 23:59\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2137",
+      "expired": false,
+      "first_seen": "2026-08-08T15:39:53.046393+00:00"
+    }
+  ],
+  "alerted": [
+    "2026/2136",
+    "2026/2137"
+  ],
+  "updated_at": "2026-08-08T15:39:58.957130+00:00"
 }
