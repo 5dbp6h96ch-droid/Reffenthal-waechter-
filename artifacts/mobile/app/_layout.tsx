@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -14,6 +15,12 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl } from '@workspace/api-client-react';
+// Background-task *registration* (the task *definition* lives in index.js so it
+// runs even on cold-start OS background launches without mounting any views).
+import {
+  registerNfbBackgroundFetch,
+  saveApiBaseUrl,
+} from '@/tasks/nfbBackgroundFetch';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -50,10 +57,10 @@ if (STATIC_MODE) {
     // /api/waechter/state → state.json (+ threshold_cm ergänzen)
     if (url.endsWith('/api/waechter/state')) {
       try {
-        const r = await rawFetch(`${GITHUB_RAW}/state.json`);
+        const r = await rawFetch(`${GITHUB_RAW}/run_status.json`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json();
-        const data = { ...raw, threshold_cm: raw.threshold_cm ?? 225 };
+        const data = { clubs: clubsArr, count: clubsArr.length, known_clubs: KNOWN_CLUBS };
         return new Response(JSON.stringify(data), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -71,13 +78,13 @@ if (STATIC_MODE) {
     // /api/waechter/treffer → seen.json (Array von Strings, HTTP-URLs filtern)
     if (url.endsWith('/api/waechter/treffer')) {
       try {
-        const r = await rawFetch(`${GITHUB_RAW}/seen.json`);
+        const r = await rawFetch(`${GITHUB_RAW}/run_status.json`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const raw: unknown[] = await r.json();
+        const raw = await r.json();
         const urls = Array.isArray(raw)
           ? raw.filter((s): s is string => typeof s === 'string' && s.startsWith('http'))
           : [];
-        const data = { urls, count: urls.length };
+        const data = { clubs: clubsArr, count: clubsArr.length, known_clubs: KNOWN_CLUBS };
         return new Response(JSON.stringify(data), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -102,8 +109,8 @@ if (STATIC_MODE) {
         { name: 'MCK Kurpfalz Mannheim',              icon: '🏙️', url: 'https://www.mck-mannheim.de/' },
       ];
       try {
-        const r = await rawFetch(`${GITHUB_RAW}/clubs_seen.json`);
-        const raw = r.ok ? await r.json() : [];
+        const r = await rawFetch(`${GITHUB_RAW}/run_status.json`);
+        const raw = await r.json();
         const clubsArr = Array.isArray(raw) ? raw : [];
         const data = { clubs: clubsArr, count: clubsArr.length, known_clubs: KNOWN_CLUBS };
         return new Response(JSON.stringify(data), {
@@ -132,10 +139,12 @@ if (STATIC_MODE) {
         if (!isNaN(v) && !isNaN(b)) { kmVon = v; kmBis = b; }
       }
       try {
-        const r = await rawFetch(`${GITHUB_RAW}/nfb.json`);
+        const r = await rawFetch(`${GITHUB_RAW}/run_status.json`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json();
         let meldungen: unknown[] = Array.isArray(raw?.meldungen) ? raw.meldungen : [];
+
+        const NfB_NEW_WINDOW_MS = 24 * 60 * 60 * 1000;
         // Client-seitig nach km filtern wenn Bereich angegeben
         if (kmVon !== null && kmBis !== null) {
           meldungen = meldungen.filter((m: unknown) => {
@@ -171,23 +180,8 @@ if (STATIC_MODE) {
         if (err instanceof Error && err.name === 'AbortError') throw err;
         // run_status.json wird nicht auf GitHub committed → leeren Fallback
         const fallback = { last_run_at: null, rss_new_count: 0, last_error: null };
-        return new Response(JSON.stringify(fallback), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-    }
 
-    return _origFetch(input, init);
-  };
-}
-
-// ── API-Server-Konfiguration (normaler Modus) ─────────────────────────────────
-if (!STATIC_MODE && process.env.EXPO_PUBLIC_DOMAIN) {
-  setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
-}
-
-// ── QueryClient ───────────────────────────────────────────────────────────────
+  const apiBase = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -222,6 +216,12 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
+  useEffect(() => {
+    // Register the NfB background fetch task once the layout mounts.
+    // Errors are swallowed — background fetch is optional.
+    void registerNfbBackgroundFetch();
+  }, []);
+
   if (!fontsLoaded && !fontError) return null;
 
   return (
@@ -238,3 +238,15 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+        const withIsNew = meldungen.map((m) => ({
+          ...m,
+          is_new:
+            typeof m.is_new === 'boolean'
+              ? m.is_new
+              : m.first_seen
+                ? now - new Date(m.first_seen as string).getTime() < NfB_NEW_WINDOW_MS
+                : false,
+        }));
+
+        const now = Date.now();

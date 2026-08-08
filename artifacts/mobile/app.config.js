@@ -29,6 +29,15 @@ module.exports = {
       ['expo-router', { origin }],
       'expo-font',
       'expo-web-browser',
+      [
+        'expo-notifications',
+        {
+          icon: './assets/images/icon.png',
+          color: '#143D45',
+        },
+      ],
+      'expo-task-manager',
+      'expo-background-fetch',
     ],
     experiments: {
       typedRoutes: true,

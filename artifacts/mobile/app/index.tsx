@@ -32,9 +32,8 @@ import {
 } from '@workspace/api-client-react';
 import { useQuery } from '@tanstack/react-query';
 import type { NfbList } from '@workspace/api-client-react';
-import { useColors } from '@/hooks/useColors';
-
-// ─── Time range ──────────────────────────────────────────────────────────────
+// Local type aliases matching the generated API schemas (api-client-react types
+// are not resolved by the mobile tsconfig due to missing project references).
 
 type TimeRange = 7 | 30 | 90;
 const TIME_RANGE_OPTIONS: { label: string; value: TimeRange }[] = [
@@ -421,6 +420,47 @@ export default function HomeScreen() {
     retry: 2,
   });
 
+  // ── NfB notifications ────────────────────────────────────────────────────
+  useNfbNotifications(nfbData?.meldungen);
+
+  // Deep-link: open the NfB section when user taps a notification
+  const scrollRef = useRef<ScrollView>(null);
+  const nfbCardRef = useRef<View>(null);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    let sub: { remove: () => void } | null = null;
+    (async () => {
+      try {
+        const Notifications = await import('expo-notifications');
+        sub = Notifications.addNotificationResponseReceivedListener((response) => {
+          const data = response.notification.request.content.data as { screen?: string };
+          if (data?.screen === 'nfb') {
+            setNfbOpen(true);
+            // Small delay lets the section expand before we scroll
+            setTimeout(() => {
+              nfbCardRef.current?.measureLayout(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                scrollRef.current as any,
+                (_x, y) => scrollRef.current?.scrollTo({ y, animated: true }),
+                () => {},
+              );
+            }, 300);
+          }
+        });
+      } catch {
+        // notifications unavailable – ignore
+      }
+    })();
+    return () => { sub?.remove(); };
+  }, []);
+
+  // Count new notices that overlap the displayed watch range km 380–415
+  const nfbNewCount = nfbData?.meldungen.filter(
+    (m: NfbMeldung) =>
+      m.is_new &&
+      (m.km_von == null || m.km_bis == null || (m.km_von <= 415 && m.km_bis >= 380)),
+  ).length ?? 0;
+
   const isRefreshing = stateRefetching || trefferRefetching || statusRefetching || clubsRefetching || nfbRefetching;
 
   const onRefresh = () => {
@@ -452,6 +492,7 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: topPad + 20,
@@ -1208,7 +1249,7 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            treffer.urls.slice().reverse().slice(0, 10).map((url, i, arr) => {
+            treffer.urls.slice().reverse().slice(0, 10).map((url: string, i: number, arr: string[]) => {
               const isLast = i === arr.length - 1;
               return (
                 <TouchableOpacity
@@ -1382,7 +1423,7 @@ export default function HomeScreen() {
               }
 
               type RowItem = { name: string; icon: string; url: string };
-              const rows: RowItem[] = knownClubs.length > 0 ? knownClubs : findings.slice().reverse().slice(0, 10).map(f => ({
+              const rows: RowItem[] = knownClubs.length > 0 ? knownClubs : findings.slice().reverse().slice(0, 10).map((f: WaechterClubHit) => ({
                 name: f.name, icon: f.icon, url: f.url,
               }));
 
@@ -1457,12 +1498,13 @@ export default function HomeScreen() {
 
         {/* ── NfB-Meldungen Card ── */}
         <View
+          ref={nfbCardRef}
           style={{
             backgroundColor: colors.card,
             borderRadius: colors.radius,
             padding: 16,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: nfbNewCount > 0 ? colors.accent : colors.border,
             gap: 12,
           }}
         >
@@ -1490,7 +1532,28 @@ export default function HomeScreen() {
               </Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {nfbData != null && nfbData.count > 0 && (
+              {nfbNewCount > 0 && (
+                <View
+                  style={{
+                    backgroundColor: colors.accent,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 99,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontFamily: 'SpaceGrotesk_700Bold',
+                      color: '#FFFFFF',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    {nfbNewCount} NEU
+                  </Text>
+                </View>
+              )}
+              {nfbData != null && nfbData.count > 0 && nfbNewCount === 0 && (
                 <View
                   style={{
                     backgroundColor: colors.muted,
@@ -1513,7 +1576,7 @@ export default function HomeScreen() {
               <Feather
                 name={nfbOpen ? 'chevron-up' : 'chevron-down'}
                 size={16}
-                color={colors.mutedForeground}
+                color={nfbNewCount > 0 ? colors.accent : colors.mutedForeground}
               />
             </View>
           </TouchableOpacity>
@@ -1678,7 +1741,7 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            nfbData.meldungen.map((m, i) => {
+            nfbData.meldungen.map((m: NfbMeldung, i: number) => {
               const isLast = i === nfbData.meldungen.length - 1;
               const kmRange =
                 m.km_von != null && m.km_bis != null
@@ -1828,3 +1891,11 @@ export default function HomeScreen() {
     </View>
   );
 }
+
+type NfbMeldung = {
+  nfb_id: string; titel: string; km_von: number | null; km_bis: number | null;
+  gueltig_ab: string | null; gueltig_bis: string | null; url: string | null;
+  first_seen: string; is_new: boolean;
+};
+
+type WaechterClubHit = { name: string; icon: string; url: string; snippet: string; dedup_key: string; seen_at: string };
