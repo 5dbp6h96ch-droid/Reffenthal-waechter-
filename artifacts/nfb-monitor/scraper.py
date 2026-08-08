@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 BASE_URL        = "https://www.elwis.de/DE/dynamisch/Nfb"
 USER_AGENT      = "Mozilla/5.0 (compatible; NfB-Monitor/1.0)"
 
-KM_VON: int     = 380          # Bereich-Untergrenze Rhein-km
-KM_BIS: int     = 435          # Bereich-Obergrenze Rhein-km  (abgestimmt auf Wächter-Bereich)
+KM_VON: int     = 0            # Bereich-Untergrenze – gesamter Rhein (Filterung erfolgt App-seitig)
+KM_BIS: int     = 9999        # Bereich-Obergrenze – gesamter Rhein
 
 MAX_PER_RUN: int        = 80   # Maximale IDs pro Scan-Lauf
 INITIAL_LOOKBACK: int   = 300  # Beim ersten Lauf: wie viele IDs zurückblicken

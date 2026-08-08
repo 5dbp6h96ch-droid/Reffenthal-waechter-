@@ -3,7 +3,7 @@ app.py – NfB-Monitor: Flask-Weboberfläche + APScheduler-Hintergrundjob.
 
 Alle Routen laufen unter dem Prefix /nfb (Replit-Proxy-Pfad).
 Der Hintergrundjob läuft alle 30 Minuten und fragt neue ELWIS-NfBs
-für Rhein km 380–435 ab, gespeichert in einer SQLite-Datenbank.
+für den gesamten Rhein ab (Filterung erfolgt App-seitig), gespeichert in einer SQLite-Datenbank.
 Neue Treffer werden direkt per Telegram gemeldet.
 
 Starten:
