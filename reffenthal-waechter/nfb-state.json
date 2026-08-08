@@ -1,33 +1,55 @@
 {
-  "last_id": 2151,
+  "last_id": 2291,
   "year": 2026,
   "active": [
+    {
+      "nfb_id": "2026/2220",
+      "titel": "Informationsservice wegen andere",
+      "km_von": 424.0,
+      "km_bis": 431.0,
+      "gueltig_ab": "30. Jul. 2026 00:00\n                                Uhr",
+      "gueltig_bis": "30. Nov. 2026 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2220",
+      "first_seen": "2026-08-08T04:58:35.695197+00:00"
+    },
+    {
+      "nfb_id": "2026/2291",
+      "titel": "Informationsservice wegen andere",
+      "km_von": 431.4,
+      "km_bis": 431.4,
+      "gueltig_ab": "7. Aug. 2026 00:00\n                                Uhr",
+      "gueltig_bis": "11. Aug. 2026 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2291",
+      "first_seen": "2026-08-08T05:02:23.840495+00:00"
+    },
     {
       "nfb_id": "2026/2136",
       "titel": "Nachricht wegen Bauarbeiten: Stillliegeverbot",
       "km_von": 780.5,
       "km_bis": 780.5,
-      "gueltig_ab": "3. Aug. 2026 00:00\n                                Uhr",
-      "gueltig_bis": "9. Aug. 2026 23:59\n                                    Uhr",
+      "gueltig_ab": "",
+      "gueltig_bis": "",
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2136",
       "expired": false,
-      "first_seen": "2026-08-08T15:39:52.686299+00:00"
+      "first_seen": "2026-08-08T15:44:34.168351+00:00"
     },
     {
       "nfb_id": "2026/2137",
       "titel": "Nachricht wegen Bauarbeiten: Stillliegeverbot",
       "km_von": 780.5,
       "km_bis": 780.5,
-      "gueltig_ab": "24. Aug. 2026 00:00\n                                Uhr",
-      "gueltig_bis": "6. Sep. 2026 23:59\n                                    Uhr",
+      "gueltig_ab": "",
+      "gueltig_bis": "",
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2137",
       "expired": false,
-      "first_seen": "2026-08-08T15:39:53.046393+00:00"
+      "first_seen": "2026-08-08T15:44:34.168412+00:00"
     }
   ],
   "alerted": [
+    "2026/2220",
+    "2026/2291",
     "2026/2136",
     "2026/2137"
   ],
-  "updated_at": "2026-08-08T15:39:58.957130+00:00"
+  "updated_at": "2026-08-08T15:44:34.168424+00:00"
 }
