@@ -1,14 +1,26 @@
 {
   "meldungen": [
     {
-      "nfb_id": "2026/2220",
-      "titel": "Informationsservice wegen andere",
-      "km_von": 424.0,
-      "km_bis": 431.0,
-      "gueltig_ab": "30. Jul. 2026 00:00\n                                Uhr",
-      "gueltig_bis": "30. Nov. 2026 00:00\n                                    Uhr",
-      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2220",
-      "first_seen": "2026-08-08T04:58:35.695197+00:00"
+      "nfb_id": "2026/2044",
+      "titel": "Nachricht wegen Veranstaltung: Sperre",
+      "km_von": 163.7,
+      "km_bis": 170.0,
+      "gueltig_ab": "11. Aug. 2026 17:45\n                                Uhr",
+      "gueltig_bis": "11. Aug. 2026 20:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2044",
+      "first_seen": "2026-08-08T16:13:02.446953+00:00",
+      "is_new": 1
+    },
+    {
+      "nfb_id": "2026/1996",
+      "titel": "Nachricht wegen Veranstaltung: Sog und Wellenschlag vermeiden, besondere Vorsicht",
+      "km_von": 149.0,
+      "km_bis": 155.9,
+      "gueltig_ab": "9. Aug. 2026 10:45\n                                Uhr",
+      "gueltig_bis": "9. Aug. 2026 13:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/1996",
+      "first_seen": "2026-08-08T16:13:01.932592+00:00",
+      "is_new": 1
     },
     {
       "nfb_id": "2026/2291",
@@ -18,31 +30,21 @@
       "gueltig_ab": "7. Aug. 2026 00:00\n                                Uhr",
       "gueltig_bis": "11. Aug. 2026 00:00\n                                    Uhr",
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2291",
-      "first_seen": "2026-08-08T05:02:23.840495+00:00"
+      "first_seen": "2026-08-08T05:02:23.840495+00:00",
+      "is_new": 1
     },
     {
-      "nfb_id": "2026/2136",
-      "titel": "Nachricht wegen Bauarbeiten: Stillliegeverbot",
-      "km_von": 780.5,
-      "km_bis": 780.5,
-      "gueltig_ab": "",
-      "gueltig_bis": "",
-      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2136",
-      "expired": false,
-      "first_seen": "2026-08-08T15:44:34.168351+00:00"
-    },
-    {
-      "nfb_id": "2026/2137",
-      "titel": "Nachricht wegen Bauarbeiten: Stillliegeverbot",
-      "km_von": 780.5,
-      "km_bis": 780.5,
-      "gueltig_ab": "",
-      "gueltig_bis": "",
-      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2137",
-      "expired": false,
-      "first_seen": "2026-08-08T15:44:34.168412+00:00"
+      "nfb_id": "2026/2220",
+      "titel": "Informationsservice wegen andere",
+      "km_von": 424.0,
+      "km_bis": 431.0,
+      "gueltig_ab": "30. Jul. 2026 00:00\n                                Uhr",
+      "gueltig_bis": "30. Nov. 2026 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2220",
+      "first_seen": "2026-08-08T04:58:35.695197+00:00",
+      "is_new": 1
     }
   ],
   "count": 4,
-  "updated_at": "2026-08-08T16:12:54.829399+00:00"
+  "updated_at": "2026-08-08T16:13:02.966222+00:00"
 }
