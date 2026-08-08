@@ -331,7 +331,9 @@ def _git_commit_state() -> None:
 
         run(["git", "commit", "-m", "chore: Wächter-Zustand aktualisiert [skip ci]"])
 
-        # Push mit Retry: bei Race Condition (remote ahead) rebasen und nochmals versuchen.
+        # Push mit Retry: bei Race Condition (remote ahead) Remote-Stand holen,
+        # hart resetten und Datei-Änderungen neu committen – kein Rebase, der bei
+        # Datei-Konflikten still fehlschlägt und git in einen kaputten Zustand bringt.
         for attempt in range(1, 4):
             result = run(["git", "push", repo_url, "main"])
             if result.returncode == 0:
@@ -341,9 +343,15 @@ def _git_commit_state() -> None:
                 "Git: Push fehlgeschlagen (Versuch %d/3): %s", attempt, result.stderr[:200]
             )
             if attempt < 3:
-                # Neuen Remote-Stand holen und lokalen Commit darüber rebasen.
+                # Etwaigen steckenden Rebase abbrechen, Remote holen, hart resetten,
+                # dann die Datei-Änderungen erneut stagen und committen.
+                run(["git", "rebase", "--abort"])
                 run(["git", "fetch", repo_url, "main"])
-                run(["git", "rebase", "FETCH_HEAD"])
+                run(["git", "reset", "--hard", "FETCH_HEAD"])
+                run(["git", "add", "--force"] + files)
+                needs_commit = run(["git", "diff", "--cached", "--quiet"])
+                if needs_commit.returncode != 0:
+                    run(["git", "commit", "-m", "chore: Wächter-Zustand aktualisiert [skip ci]"])
 
         git_log.error("Git: Push nach 3 Versuchen gescheitert.")
     except Exception as exc:  # noqa: BLE001
