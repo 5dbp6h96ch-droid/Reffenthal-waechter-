@@ -76,6 +76,10 @@ jobs:
           cp "$ICON" "$DIST/apple-touch-icon.png"
           cp "$ICON" "$DIST/favicon.png"
 
+          # Web App Manifest kopieren (wird von Expo nicht automatisch eingebunden)
+          cp artifacts/mobile/public/manifest.webmanifest "$DIST/manifest.webmanifest"
+          echo "✓ manifest.webmanifest kopiert"
+
           # apple-touch-icon, PNG-Favicon und PWA-Meta direkt vor </head> einfügen
           INJECT='<link rel="apple-touch-icon" href="'"$BASE"'/apple-touch-icon.png">'
           INJECT+='<link rel="icon" type="image/png" href="'"$BASE"'/favicon.png">'

@@ -62,6 +62,9 @@ export default function Root({ children }: PropsWithChildren) {
         {/* iOS Home Screen Icon */}
         <link rel="apple-touch-icon" href={ICON_URL} />
 
+        {/* Web App Manifest – erforderlich für Android-PWA-Updates */}
+        <link rel="manifest" href="/Reffenthal-waechter-/manifest.webmanifest" />
+
         <ScrollViewStyleReset />
 
         {/* Service-Worker-Registrierung – nur im Browser (Web-Build) */}

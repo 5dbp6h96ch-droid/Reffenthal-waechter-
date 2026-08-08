@@ -1,0 +1,26 @@
+{
+  "name": "R(h)einschiffer",
+  "short_name": "Rheinschiffer",
+  "description": "Pegelstand-Überwachung · Speyer / Rhein – Niedrigwasser-Alarm für Reffenthal und Altrhein",
+  "start_url": "/Reffenthal-waechter-/",
+  "scope": "/Reffenthal-waechter-/",
+  "display": "standalone",
+  "background_color": "#143D45",
+  "theme_color": "#143D45",
+  "orientation": "portrait-primary",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "/Reffenthal-waechter-/apple-touch-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/Reffenthal-waechter-/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
