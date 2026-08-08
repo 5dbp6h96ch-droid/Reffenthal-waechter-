@@ -457,11 +457,11 @@ export default function HomeScreen() {
     return () => { sub?.remove(); };
   }, []);
 
-  // Count new notices that overlap the displayed watch range km 380–415
+  // Count new notices that overlap the user's selected km range
   const nfbNewCount = nfbData?.meldungen.filter(
     (m: NfbMeldung) =>
       m.is_new &&
-      (m.km_von == null || m.km_bis == null || (m.km_von <= 415 && m.km_bis >= 380)),
+      (m.km_von == null || m.km_bis == null || (m.km_von <= nfbKmBis && m.km_bis >= nfbKmVon)),
   ).length ?? 0;
 
   const isRefreshing = stateRefetching || trefferRefetching || statusRefetching || clubsRefetching || nfbRefetching;
