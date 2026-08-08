@@ -915,11 +915,10 @@ export default function HomeScreen() {
                   fontSize: 10,
                   fontFamily: 'SpaceGrotesk_600SemiBold',
                   color: colors.mutedForeground,
-                  letterSpacing: 2,
-                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
                 }}
               >
-                NfB
+                WSV - Nachrichten für die Binnenschifffahrt
               </Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -1416,43 +1415,6 @@ export default function HomeScreen() {
             overflow: 'hidden',
           }}
         >
-          {/* Schwellenwert */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: 16,
-              paddingVertical: 13,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-              <Feather name="sliders" size={13} color={colors.mutedForeground} />
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontFamily: 'SpaceGrotesk_600SemiBold',
-                  color: colors.mutedForeground,
-                  letterSpacing: 1.5,
-                  textTransform: 'uppercase',
-                }}
-              >
-                Schwellenwert
-              </Text>
-            </View>
-            <Text
-              style={{
-                fontSize: 13,
-                fontFamily: 'SpaceGrotesk_600SemiBold',
-                color: colors.foreground,
-              }}
-            >
-              {threshold} cm
-            </Text>
-          </View>
-
-          <View style={{ height: 1, backgroundColor: colors.border }} />
-
           {/* Letzter Tagesbericht */}
           <View
             style={{
@@ -1538,6 +1500,372 @@ export default function HomeScreen() {
               </Text>
             )}
           </View>
+        </View>
+
+        {/* ── Clubs Card ── */}
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: colors.radius,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            gap: 12,
+          }}
+        >
+          {/* Section header – anklickbar zum Auf-/Zuklappen */}
+          <TouchableOpacity
+            onPress={() => setVereineOpen(o => !o)}
+            activeOpacity={0.7}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 10,
+                fontFamily: 'SpaceGrotesk_600SemiBold',
+                color: colors.mutedForeground,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+              }}
+            >
+              Clubs
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {clubsData != null && clubsData.count > 0 && (
+                <View
+                  style={{
+                    backgroundColor: colors.muted,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 99,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color: colors.accent,
+                    }}
+                  >
+                    {clubsData.count}
+                  </Text>
+                </View>
+              )}
+              <Feather
+                name={vereineOpen ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={colors.mutedForeground}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Clubs content – nur sichtbar wenn aufgeklappt */}
+          {vereineOpen && (clubsLoading ? (
+            <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : clubsError ? (
+            <TouchableOpacity
+              style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
+              onPress={() => void refetchClubs()}
+            >
+              <Feather name="alert-circle" size={20} color={colors.destructive} />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.destructive,
+                }}
+              >
+                Fehler beim Laden
+              </Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  backgroundColor: colors.muted,
+                  paddingHorizontal: 14,
+                  paddingVertical: 7,
+                  borderRadius: 8,
+                  marginTop: 4,
+                }}
+              >
+                <Feather name="refresh-cw" size={13} color={colors.foreground} />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontFamily: 'SpaceGrotesk_500Medium',
+                    color: colors.foreground,
+                  }}
+                >
+                  Erneut versuchen
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            (() => {
+              // Zeige alle überwachten Vereine; Meldungen werden drunter eingeblendet
+              const knownClubs = clubsData?.known_clubs ?? [];
+              const findings = clubsData?.clubs ?? [];
+
+              // Für schnellen Domain-Abgleich
+              const domainOf = (u: string) => {
+                try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; }
+              };
+
+              // Letzten Treffer pro Domain (findings sind chronologisch, letzter = neuester)
+              const latestByDomain = new Map<string, typeof findings[0]>();
+              for (const f of findings) {
+                const d = domainOf(f.url);
+                latestByDomain.set(d, f);
+              }
+
+              type RowItem = { name: string; icon: string; url: string };
+              const rows: RowItem[] = knownClubs.length > 0 ? knownClubs : findings.slice().reverse().slice(0, 10).map((f: WaechterClubHit) => ({
+                name: f.name, icon: f.icon, url: f.url,
+              }));
+
+              return rows.map((club: RowItem, i: number) => {
+                const finding = latestByDomain.get(domainOf(club.url));
+                const isLast = i === rows.length - 1;
+                return (
+                  <TouchableOpacity
+                    key={club.url}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'flex-start',
+                      gap: 10,
+                      paddingVertical: 10,
+                      borderBottomWidth: isLast ? 0 : 1,
+                      borderBottomColor: colors.border,
+                    }}
+                    onPress={() => void Linking.openURL(club.url)}
+                    activeOpacity={0.65}
+                  >
+                    {/* Icon badge */}
+                    <View
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        backgroundColor: finding ? colors.primary + '22' : colors.muted,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Text style={{ fontSize: 16 }}>{club.icon}</Text>
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontFamily: 'SpaceGrotesk_600SemiBold',
+                          color: colors.foreground,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {club.name}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontFamily: 'SpaceGrotesk_400Regular',
+                          color: finding ? colors.mutedForeground : colors.mutedForeground + '88',
+                          marginTop: 2,
+                          lineHeight: 16,
+                        }}
+                        numberOfLines={2}
+                      >
+                        {finding ? finding.snippet : 'Keine aktuellen Meldungen'}
+                      </Text>
+                    </View>
+                    <Feather
+                      name="external-link"
+                      size={14}
+                      color={colors.mutedForeground}
+                      style={{ marginTop: 2 }}
+                    />
+                  </TouchableOpacity>
+                );
+              });
+            })()
+          ))}
+        </View>
+
+        {/* ── NEWS Card ── */}
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: colors.radius,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            gap: 12,
+          }}
+        >
+          {/* Section header – anklickbar zum Auf-/Zuklappen */}
+          <TouchableOpacity
+            onPress={() => setNewsOpen(o => !o)}
+            activeOpacity={0.7}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 10,
+                fontFamily: 'SpaceGrotesk_600SemiBold',
+                color: colors.mutedForeground,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+              }}
+            >
+              NEWS
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {treffer != null && (
+                <View
+                  style={{
+                    backgroundColor: colors.muted,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 99,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color: colors.accent,
+                    }}
+                  >
+                    {treffer.count}
+                  </Text>
+                </View>
+              )}
+              <Feather
+                name={newsOpen ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={colors.mutedForeground}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Treffer content – nur sichtbar wenn aufgeklappt */}
+          {newsOpen && (trefferLoading ? (
+            <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : trefferError ? (
+            <TouchableOpacity
+              style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
+              onPress={() => void refetchTreffer()}
+            >
+              <Feather name="alert-circle" size={20} color={colors.destructive} />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.destructive,
+                }}
+              >
+                Fehler beim Laden
+              </Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  backgroundColor: colors.muted,
+                  paddingHorizontal: 14,
+                  paddingVertical: 7,
+                  borderRadius: 8,
+                  marginTop: 4,
+                }}
+              >
+                <Feather name="refresh-cw" size={13} color={colors.foreground} />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontFamily: 'SpaceGrotesk_500Medium',
+                    color: colors.foreground,
+                  }}
+                >
+                  Erneut versuchen
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : !treffer?.urls.length ? (
+            <View style={{ alignItems: 'center', paddingVertical: 16, gap: 6 }}>
+              <Feather name="inbox" size={20} color={colors.mutedForeground} />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.mutedForeground,
+                }}
+              >
+                Noch keine News
+              </Text>
+            </View>
+          ) : (
+            treffer.urls.slice().reverse().slice(0, 10).map((url: string, i: number, arr: string[]) => {
+              const isLast = i === arr.length - 1;
+              return (
+                <TouchableOpacity
+                  key={`${url}-${i}`}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 10,
+                    paddingVertical: 10,
+                    borderBottomWidth: isLast ? 0 : 1,
+                    borderBottomColor: colors.border,
+                  }}
+                  onPress={() => void Linking.openURL(url)}
+                  activeOpacity={0.65}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontFamily: 'SpaceGrotesk_500Medium',
+                        color: colors.foreground,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {getDomain(url)}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontFamily: 'SpaceGrotesk_400Regular',
+                        color: colors.mutedForeground,
+                        marginTop: 1,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {getPathAndQuery(url)}
+                    </Text>
+                  </View>
+                  <Feather
+                    name="external-link"
+                    size={14}
+                    color={colors.mutedForeground}
+                  />
+                </TouchableOpacity>
+              );
+            })
+          ))}
         </View>
 
         {/* ── Wächter-Status Card ── */}
@@ -1718,372 +2046,6 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : null}
-        </View>
-
-        {/* ── NEWS Card ── */}
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: colors.radius,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-            gap: 12,
-          }}
-        >
-          {/* Section header – anklickbar zum Auf-/Zuklappen */}
-          <TouchableOpacity
-            onPress={() => setNewsOpen(o => !o)}
-            activeOpacity={0.7}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 10,
-                fontFamily: 'SpaceGrotesk_600SemiBold',
-                color: colors.mutedForeground,
-                letterSpacing: 2,
-                textTransform: 'uppercase',
-              }}
-            >
-              NEWS
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {treffer != null && (
-                <View
-                  style={{
-                    backgroundColor: colors.muted,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 99,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontFamily: 'SpaceGrotesk_600SemiBold',
-                      color: colors.accent,
-                    }}
-                  >
-                    {treffer.count}
-                  </Text>
-                </View>
-              )}
-              <Feather
-                name={newsOpen ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color={colors.mutedForeground}
-              />
-            </View>
-          </TouchableOpacity>
-
-          {/* Treffer content – nur sichtbar wenn aufgeklappt */}
-          {newsOpen && (trefferLoading ? (
-            <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
-              <ActivityIndicator color={colors.primary} />
-            </View>
-          ) : trefferError ? (
-            <TouchableOpacity
-              style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
-              onPress={() => void refetchTreffer()}
-            >
-              <Feather name="alert-circle" size={20} color={colors.destructive} />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.destructive,
-                }}
-              >
-                Fehler beim Laden
-              </Text>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  backgroundColor: colors.muted,
-                  paddingHorizontal: 14,
-                  paddingVertical: 7,
-                  borderRadius: 8,
-                  marginTop: 4,
-                }}
-              >
-                <Feather name="refresh-cw" size={13} color={colors.foreground} />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontFamily: 'SpaceGrotesk_500Medium',
-                    color: colors.foreground,
-                  }}
-                >
-                  Erneut versuchen
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ) : !treffer?.urls.length ? (
-            <View style={{ alignItems: 'center', paddingVertical: 16, gap: 6 }}>
-              <Feather name="inbox" size={20} color={colors.mutedForeground} />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.mutedForeground,
-                }}
-              >
-                Noch keine News
-              </Text>
-            </View>
-          ) : (
-            treffer.urls.slice().reverse().slice(0, 10).map((url: string, i: number, arr: string[]) => {
-              const isLast = i === arr.length - 1;
-              return (
-                <TouchableOpacity
-                  key={`${url}-${i}`}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 10,
-                    paddingVertical: 10,
-                    borderBottomWidth: isLast ? 0 : 1,
-                    borderBottomColor: colors.border,
-                  }}
-                  onPress={() => void Linking.openURL(url)}
-                  activeOpacity={0.65}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        fontFamily: 'SpaceGrotesk_500Medium',
-                        color: colors.foreground,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {getDomain(url)}
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontFamily: 'SpaceGrotesk_400Regular',
-                        color: colors.mutedForeground,
-                        marginTop: 1,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {getPathAndQuery(url)}
-                    </Text>
-                  </View>
-                  <Feather
-                    name="external-link"
-                    size={14}
-                    color={colors.mutedForeground}
-                  />
-                </TouchableOpacity>
-              );
-            })
-          ))}
-        </View>
-
-        {/* ── Vereine Card ── */}
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: colors.radius,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-            gap: 12,
-          }}
-        >
-          {/* Section header – anklickbar zum Auf-/Zuklappen */}
-          <TouchableOpacity
-            onPress={() => setVereineOpen(o => !o)}
-            activeOpacity={0.7}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 10,
-                fontFamily: 'SpaceGrotesk_600SemiBold',
-                color: colors.mutedForeground,
-                letterSpacing: 2,
-                textTransform: 'uppercase',
-              }}
-            >
-              Vereine
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {clubsData != null && clubsData.count > 0 && (
-                <View
-                  style={{
-                    backgroundColor: colors.muted,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 99,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontFamily: 'SpaceGrotesk_600SemiBold',
-                      color: colors.accent,
-                    }}
-                  >
-                    {clubsData.count}
-                  </Text>
-                </View>
-              )}
-              <Feather
-                name={vereineOpen ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color={colors.mutedForeground}
-              />
-            </View>
-          </TouchableOpacity>
-
-          {/* Clubs content – nur sichtbar wenn aufgeklappt */}
-          {vereineOpen && (clubsLoading ? (
-            <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
-              <ActivityIndicator color={colors.primary} />
-            </View>
-          ) : clubsError ? (
-            <TouchableOpacity
-              style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
-              onPress={() => void refetchClubs()}
-            >
-              <Feather name="alert-circle" size={20} color={colors.destructive} />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.destructive,
-                }}
-              >
-                Fehler beim Laden
-              </Text>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  backgroundColor: colors.muted,
-                  paddingHorizontal: 14,
-                  paddingVertical: 7,
-                  borderRadius: 8,
-                  marginTop: 4,
-                }}
-              >
-                <Feather name="refresh-cw" size={13} color={colors.foreground} />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontFamily: 'SpaceGrotesk_500Medium',
-                    color: colors.foreground,
-                  }}
-                >
-                  Erneut versuchen
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ) : (
-            (() => {
-              // Zeige alle überwachten Vereine; Meldungen werden drunter eingeblendet
-              const knownClubs = clubsData?.known_clubs ?? [];
-              const findings = clubsData?.clubs ?? [];
-
-              // Für schnellen Domain-Abgleich
-              const domainOf = (u: string) => {
-                try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; }
-              };
-
-              // Letzten Treffer pro Domain (findings sind chronologisch, letzter = neuester)
-              const latestByDomain = new Map<string, typeof findings[0]>();
-              for (const f of findings) {
-                const d = domainOf(f.url);
-                latestByDomain.set(d, f);
-              }
-
-              type RowItem = { name: string; icon: string; url: string };
-              const rows: RowItem[] = knownClubs.length > 0 ? knownClubs : findings.slice().reverse().slice(0, 10).map((f: WaechterClubHit) => ({
-                name: f.name, icon: f.icon, url: f.url,
-              }));
-
-              return rows.map((club: RowItem, i: number) => {
-                const finding = latestByDomain.get(domainOf(club.url));
-                const isLast = i === rows.length - 1;
-                return (
-                  <TouchableOpacity
-                    key={club.url}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'flex-start',
-                      gap: 10,
-                      paddingVertical: 10,
-                      borderBottomWidth: isLast ? 0 : 1,
-                      borderBottomColor: colors.border,
-                    }}
-                    onPress={() => void Linking.openURL(club.url)}
-                    activeOpacity={0.65}
-                  >
-                    {/* Icon badge */}
-                    <View
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        backgroundColor: finding ? colors.primary + '22' : colors.muted,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Text style={{ fontSize: 16 }}>{club.icon}</Text>
-                    </View>
-
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={{
-                          fontSize: 13,
-                          fontFamily: 'SpaceGrotesk_600SemiBold',
-                          color: colors.foreground,
-                        }}
-                        numberOfLines={1}
-                      >
-                        {club.name}
-                      </Text>
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          fontFamily: 'SpaceGrotesk_400Regular',
-                          color: finding ? colors.mutedForeground : colors.mutedForeground + '88',
-                          marginTop: 2,
-                          lineHeight: 16,
-                        }}
-                        numberOfLines={2}
-                      >
-                        {finding ? finding.snippet : 'Keine aktuellen Meldungen'}
-                      </Text>
-                    </View>
-                    <Feather
-                      name="external-link"
-                      size={14}
-                      color={colors.mutedForeground}
-                      style={{ marginTop: 2 }}
-                    />
-                  </TouchableOpacity>
-                );
-              });
-            })()
-          ))}
         </View>
 
         {/* ── iOS Installationsbutton ── */}
