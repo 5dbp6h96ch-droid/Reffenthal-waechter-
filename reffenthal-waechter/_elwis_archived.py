@@ -1,3 +1,8 @@
+# ARCHIVIERT – wird nicht mehr verwendet.
+# Der ELWIS-NfB-Scan wird vollständig vom NfB-Monitor (artifacts/nfb-monitor/app.py) übernommen.
+# Diese Datei bleibt als Referenz erhalten, darf aber nicht importiert oder reaktiviert werden.
+# Umbenennt aus elwis.py am 2026-08-08.
+
 """
 Elwis NfB (Nachrichten für Binnenschiffer) – direktes HTML-Scraping.
 
