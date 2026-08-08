@@ -597,14 +597,12 @@ export default function HomeScreen() {
             />
             <Text
               style={{
-                fontSize: 13,
-                fontFamily: 'SpaceGrotesk_600SemiBold',
-                color: colors.foreground,
-                letterSpacing: 2.5,
-                textTransform: 'uppercase',
+                fontSize: 14,
+                fontFamily: 'SpaceGrotesk_700Bold',
+                color: colors.primary,
               }}
             >
-              Rhein Infos
+              R(h)einschiffer
             </Text>
           </View>
 
@@ -2132,7 +2130,7 @@ export default function HomeScreen() {
                 lineHeight: 18,
               }}
             >
-              So fügst du Rhein Infos zu deinem Home-Bildschirm hinzu:
+              So fügst du R(h)einschiffer zu deinem Home-Bildschirm hinzu:
             </Text>
 
             {/* Schritte */}

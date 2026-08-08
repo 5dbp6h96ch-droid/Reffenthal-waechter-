@@ -22,7 +22,7 @@ export default function Root({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
         />
 
-        <title>Rhein Infos</title>
+        <title>R(h)einschiffer</title>
         <meta
           name="description"
           content="Pegelstand-Überwachung · Speyer / Rhein – Niedrigwasser-Alarm für Reffenthal und Altrhein"
@@ -32,7 +32,7 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Open Graph – für WhatsApp, Telegram, iMessage etc. */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content={APP_URL} />
-        <meta property="og:title" content="Rhein Infos" />
+        <meta property="og:title" content="R(h)einschiffer" />
         <meta
           property="og:description"
           content="Pegelstand-Überwachung · Speyer / Rhein – Niedrigwasser-Alarm für Reffenthal und Altrhein"
@@ -44,7 +44,7 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* Twitter / X Card */}
         <meta name="twitter:card" content="summary" />
-        <meta name="twitter:title" content="Rhein Infos" />
+        <meta name="twitter:title" content="R(h)einschiffer" />
         <meta
           name="twitter:description"
           content="Pegelstand-Überwachung · Speyer / Rhein"
@@ -58,7 +58,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Rhein Infos" />
+        <meta name="apple-mobile-web-app-title" content="R(h)einschiffer" />
         {/* iOS Home Screen Icon */}
         <link rel="apple-touch-icon" href={ICON_URL} />
 

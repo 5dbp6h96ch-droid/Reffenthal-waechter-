@@ -9,7 +9,7 @@ const origin = process.env.EXPO_PUBLIC_ORIGIN || 'https://replit.com/';
 /** @type {import('expo/config').ExpoConfig} */
 module.exports = {
   expo: {
-    name: 'Rhein Infos',
+    name: 'R(h)einschiffer',
     slug: 'mobile',
     version: '1.0.0',
     orientation: 'portrait',
