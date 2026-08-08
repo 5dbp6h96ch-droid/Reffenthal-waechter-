@@ -304,6 +304,7 @@ def _git_commit_state() -> None:
             "reffenthal-waechter/seen.json",
             "reffenthal-waechter/clubs_seen.json",
             "reffenthal-waechter/run_status.json",
+            "reffenthal-waechter/nfb.json",   # vom NfB-Monitor geschrieben
         ]
         run(["git", "add", "--force"] + files)
 
