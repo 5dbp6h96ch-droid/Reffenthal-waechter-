@@ -612,13 +612,12 @@ export default function HomeScreen() {
           {/* Titel – volle Breite */}
           <Text
             style={{
-              fontSize: 56,
+              fontSize: 32,
               fontFamily: 'SpaceGrotesk_700Bold',
               color: colors.primary,
               width: '100%',
               textAlign: 'center',
             }}
-            adjustsFontSizeToFit
             numberOfLines={1}
           >
             R(h)einschiffer
