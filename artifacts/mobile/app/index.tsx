@@ -341,8 +341,8 @@ export default function HomeScreen() {
   }, []);
 
   // NfB km-Bereich
-  const NFB_KM_DEFAULT_VON = 380;
-  const NFB_KM_DEFAULT_BIS = 415;
+  const NFB_KM_DEFAULT_VON = 1;
+  const NFB_KM_DEFAULT_BIS = 440;
   const NFB_KM_KEY = 'nfb_km_range';
   const [nfbKmVon, setNfbKmVon] = useState(NFB_KM_DEFAULT_VON);
   const [nfbKmBis, setNfbKmBis] = useState(NFB_KM_DEFAULT_BIS);
