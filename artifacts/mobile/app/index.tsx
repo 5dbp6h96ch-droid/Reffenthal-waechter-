@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Platform,
   Dimensions,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -465,13 +466,39 @@ export default function HomeScreen() {
 
   const isRefreshing = stateRefetching || trefferRefetching || statusRefetching || clubsRefetching || nfbRefetching;
 
-  const onRefresh = () => {
+  // Dreh-Animation für den Refresh-Button
+  const spinAnim = useRef(new Animated.Value(0)).current;
+  const spinLoop = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    if (isRefreshing) {
+      spinAnim.setValue(0);
+      spinLoop.current = Animated.loop(
+        Animated.timing(spinAnim, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      );
+      spinLoop.current.start();
+    } else {
+      spinLoop.current?.stop();
+      spinAnim.setValue(0);
+    }
+  }, [isRefreshing, spinAnim]);
+
+  const spinInterpolate = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  const onRefresh = useCallback(() => {
     void refetchState();
     void refetchTreffer();
     void refetchStatus();
     void refetchClubs();
     void refetchNfb();
-  };
+  }, [refetchState, refetchTreffer, refetchStatus, refetchClubs, refetchNfb]);
 
   const lastRunAt = waechterStatus?.last_run_at ?? null;
   const lastRunMs = lastRunAt ? Date.now() - new Date(lastRunAt).getTime() : null;
@@ -544,17 +571,33 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          {state?.last_pegel_time ? (
-            <Text
-              style={{
-                fontSize: 11,
-                fontFamily: 'SpaceGrotesk_400Regular',
-                color: colors.mutedForeground,
-              }}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            {state?.last_pegel_time ? (
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.mutedForeground,
+                }}
+              >
+                Speyer · {formatTime(state.last_pegel_time)}
+              </Text>
+            ) : null}
+            <TouchableOpacity
+              onPress={onRefresh}
+              disabled={isRefreshing}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.6}
             >
-              Speyer · {formatTime(state.last_pegel_time)}
-            </Text>
-          ) : null}
+              <Animated.View style={{ transform: [{ rotate: spinInterpolate }] }}>
+                <Feather
+                  name="refresh-cw"
+                  size={16}
+                  color={isRefreshing ? colors.primary : colors.mutedForeground}
+                />
+              </Animated.View>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* ── Pegel Hero Card ── */}
