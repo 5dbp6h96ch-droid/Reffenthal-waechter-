@@ -33,6 +33,7 @@ import {
 } from '@workspace/api-client-react';
 import { useQuery } from '@tanstack/react-query';
 import type { NfbList } from '@workspace/api-client-react';
+import { useNfbNotifications } from '@/hooks/useNfbNotifications';
 // Local type aliases matching the generated API schemas (api-client-react types
 // are not resolved by the mobile tsconfig due to missing project references).
 
