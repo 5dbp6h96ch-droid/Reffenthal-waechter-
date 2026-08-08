@@ -51,11 +51,16 @@ export default function Root({ children }: PropsWithChildren) {
         />
         <meta name="twitter:image" content={ICON_URL} />
 
+        {/* Favicon (PNG) */}
+        <link rel="icon" type="image/png" href={ICON_URL} />
+
         {/* PWA */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Rhein Infos" />
+        {/* iOS Home Screen Icon */}
+        <link rel="apple-touch-icon" href={ICON_URL} />
 
         <ScrollViewStyleReset />
       </head>
