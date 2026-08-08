@@ -14,10 +14,25 @@
  * Task name is exported so callers can unregister if needed.
  */
 
-import * as TaskManager from 'expo-task-manager';
-import * as BackgroundFetch from 'expo-background-fetch';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+
+// expo-task-manager und expo-background-fetch sind native Module die in
+// manchen Expo-Go-Versionen nicht verfügbar sind. Dynamischer Import verhindert
+// einen Crash beim Modulload falls das native Modul fehlt.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let TaskManager: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let BackgroundFetch: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  TaskManager = require('expo-task-manager');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  BackgroundFetch = require('expo-background-fetch');
+} catch {
+  // Nativer Module nicht verfügbar (z.B. Expo Go ohne Background-Task-Support)
+  // → App läuft weiter, nur ohne Hintergrund-Benachrichtigungen
+}
 
 export const NFB_BACKGROUND_TASK = 'nfb-background-fetch';
 
@@ -58,16 +73,17 @@ function overlapsWatchRange(m: NfbMeldungRaw): boolean {
 }
 
 /** Called by the OS in the background. Must return a BackgroundFetchResult. */
-async function backgroundTask(): Promise<BackgroundFetch.BackgroundFetchResult> {
+// Numeric constants so the function can return without a BackgroundFetch reference
+const BG_RESULT_NO_DATA = 1;
+const BG_RESULT_NEW_DATA = 2;
+const BG_RESULT_FAILED   = 3;
+
+async function backgroundTask(): Promise<number> {
+  if (!BackgroundFetch) return BG_RESULT_FAILED;
   try {
     const baseUrl = await AsyncStorage.getItem(API_BASE_URL_KEY).catch(() => null);
-
-    // Determine the NfB API URL: prefer the persisted API server base URL,
-    // fall back to the static GitHub raw source for Pages/offline deployments.
     const nfbUrl = baseUrl ? `${baseUrl}/api/nfb` : STATIC_NfB_URL;
 
-    // AbortSignal.timeout() is not available in React Native — use a manual
-    // AbortController + setTimeout pair instead.
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15_000);
     let res: Response;
@@ -76,7 +92,7 @@ async function backgroundTask(): Promise<BackgroundFetch.BackgroundFetchResult> 
     } finally {
       clearTimeout(timeoutId);
     }
-    if (!res.ok) return BackgroundFetch.BackgroundFetchResult.Failed;
+    if (!res.ok) return BG_RESULT_FAILED;
 
     const json = (await res.json()) as { meldungen?: NfbMeldungRaw[] };
     const rawMeldungen: NfbMeldungRaw[] = Array.isArray(json.meldungen) ? json.meldungen : [];
@@ -94,15 +110,14 @@ async function backgroundTask(): Promise<BackgroundFetch.BackgroundFetchResult> 
     }));
 
     const newInRange = meldungen.filter((m) => m.is_new && overlapsWatchRange(m));
-    if (newInRange.length === 0) return BackgroundFetch.BackgroundFetchResult.NoData;
+    if (newInRange.length === 0) return BG_RESULT_NO_DATA;
 
-    // Deduplicate — same store as the foreground hook
     const raw = await AsyncStorage.getItem(NOTIFIED_IDS_KEY).catch(() => null);
     const notifiedIds: string[] = raw ? (JSON.parse(raw) as string[]) : [];
     const notifiedSet = new Set(notifiedIds);
     const toNotify = newInRange.filter((m) => !notifiedSet.has(m.nfb_id));
 
-    if (toNotify.length === 0) return BackgroundFetch.BackgroundFetchResult.NoData;
+    if (toNotify.length === 0) return BG_RESULT_NO_DATA;
 
     // Dynamic import works in TaskManager context
     const Notifications = await import('expo-notifications');
@@ -110,7 +125,7 @@ async function backgroundTask(): Promise<BackgroundFetch.BackgroundFetchResult> 
     // Explicitly verify notification permission before scheduling.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const perm = (await Notifications.getPermissionsAsync()) as any;
-    if (!perm.granted) return BackgroundFetch.BackgroundFetchResult.NoData;
+    if (!perm.granted) return BG_RESULT_NO_DATA;
 
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
@@ -148,14 +163,18 @@ async function backgroundTask(): Promise<BackgroundFetch.BackgroundFetchResult> 
       JSON.stringify(merged.slice(-500)),
     ).catch(() => {});
 
-    return BackgroundFetch.BackgroundFetchResult.NewData;
+    return BG_RESULT_NEW_DATA;
   } catch {
-    return BackgroundFetch.BackgroundFetchResult.Failed;
+    return BG_RESULT_FAILED;
   }
 }
 
-// Register the task definition at module load time (must be at top level)
-TaskManager.defineTask(NFB_BACKGROUND_TASK, backgroundTask);
+// Task-Definition beim Modulload registrieren — aber nur wenn TaskManager verfügbar.
+try {
+  TaskManager?.defineTask(NFB_BACKGROUND_TASK, backgroundTask);
+} catch {
+  // Kein Crash wenn native Module fehlt
+}
 
 /**
  * Register the periodic background fetch.
@@ -163,20 +182,21 @@ TaskManager.defineTask(NFB_BACKGROUND_TASK, backgroundTask);
  */
 export async function registerNfbBackgroundFetch(): Promise<void> {
   if (Platform.OS === 'web') return;
+  if (!BackgroundFetch || !TaskManager) return; // native module unavailable
   try {
     const status = await BackgroundFetch.getStatusAsync();
     if (
       status === BackgroundFetch.BackgroundFetchStatus.Restricted ||
       status === BackgroundFetch.BackgroundFetchStatus.Denied
     ) {
-      return; // User or system has disabled background fetch
+      return;
     }
     await BackgroundFetch.registerTaskAsync(NFB_BACKGROUND_TASK, {
-      minimumInterval: 15 * 60, // 15 minutes (iOS minimum)
-      stopOnTerminate: false,    // keep running when app is terminated
-      startOnBoot: true,         // restart after device reboot
+      minimumInterval: 15 * 60,
+      stopOnTerminate: false,
+      startOnBoot: true,
     });
   } catch {
-    // Background fetch may already be registered — ignore duplicate registration
+    // Already registered or unavailable — ignore
   }
 }

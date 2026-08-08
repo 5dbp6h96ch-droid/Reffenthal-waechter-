@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 # ── Konfiguration ──────────────────────────────────────────────────────────────
 DB_PATH           = os.path.join(os.path.dirname(__file__), "nfb.db")
+CURSOR_FILE       = os.path.join(os.path.dirname(__file__), "cursor.json")
 PORT              = int(os.environ.get("PORT", 5150))
 URL_PREFIX        = ""                   # Proxy-Prefix /nfb wird von Express bereits abgeschnitten
 SCAN_INTERVAL_MIN = 30                   # Wie oft der Hintergrundjob läuft
@@ -106,15 +107,71 @@ def get_db():
 
 
 # ── Scan-State ─────────────────────────────────────────────────────────────────
+#
+# cursor.json (CURSOR_FILE) speichert last_id pro Jahr außerhalb der SQLite-DB.
+# Dadurch überlebt der Scan-Cursor auch einen kompletten DB-Reset:
+# _load_last_id liest zuerst aus scan_state; findet es dort nichts (frische DB),
+# fällt es auf cursor.json zurück. So nimmt der Scraper den Scan genau dort auf,
+# wo er vor dem Reset aufgehört hat – kein Rückblick, keine doppelten Alerts.
+
+def _read_cursor_file() -> dict:
+    """Liest cursor.json; gibt leeres Dict zurück wenn nicht vorhanden oder fehlerhaft."""
+    import json as _json
+    try:
+        with open(CURSOR_FILE, "r", encoding="utf-8") as f:
+            return _json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def _write_cursor_file(data: dict) -> None:
+    """Schreibt cursor.json atomar (temporäre Datei + rename)."""
+    import json as _json
+    tmp = CURSOR_FILE + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            _json.dump(data, f)
+        os.replace(tmp, CURSOR_FILE)
+    except Exception as exc:
+        logger.warning("cursor.json: Schreiben fehlgeschlagen: %s", exc)
+
+
 def _load_last_id(year: int) -> int:
+    """Liest den Scan-Cursor aus scan_state; fällt auf cursor.json zurück (nach DB-Reset).
+
+    Gibt immer eine nicht-negative ganze Zahl zurück (0 wenn kein Cursor bekannt).
+    """
     with get_db() as con:
         row = con.execute(
             "SELECT value FROM scan_state WHERE key = ?", (f"last_id_{year}",)
         ).fetchone()
-    return int(row["value"]) if row else 0
+    if row:
+        try:
+            return max(0, int(row["value"]))
+        except (ValueError, TypeError):
+            pass
+
+    # Fallback: cursor.json (überlebt DB-Resets)
+    cursor_data = _read_cursor_file()
+    raw = cursor_data.get(str(year), 0)
+    try:
+        fallback = max(0, int(raw))
+    except (ValueError, TypeError):
+        logger.warning("cursor.json: Ungültiger Wert für Jahr %d: %r – ignoriert.", year, raw)
+        fallback = 0
+
+    if fallback:
+        logger.info(
+            "Scan-Cursor aus cursor.json wiederhergestellt: %d/%04d "
+            "(DB war zurückgesetzt).", year, fallback
+        )
+        # Cursor sofort in scan_state schreiben damit Folgescans konsistent sind
+        _save_last_id(year, fallback)
+    return fallback
 
 
 def _save_last_id(year: int, last_id: int) -> None:
+    """Schreibt den Scan-Cursor in scan_state UND cursor.json."""
     with get_db() as con:
         con.execute(
             "INSERT INTO scan_state (key, value) VALUES (?, ?)"
@@ -122,6 +179,11 @@ def _save_last_id(year: int, last_id: int) -> None:
             (f"last_id_{year}", str(last_id)),
         )
         con.commit()
+
+    # cursor.json als externer Fallback nach DB-Reset aktuell halten
+    cursor_data = _read_cursor_file()
+    cursor_data[str(year)] = last_id
+    _write_cursor_file(cursor_data)
 
 
 def _backfill_if_range_changed(year: int) -> None:
@@ -131,16 +193,38 @@ def _backfill_if_range_changed(year: int) -> None:
     mit dem alten, engeren Filter verworfen.  Damit keine aktiven NfBs im neuen
     Bereich dauerhaft fehlen, wird last_id um INITIAL_LOOKBACK zurückgesetzt,
     sodass der nächste Scan-Lauf die IDs mit dem neuen Filter erneut prüft.
+
+    km_bis_config wird auch in cursor.json gespeichert, damit nach einem DB-Reset
+    kein falscher Rückroll ausgelöst wird (leere scan_state-Tabelle ≠ KM_BIS-Änderung).
     """
     km_bis_key = "km_bis_config"
     stored_km_bis_str: str | None = None
 
+    # 1. Zuerst aus scan_state lesen
     with get_db() as con:
         row = con.execute(
             "SELECT value FROM scan_state WHERE key = ?", (km_bis_key,)
         ).fetchone()
         if row:
             stored_km_bis_str = row["value"]
+
+    # 2. Falls scan_state leer ist (frische DB nach Reset): cursor.json als Fallback
+    if stored_km_bis_str is None:
+        cursor_data = _read_cursor_file()
+        stored_km_bis_str = cursor_data.get(km_bis_key)
+        if stored_km_bis_str:
+            logger.info(
+                "km_bis_config aus cursor.json wiederhergestellt: %s "
+                "(DB war zurückgesetzt).", stored_km_bis_str
+            )
+            # Sofort in scan_state schreiben damit der nächste Start konsistent ist
+            with get_db() as con:
+                con.execute(
+                    "INSERT INTO scan_state (key, value) VALUES (?, ?)"
+                    " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (km_bis_key, stored_km_bis_str),
+                )
+                con.commit()
 
     current_km_bis = str(scraper.KM_BIS)
 
@@ -164,6 +248,13 @@ def _backfill_if_range_changed(year: int) -> None:
             (km_bis_key, current_km_bis),
         )
         con.commit()
+
+    # Rückroll und neuen km_bis_config auch in cursor.json spiegeln,
+    # damit der externe Fallback den beabsichtigten Zustand korrekt abbildet.
+    cursor_data = _read_cursor_file()
+    cursor_data[str(year)] = new_last_id
+    cursor_data[km_bis_key] = current_km_bis
+    _write_cursor_file(cursor_data)
 
     logger.info(
         "KM_BIS geändert (%s → %s): Scan-Zeiger zurückgesetzt von %d auf %d "
@@ -306,6 +397,7 @@ def _upsert_nfb(entry: dict) -> bool:
             ))
             con.commit()
             return True
+
 
 
 # ── Telegram-Retry ─────────────────────────────────────────────────────────────
@@ -485,6 +577,12 @@ def run_scan() -> None:
     und exportiert nfb.json für die Mobile-App.
     Wird alle 30 Minuten vom APScheduler aufgerufen.
     Fehler werden geloggt; die Anwendung stürzt nicht ab.
+
+    DB-Reset-Schutz:
+        Der Scan-Cursor (last_id) wird in cursor.json außerhalb der SQLite-DB
+        persistiert. Nach einem DB-Reset liest _load_last_id() den Cursor aus
+        cursor.json zurück, sodass der Scraper genau dort weitermacht wo er
+        vor dem Reset aufgehört hat. Kein Rückblick, keine doppelten Alerts.
     """
     year    = datetime.now().year
     last_id = _load_last_id(year)
