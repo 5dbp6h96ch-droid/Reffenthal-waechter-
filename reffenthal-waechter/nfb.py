@@ -27,7 +27,6 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
-# ── Konfiguration ──────────────────────────────────────────────────────────────
 BASE_URL          = "https://www.elwis.de/DE/dynamisch/Nfb"
 USER_AGENT        = "Mozilla/5.0 (compatible; Reffenthal-Waechter/1.0)"
 MAX_PER_RUN       = 80
@@ -39,10 +38,10 @@ STATE_FILE = os.path.join(_HERE, "nfb-state.json")
 NFB_JSON   = os.path.join(_HERE, "nfb.json")
 
 _DEFAULT_STATE: dict[str, Any] = {
-    "last_id":   0,
-    "year":      datetime.now(timezone.utc).year,
-    "active":    [],
-    "alerted":   [],
+    "last_id":    0,
+    "year":       datetime.now(timezone.utc).year,
+    "active":     [],
+    "alerted":    [],
     "updated_at": "",
 }
 
