@@ -13,6 +13,8 @@ import {
   ActivityIndicator,
   Animated,
   Switch,
+  Modal,
+  Pressable,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -309,6 +311,23 @@ export default function HomeScreen() {
   const [newsOpen, setNewsOpen] = useState(false);
   const [vereineOpen, setVereineOpen] = useState(false);
   const [nfbOpen, setNfbOpen] = useState(false);
+
+  // iOS-Installationsbutton: nur im Safari-Browser auf iPhone/iPad anzeigen,
+  // nicht wenn die App bereits im Standalone-Modus (Home Screen) läuft.
+  const [showIosInstall, setShowIosInstall] = useState(false);
+  const [installModalVisible, setInstallModalVisible] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const isStandalone =
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+    if (isStandalone) return;
+    const ua = navigator.userAgent;
+    const isIosSafari =
+      /iPhone|iPad|iPod/.test(ua) &&
+      /WebKit/.test(ua) &&
+      !/CriOS|FxiOS|OPiOS|mercury/.test(ua);
+    setShowIosInstall(isIosSafari);
+  }, []);
 
   // NfB km-Bereich
   const NFB_KM_DEFAULT_VON = 380;
@@ -2067,7 +2086,205 @@ export default function HomeScreen() {
           ))}
         </View>
 
+        {/* ── iOS Installationsbutton ── */}
+        {showIosInstall && (
+          <TouchableOpacity
+            onPress={() => setInstallModalVisible(true)}
+            activeOpacity={0.75}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              backgroundColor: colors.card,
+              borderRadius: colors.radius,
+              borderWidth: 1,
+              borderColor: colors.border,
+              paddingVertical: 13,
+              paddingHorizontal: 20,
+            }}
+          >
+            <Text style={{ fontSize: 18, lineHeight: 22 }}>📲</Text>
+            <Text
+              style={{
+                fontSize: 14,
+                fontFamily: 'SpaceGrotesk_600SemiBold',
+                color: colors.foreground,
+              }}
+            >
+              Auf iPhone installieren
+            </Text>
+          </TouchableOpacity>
+        )}
+
       </ScrollView>
+
+      {/* ── iOS Installations-Modal ── */}
+      <Modal
+        visible={installModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setInstallModalVisible(false)}
+        statusBarTranslucent
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.55)',
+            justifyContent: 'flex-end',
+          }}
+          onPress={() => setInstallModalVisible(false)}
+        >
+          <Pressable
+            onPress={() => {}}
+            style={{
+              backgroundColor: colors.card,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              paddingTop: 12,
+              paddingBottom: 40,
+              paddingHorizontal: 24,
+            }}
+          >
+            {/* Drag handle */}
+            <View
+              style={{
+                width: 36,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: colors.border,
+                alignSelf: 'center',
+                marginBottom: 20,
+              }}
+            />
+
+            {/* Schließen-Button */}
+            <TouchableOpacity
+              onPress={() => setInstallModalVisible(false)}
+              style={{ position: 'absolute', top: 20, right: 20 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Feather name="x" size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+
+            {/* Titel */}
+            <Text
+              style={{
+                fontSize: 17,
+                fontFamily: 'SpaceGrotesk_700Bold',
+                color: colors.foreground,
+                marginBottom: 6,
+                paddingRight: 32,
+              }}
+            >
+              Auf dem Home-Bildschirm installieren
+            </Text>
+            <Text
+              style={{
+                fontSize: 13,
+                fontFamily: 'SpaceGrotesk_400Regular',
+                color: colors.mutedForeground,
+                marginBottom: 24,
+                lineHeight: 18,
+              }}
+            >
+              So fügst du Rhein Infos zu deinem Home-Bildschirm hinzu:
+            </Text>
+
+            {/* Schritte */}
+            {[
+              {
+                step: '1',
+                icon: '⬆️',
+                text: 'Tippe in Safari auf das\nTeilen-Symbol unten in der Mitte',
+              },
+              {
+                step: '2',
+                icon: '📋',
+                text: 'Scrolle und wähle\n„Zum Home-Bildschirm"',
+              },
+              {
+                step: '3',
+                icon: '✅',
+                text: 'Tippe oben rechts auf\n„Hinzufügen"',
+              },
+            ].map(({ step, icon, text }) => (
+              <View
+                key={step}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  gap: 14,
+                  marginBottom: 18,
+                }}
+              >
+                <View
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 15,
+                    backgroundColor: colors.primary,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    marginTop: 1,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontFamily: 'SpaceGrotesk_700Bold',
+                      color: colors.primaryForeground,
+                    }}
+                  >
+                    {step}
+                  </Text>
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ fontSize: 22, lineHeight: 26 }}>{icon}</Text>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontFamily: 'SpaceGrotesk_400Regular',
+                      color: colors.foreground,
+                      lineHeight: 20,
+                    }}
+                  >
+                    {text}
+                  </Text>
+                </View>
+              </View>
+            ))}
+
+            {/* Hinweis */}
+            <View
+              style={{
+                backgroundColor: colors.muted,
+                borderRadius: 10,
+                padding: 12,
+                marginTop: 4,
+                flexDirection: 'row',
+                gap: 8,
+                alignItems: 'flex-start',
+              }}
+            >
+              <Feather name="info" size={14} color={colors.mutedForeground} style={{ marginTop: 1 }} />
+              <Text
+                style={{
+                  flex: 1,
+                  fontSize: 12,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.mutedForeground,
+                  lineHeight: 17,
+                }}
+              >
+                iOS erfordert, dass du die Installation selbst bestätigst. Die App öffnet sich danach wie eine native App ohne Browser-Leiste.
+              </Text>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
     </View>
   );
 }
