@@ -57,7 +57,7 @@ if (STATIC_MODE) {
     // /api/waechter/state → state.json (+ threshold_cm ergänzen)
     if (url.endsWith('/api/waechter/state')) {
       try {
-        const r = await rawFetch(`${GITHUB_RAW}/run_status.json`);
+        const r = await rawFetch(`${GITHUB_RAW}/state.json`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json();
         return new Response(
