@@ -246,9 +246,12 @@ export default function RootLayout() {
   }, [fontsLoaded, fontError]);
 
   useEffect(() => {
-    // Register the NfB background fetch task once the layout mounts.
-    // Errors are swallowed — background fetch is optional.
+    // Register the NfB background fetch task once the layout mounts and
+    // persist the API base URL so the background task can reach the server
+    // even when no React tree is mounted. Errors are swallowed — background
+    // fetch is optional.
     void registerNfbBackgroundFetch();
+    void saveApiBaseUrl(apiBase);
   }, []);
 
   if (!fontsLoaded && !fontError) return null;
