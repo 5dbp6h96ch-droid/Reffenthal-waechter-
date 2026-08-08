@@ -1,0 +1,70 @@
+Bitte ändere meine bestehende Web-App Reffenthal Wächter. Analysiere zuerst die aktuelle Struktur und nimm ausschließlich die unten genannten Änderungen vor. Bestehende Funktionen, Inhalte, Styles und das responsive Design dürfen nicht unnötig verändert werden.
+
+Website:
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/
+
+Änderungen
+
+1. Sektion „Schwellenwert“ löschen
+
+* Entferne die komplette Sektion „Schwellenwert“ aus der Web-App.
+* Entferne auch alle dazugehörigen UI-Elemente, Texte, Buttons, Karten oder sonstigen sichtbaren Verweise.
+* Falls JavaScript/CSS ausschließlich für diese Sektion verwendet wird, kann es ebenfalls entfernt werden.
+* Andere Funktionen dürfen dadurch nicht beeinträchtigt werden.
+
+2. Sektion „nfb“ umbenennen
+
+* Ändere den Namen/Titel der Sektion „nfb“ in:
+
+„WSV - Nachrichten für die Binnenschifffahrt“
+
+* Die Funktion und die Inhalte der bisherigen nfb-Sektion sollen unverändert bleiben.
+* Nur die Bezeichnung/Titel entsprechend ändern, sofern nicht an anderer Stelle ebenfalls eine Anpassung notwendig ist.
+
+3. Sektion „Wächter“ ganz nach unten verschieben
+
+* Verschiebe die komplette Sektion „Wächter“ an die allerletzte Position der Hauptnavigation bzw. des Seiteninhalts.
+* Sie soll nach allen anderen vorhandenen Sektionen erscheinen.
+* Die Funktionalität der Wächter-Sektion darf sich nicht verändern.
+
+4. „Vereine“ in „Clubs“ umbenennen und verschieben
+
+* Ändere den Namen der Sektion „Vereine“ in:
+
+„Clubs“
+
+* Verschiebe die komplette Sektion „Clubs“ direkt vor die Sektion „News“.
+* Die Inhalte und Funktionen der bisherigen Vereine-Sektion bleiben unverändert.
+* Nur Name und Position ändern.
+
+Gewünschte Reihenfolge
+
+Nach den Änderungen soll die Reihenfolge sinngemäß so aussehen:
+
+[alle bisherigen Sektionen außer „Schwellenwert“]
+
+→ Clubs
+→ News
+→ [weitere vorhandene Sektionen]
+→ Wächter
+
+„Schwellenwert“ darf nicht mehr vorhanden sein.
+
+Wichtig
+
+* Bestehende Datenquellen, Links, APIs und Funktionen nicht verändern.
+* Keine neuen Frameworks oder unnötigen Abhängigkeiten hinzufügen.
+* Responsive Darstellung für iPhone und Desktop beibehalten.
+* Bestehendes Design beibehalten.
+* Keine anderen Sektionen umbenennen oder verschieben.
+* Prüfe nach der Änderung, dass Navigation, interne Verlinkungen und Buttons weiterhin funktionieren.
+* Falls die Navigation separat vom eigentlichen Seiteninhalt aufgebaut ist, passe beide Stellen entsprechend an.
+* Falls „Vereine“ oder „nfb“ an mehreren Stellen als Bezeichnung verwendet werden, aktualisiere die sichtbaren Bezeichnungen konsistent.
+
+Bitte führe die Änderungen direkt im bestehenden Projekt durch.
+
+Am Ende:
+
+1. Liste die tatsächlich geänderten Dateien auf.
+2. Fasse die vier Änderungen kurz zusammen.
+3. Prüfe, dass die App weiterhin fehlerfrei startet.
