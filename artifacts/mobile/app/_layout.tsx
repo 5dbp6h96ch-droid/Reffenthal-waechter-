@@ -242,7 +242,7 @@ if (STATIC_MODE) {
         });
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') throw err;
-        // run_status.json wird nicht auf GitHub committed → leeren Fallback
+        // run_status.json noch nicht committed oder nicht erreichbar → leeren Fallback
         const fallback = { last_run_at: null, rss_new_count: 0, last_error: null };
         return new Response(JSON.stringify(fallback), {
           status: 200,

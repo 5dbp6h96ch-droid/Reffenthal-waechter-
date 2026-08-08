@@ -351,13 +351,19 @@ def _git_commit_state() -> None:
 
 
 if __name__ == "__main__":
+    import os
     import time
 
-    LOOP_INTERVAL_MINUTES = 30
-
-    while True:
+    # GitHub Actions setzt GITHUB_ACTIONS="true" automatisch.
+    # Dort läuft watcher.py als Einmal-Skript (cron alle 30 Min).
+    # Lokal (Replit-Workflow) läuft er als Endlosschleife.
+    if os.environ.get("GITHUB_ACTIONS") == "true":
         main()
-        logger.info(
-            "Nächster Lauf in %d Minuten …", LOOP_INTERVAL_MINUTES
-        )
-        time.sleep(LOOP_INTERVAL_MINUTES * 60)
+    else:
+        LOOP_INTERVAL_MINUTES = 30
+        while True:
+            main()
+            logger.info(
+                "Nächster Lauf in %d Minuten …", LOOP_INTERVAL_MINUTES
+            )
+            time.sleep(LOOP_INTERVAL_MINUTES * 60)
