@@ -609,6 +609,12 @@ export default function HomeScreen() {
             marginBottom: 2,
           }}
         >
+          {/* Logo */}
+          <Image
+            source={require('../assets/images/icon.png')}
+            style={{ width: 64, height: 64, marginBottom: 6 }}
+            resizeMode="contain"
+          />
           {/* Titel – volle Breite */}
           <Text
             style={{
