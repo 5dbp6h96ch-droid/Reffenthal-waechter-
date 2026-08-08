@@ -18,6 +18,7 @@ import clubs
 import config
 import db
 import mck
+import nfb
 import pegel
 import rss
 import storage
@@ -260,9 +261,17 @@ def main() -> None:
         if last_error is None:
             last_error = f"MCK: {exc}"
 
-    # Hinweis: ELWIS-NfB-Scan und Telegram-Alerts werden vollständig vom
-    # NfB-Monitor (artifacts/nfb-monitor/app.py) übernommen.
-    # Kein separater ELWIS-Scan mehr im Wächter → kein Doppel-Scan.
+    # ELWIS NfB-Scan (zuvor im separaten NfB-Monitor)
+    try:
+        nfb_new = nfb.run(
+            telegram_token=config.TELEGRAM_BOT_TOKEN,
+            telegram_chat_id=config.TELEGRAM_CHAT_ID,
+        )
+        logger.info("NfB: %d neue Meldung(en) gesendet.", nfb_new)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("NfB: Unerwarteter Fehler: %s", exc)
+        if last_error is None:
+            last_error = f"NfB: {exc}"
 
     # Pegel überwachen
     try:
@@ -334,7 +343,8 @@ def _git_commit_state() -> None:
             "reffenthal-waechter/seen.json",
             "reffenthal-waechter/clubs_seen.json",
             "reffenthal-waechter/run_status.json",
-            "reffenthal-waechter/nfb.json",   # vom NfB-Monitor geschrieben
+            "reffenthal-waechter/nfb.json",
+            "reffenthal-waechter/nfb-state.json",
             "reffenthal-waechter/mck.json",   # MCK Tankstellenpreise
         ]
         run(["git", "add", "--force"] + files)
