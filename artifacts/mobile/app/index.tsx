@@ -12,6 +12,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Animated,
+  Switch,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -425,7 +426,11 @@ export default function HomeScreen() {
   });
 
   // ── NfB notifications ────────────────────────────────────────────────────
-  useNfbNotifications(nfbData?.meldungen, nfbKmVon, nfbKmBis);
+  const {
+    notifEnabled: nfbNotifEnabled,
+    osPermission: nfbOsPermission,
+    toggleNotifEnabled: toggleNfbNotif,
+  } = useNfbNotifications(nfbData?.meldungen, nfbKmVon, nfbKmBis);
 
   // Deep-link: open the NfB section when user taps a notification
   const scrollRef = useRef<ScrollView>(null);
@@ -1742,6 +1747,112 @@ export default function HomeScreen() {
               </Text>
               <Feather name="edit-2" size={11} color={colors.mutedForeground} />
             </TouchableOpacity>
+          )}
+
+          {/* Benachrichtigungs-Toggle */}
+          {Platform.OS !== 'web' && (
+            <View>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: colors.muted,
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                  {/* Icon and label reflect effective state (user pref + OS permission) */}
+                  <Feather
+                    name={nfbNotifEnabled ? 'bell' : 'bell-off'}
+                    size={13}
+                    color={nfbNotifEnabled ? colors.foreground : colors.mutedForeground}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontFamily: 'SpaceGrotesk_500Medium',
+                      color: colors.foreground,
+                    }}
+                  >
+                    Benachrichtigungen
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color:
+                        nfbNotifEnabled && nfbOsPermission !== 'denied'
+                          ? colors.safe
+                          : colors.mutedForeground,
+                    }}
+                  >
+                    {nfbNotifEnabled && nfbOsPermission !== 'denied' ? 'AN' : 'AUS'}
+                  </Text>
+                </View>
+                {/* Switch always reflects the user's stored preference (not OS state).
+                    This way the user can always explicitly opt out, even when OS is denied. */}
+                <Switch
+                  value={nfbNotifEnabled}
+                  onValueChange={toggleNfbNotif}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+              {/* OS denied hint — shown only when the user wants alerts ON but OS blocks them */}
+              {nfbOsPermission === 'denied' && nfbNotifEnabled && (
+                <TouchableOpacity
+                  onPress={() => void Linking.openSettings()}
+                  activeOpacity={0.7}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    marginTop: 6,
+                    backgroundColor: colors.alarm + '18',
+                    borderRadius: 7,
+                    paddingHorizontal: 10,
+                    paddingVertical: 7,
+                  }}
+                >
+                  <Feather name="alert-circle" size={13} color={colors.alarm} />
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontFamily: 'SpaceGrotesk_400Regular',
+                      color: colors.alarm,
+                      flex: 1,
+                    }}
+                  >
+                    Benachrichtigungen sind in den Systemeinstellungen gesperrt.
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                      backgroundColor: colors.alarm + '28',
+                      borderRadius: 6,
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontFamily: 'SpaceGrotesk_600SemiBold',
+                        color: colors.alarm,
+                      }}
+                    >
+                      Einstellungen öffnen
+                    </Text>
+                    <Feather name="external-link" size={11} color={colors.alarm} />
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
 
           {/* NfB content – nur sichtbar wenn aufgeklappt */}

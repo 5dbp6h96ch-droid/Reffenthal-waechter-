@@ -38,6 +38,8 @@ export const NFB_BACKGROUND_TASK = 'nfb-background-fetch';
 
 /** AsyncStorage key where the API base URL is persisted for background use */
 const API_BASE_URL_KEY = 'nfb_bg_api_base_url';
+/** Must stay in sync with the constant in useNfbNotifications.ts */
+const NOTIF_ENABLED_KEY = 'nfb_notif_enabled_v1';
 
 /** AsyncStorage key where the user's NfB km range is persisted (see index.tsx) */
 const NFB_KM_KEY = 'nfb_km_range';
@@ -98,6 +100,10 @@ const BG_RESULT_FAILED   = 3;
 async function backgroundTask(): Promise<number> {
   if (!BackgroundFetch) return BG_RESULT_FAILED;
   try {
+    // Respect the user's opt-out preference before doing any network work
+    const notifEnabledVal = await AsyncStorage.getItem(NOTIF_ENABLED_KEY).catch(() => null);
+    if (notifEnabledVal === 'false') return BG_RESULT_NO_DATA;
+
     const [baseUrl, kmRange] = await Promise.all([
       AsyncStorage.getItem(API_BASE_URL_KEY).catch(() => null),
       loadKmRange(),

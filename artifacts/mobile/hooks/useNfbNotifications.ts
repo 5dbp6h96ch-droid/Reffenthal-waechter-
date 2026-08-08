@@ -18,14 +18,19 @@
  *   same AsyncStorage value and schedule duplicate notifications.
  *
  * Permission handling:
- *   requestPermissionsAsync is called on every invocation. This is safe—it returns
- *   the current status without prompting again—and handles the case where the user
- *   denied permission initially, then re-enabled it in system settings.
+ *   requestPermissionsAsync is called only when sending notifications. On mount and
+ *   foreground-resume, getPermissionsAsync is called (non-prompting) to keep the
+ *   returned osPermission state current.
+ *
+ * User preference:
+ *   The user can toggle notifications on/off via the returned `toggleNotifEnabled`
+ *   function. The preference is persisted in AsyncStorage under NOTIF_ENABLED_KEY.
+ *   When disabled, no notifications are scheduled even if OS permission is granted.
  *
  * Web: no-ops silently (expo-notifications has partial web support only).
  */
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Platform, AppState, type AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -39,7 +44,11 @@ type NfbMeldung = {
 };
 
 const NOTIFIED_IDS_KEY = 'nfb_notified_ids_v1';
+const NOTIF_ENABLED_KEY = 'nfb_notif_enabled_v1';
 const ANDROID_CHANNEL_ID = 'nfb-alerts';
+
+/** OS-level permission state (non-exhaustive; covers the states we care about). */
+export type OsPermission = 'granted' | 'denied' | 'undetermined' | 'unknown';
 
 /**
  * Returns true when a notice's km range overlaps [watchKmVon, watchKmBis].
@@ -57,12 +66,28 @@ function isInWatchRange(m: NfbMeldung, watchKmVon: number, watchKmBis: number): 
  */
 let processingChain: Promise<void> = Promise.resolve();
 
+/** Resolve a raw permission result object to our OsPermission discriminant. */
+function permResultToOsPermission(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  raw: any,
+): OsPermission {
+  if (raw.granted === true) return 'granted';
+  const status: string = raw.status ?? '';
+  if (status === 'denied') return 'denied';
+  if (status === 'undetermined') return 'undetermined';
+  return 'unknown';
+}
+
 async function scheduleNfbNotifications(
   items: NfbMeldung[],
   watchKmVon: number,
   watchKmBis: number,
+  userEnabled: boolean,
+  onPermissionResolved?: (perm: OsPermission) => void,
 ): Promise<void> {
   if (Platform.OS === 'web') return;
+  // User opted out — do nothing (don't even request permission)
+  if (!userEnabled) return;
 
   try {
     const Notifications = await import('expo-notifications');
@@ -99,6 +124,10 @@ async function scheduleNfbNotifications(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const permResult = (await Notifications.requestPermissionsAsync()) as any;
     const granted: boolean = permResult.granted === true;
+
+    // Feed the resolved permission back to the hook so UI stays in sync
+    // without waiting for the next foreground-resume cycle.
+    onPermissionResolved?.(permResultToOsPermission(permResult));
 
     // Only consider notices within the user's watch range
     const newInRange = items.filter((m) => m.is_new && isInWatchRange(m, watchKmVon, watchKmBis));
@@ -156,51 +185,152 @@ async function scheduleNfbNotifications(
   }
 }
 
+/** Read OS permission state without prompting the user. */
+async function readOsPermission(): Promise<OsPermission> {
+  if (Platform.OS === 'web') return 'unknown';
+  try {
+    const Notifications = await import('expo-notifications');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = (await Notifications.getPermissionsAsync()) as any;
+    if (result.granted === true) return 'granted';
+    // expo-notifications uses 'denied' or 'undetermined' in status field
+    const status: string = result.status ?? '';
+    if (status === 'denied') return 'denied';
+    if (status === 'undetermined') return 'undetermined';
+    return 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
 /** Enqueue a notification-check run onto the serial processing chain */
-function enqueueCheck(items: NfbMeldung[], watchKmVon: number, watchKmBis: number): void {
+function enqueueCheck(
+  items: NfbMeldung[],
+  watchKmVon: number,
+  watchKmBis: number,
+  userEnabled: boolean,
+  onPermissionResolved?: (perm: OsPermission) => void,
+): void {
   processingChain = processingChain.then(() =>
-    scheduleNfbNotifications(items, watchKmVon, watchKmBis),
+    scheduleNfbNotifications(items, watchKmVon, watchKmBis, userEnabled, onPermissionResolved),
   );
+}
+
+export interface NfbNotificationControls {
+  /** Whether the user has opted in to NfB push notifications. */
+  notifEnabled: boolean;
+  /** Current OS-level permission state (does not prompt). */
+  osPermission: OsPermission;
+  /** Toggle the user preference and persist it to AsyncStorage. */
+  toggleNotifEnabled: () => void;
 }
 
 export function useNfbNotifications(
   meldungen: NfbMeldung[] | undefined,
   watchKmVon: number,
   watchKmBis: number,
-) {
-  // Keep the latest meldungen and range accessible in the AppState listener
-  // without triggering unnecessary re-subscriptions.
+): NfbNotificationControls {
+  const [notifEnabled, setNotifEnabled] = useState<boolean>(true);
+  const [osPermission, setOsPermission] = useState<OsPermission>('unknown');
+  // Guard: do not schedule any notifications until the stored preference has
+  // been resolved from AsyncStorage. Prevents the launch-time race where the
+  // hook's default (true) fires a check before a stored 'false' is loaded.
+  const [prefReady, setPrefReady] = useState<boolean>(false);
+
+  // Load persisted user preference on mount
+  useEffect(() => {
+    AsyncStorage.getItem(NOTIF_ENABLED_KEY)
+      .then((val) => {
+        if (val === 'false') setNotifEnabled(false);
+        // Default (null / 'true' / anything else) = enabled
+      })
+      .catch(() => {})
+      .finally(() => setPrefReady(true));
+  }, []);
+
+  // Refresh OS permission state on mount
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    readOsPermission().then(setOsPermission).catch(() => {});
+  }, []);
+
+  // Refresh OS permission state when app comes to foreground
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === 'active') {
+        readOsPermission().then(setOsPermission).catch(() => {});
+      }
+    };
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => sub.remove();
+  }, []);
+
+  // Keep the latest values accessible in effects without triggering re-subscriptions
   const meldungenRef = useRef<NfbMeldung[] | undefined>(meldungen);
   meldungenRef.current = meldungen;
   const watchKmVonRef = useRef(watchKmVon);
   watchKmVonRef.current = watchKmVon;
   const watchKmBisRef = useRef(watchKmBis);
   watchKmBisRef.current = watchKmBis;
+  const notifEnabledRef = useRef(notifEnabled);
+  notifEnabledRef.current = notifEnabled;
+  const prefReadyRef = useRef(prefReady);
+  prefReadyRef.current = prefReady;
 
-  const enqueue = useCallback((items: NfbMeldung[], kmVon: number, kmBis: number) => {
-    enqueueCheck(items, kmVon, kmBis);
-  }, []);
+  // Stable ref so the AppState handler can always call the latest setter
+  const setOsPermissionRef = useRef(setOsPermission);
+  setOsPermissionRef.current = setOsPermission;
 
-  // Run whenever NfB data or the watch range changes
+  const enqueue = useCallback(
+    (items: NfbMeldung[], kmVon: number, kmBis: number, enabled: boolean) => {
+      // Pass setOsPermission so the permission state updates the moment
+      // requestPermissionsAsync() resolves inside scheduleNfbNotifications —
+      // without waiting for the next foreground-resume cycle.
+      enqueueCheck(items, kmVon, kmBis, enabled, (perm) => setOsPermissionRef.current(perm));
+    },
+    [],
+  );
+
+  // Run whenever NfB data, the watch range, or the user preference changes.
+  // Guard on prefReady so we never schedule before the stored preference is known.
   useEffect(() => {
-    if (!meldungen) return;
-    enqueue(meldungen, watchKmVon, watchKmBis);
-  }, [meldungen, watchKmVon, watchKmBis, enqueue]);
+    if (!meldungen || !prefReady) return;
+    enqueue(meldungen, watchKmVon, watchKmBis, notifEnabled);
+  }, [meldungen, watchKmVon, watchKmBis, notifEnabled, prefReady, enqueue]);
 
   // Re-run on every foreground resume so that:
   // a) users who denied then re-enabled permission in system settings get notified
   // b) notices still marked is_new when the user switches back get a second chance
+  // We also gate on prefReady to avoid the launch-time race.
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState === 'active') {
         const current = meldungenRef.current;
-        if (current) enqueue(current, watchKmVonRef.current, watchKmBisRef.current);
+        if (current && prefReadyRef.current) {
+          enqueue(
+            current,
+            watchKmVonRef.current,
+            watchKmBisRef.current,
+            notifEnabledRef.current,
+          );
+        }
       }
     };
 
     const sub = AppState.addEventListener('change', handleAppStateChange);
     return () => sub.remove();
   }, [enqueue]);
+
+  const toggleNotifEnabled = useCallback(() => {
+    setNotifEnabled((prev) => {
+      const next = !prev;
+      AsyncStorage.setItem(NOTIF_ENABLED_KEY, String(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  return { notifEnabled, osPermission, toggleNotifEnabled };
 }
