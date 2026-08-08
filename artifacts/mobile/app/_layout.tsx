@@ -83,7 +83,7 @@ if (STATIC_MODE) {
     // /api/waechter/treffer → seen.json (Array von Strings, HTTP-URLs filtern)
     if (url.endsWith('/api/waechter/treffer')) {
       try {
-        const r = await rawFetch(`${GITHUB_RAW}/run_status.json`);
+        const r = await rawFetch(`${GITHUB_RAW}/seen.json`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json();
         const urls = Array.isArray(raw)
@@ -113,7 +113,7 @@ if (STATIC_MODE) {
         { name: 'MCK Kurpfalz Mannheim',              icon: '🏙️', url: 'https://www.mck-mannheim.de/' },
       ];
       try {
-        const r = await rawFetch(`${GITHUB_RAW}/run_status.json`);
+        const r = await rawFetch(`${GITHUB_RAW}/clubs_seen.json`);
         const raw = await r.json();
         const clubsArr = Array.isArray(raw) ? raw : [];
         const data = { clubs: clubsArr, count: clubsArr.length, known_clubs: KNOWN_CLUBS };
@@ -143,7 +143,7 @@ if (STATIC_MODE) {
         if (!isNaN(v) && !isNaN(b)) { kmVon = v; kmBis = b; }
       }
       try {
-        const r = await rawFetch(`${GITHUB_RAW}/run_status.json`);
+        const r = await rawFetch(`${GITHUB_RAW}/nfb.json`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json();
         let meldungen: unknown[] = Array.isArray(raw?.meldungen) ? raw.meldungen : [];
