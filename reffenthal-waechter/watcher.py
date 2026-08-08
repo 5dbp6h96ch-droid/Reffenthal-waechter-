@@ -351,4 +351,13 @@ def _git_commit_state() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import time
+
+    LOOP_INTERVAL_MINUTES = 30
+
+    while True:
+        main()
+        logger.info(
+            "Nächster Lauf in %d Minuten …", LOOP_INTERVAL_MINUTES
+        )
+        time.sleep(LOOP_INTERVAL_MINUTES * 60)

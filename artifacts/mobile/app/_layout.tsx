@@ -54,7 +54,7 @@ if (STATIC_MODE) {
     // leere Daten liefern statt einen Fehler zu werfen.
     const rawFetch = (rawUrl: string) => _origFetch(rawUrl);
 
-    // /api/waechter/state → state.json + Pegelonline 30-Tage-Verlauf
+    // /api/waechter/state → state.json + Pegelonline aktueller Wert + 30-Tage-Verlauf
     if (url.endsWith('/api/waechter/state')) {
       try {
         const r = await rawFetch(`${GITHUB_RAW}/state.json`);
@@ -63,6 +63,26 @@ if (STATIC_MODE) {
 
         // Pegelonline: 30 Tage Messwerte direkt laden (client-seitig, kein Server nötig)
         let history: { cm: number; ts: string }[] = Array.isArray(raw?.history) ? raw.history : [];
+
+        // Aktuellen Messwert direkt von Pegelonline holen – unabhängig davon ob der
+        // Wächter läuft oder state.json veraltet ist.
+        let livePegelCm: number | null = raw?.last_pegel_cm ?? null;
+        let livePegelTime: string | null = raw?.last_pegel_time ?? null;
+        try {
+          const currentR = await rawFetch(
+            'https://pegelonline.wsv.de/webservices/rest-api/v2/stations/SPEYER/W/currentmeasurement.json',
+          );
+          if (currentR.ok) {
+            const cm = await currentR.json() as { value?: number; timestamp?: string };
+            if (typeof cm.value === 'number' && cm.timestamp) {
+              livePegelCm = Math.round(cm.value);
+              livePegelTime = cm.timestamp;
+            }
+          }
+        } catch {
+          // Pegelonline nicht erreichbar – state.json-Wert als Fallback
+        }
+
         try {
           const pegelR = await rawFetch(
             'https://pegelonline.wsv.de/webservices/rest-api/v2/stations/SPEYER/W/measurements.json?start=P30D',
@@ -88,8 +108,8 @@ if (STATIC_MODE) {
 
         return new Response(
           JSON.stringify({
-            last_pegel_cm: raw?.last_pegel_cm ?? null,
-            last_pegel_time: raw?.last_pegel_time ?? null,
+            last_pegel_cm: livePegelCm,
+            last_pegel_time: livePegelTime,
             last_daily_report_date: raw?.last_daily_report_date ?? null,
             history,
             threshold_cm: raw?.threshold_cm ?? 225,
