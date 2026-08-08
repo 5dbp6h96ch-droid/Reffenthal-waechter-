@@ -579,34 +579,37 @@ export default function HomeScreen() {
         {/* ── Header ── */}
         <View
           style={{
-            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: 'center',
+            paddingVertical: 10,
             marginBottom: 2,
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {/* Live status dot */}
-            <View
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: 4,
-                backgroundColor: statusColor,
-              }}
-            />
-            <Text
-              style={{
-                fontSize: 14,
-                fontFamily: 'SpaceGrotesk_700Bold',
-                color: colors.primary,
-              }}
-            >
-              R(h)einschiffer
-            </Text>
-          </View>
+          {/* Zentrierter Titel */}
+          <Text
+            style={{
+              fontSize: 28,
+              fontFamily: 'SpaceGrotesk_700Bold',
+              color: colors.primary,
+            }}
+            adjustsFontSizeToFit
+            numberOfLines={1}
+          >
+            R(h)einschiffer
+          </Text>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {/* Refresh + Uhrzeit – absolut rechts, damit Titel wirklich mittig bleibt */}
+          <View
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: 0,
+              bottom: 0,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
             {state?.last_pegel_time ? (
               <Text
                 style={{
@@ -615,7 +618,7 @@ export default function HomeScreen() {
                   color: colors.mutedForeground,
                 }}
               >
-                Speyer · {formatTime(state.last_pegel_time)}
+                {formatTime(state.last_pegel_time)}
               </Text>
             ) : null}
             <TouchableOpacity
