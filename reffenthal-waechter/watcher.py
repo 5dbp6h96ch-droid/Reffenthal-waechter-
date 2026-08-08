@@ -298,16 +298,7 @@ def _git_commit_state() -> None:
         run(["git", "config", "user.email", "waechter@replit.local"])
         run(["git", "config", "user.name", "Reffenthal-Wächter"])
 
-        # Remote-Stand holen und als Basis für unseren Commit übernehmen.
-        # -X ours: bei Konflikten (extrem unwahrscheinlich, da disjunkte Dateien)
-        #          gewinnen unsere Änderungen.
-        run(["git", "fetch", repo_url, "main"])
-        run(["git", "merge", "FETCH_HEAD", "--no-edit", "-X", "ours",
-             "--allow-unrelated-histories"])
-
         # Nur eigene Zustandsdateien stagen.
-        # nfb.json wird vom NfB-Monitor via GitHub Contents API verwaltet
-        # und darf hier nicht überschrieben werden.
         files = [
             "reffenthal-waechter/state.json",
             "reffenthal-waechter/seen.json",
@@ -324,12 +315,21 @@ def _git_commit_state() -> None:
 
         run(["git", "commit", "-m", "chore: Wächter-Zustand aktualisiert [skip ci]"])
 
-        # Normaler push (kein --force): Remote-Stand wurde bereits via merge eingearbeitet.
-        result = run(["git", "push", repo_url, "main"])
-        if result.returncode == 0:
-            git_log.info("Git: Zustand erfolgreich gepusht.")
-        else:
-            git_log.warning("Git: Push fehlgeschlagen: %s", result.stderr[:200])
+        # Push mit Retry: bei Race Condition (remote ahead) rebasen und nochmals versuchen.
+        for attempt in range(1, 4):
+            result = run(["git", "push", repo_url, "main"])
+            if result.returncode == 0:
+                git_log.info("Git: Zustand erfolgreich gepusht (Versuch %d).", attempt)
+                return
+            git_log.warning(
+                "Git: Push fehlgeschlagen (Versuch %d/3): %s", attempt, result.stderr[:200]
+            )
+            if attempt < 3:
+                # Neuen Remote-Stand holen und lokalen Commit darüber rebasen.
+                run(["git", "fetch", repo_url, "main"])
+                run(["git", "rebase", "FETCH_HEAD"])
+
+        git_log.error("Git: Push nach 3 Versuchen gescheitert.")
     except Exception as exc:  # noqa: BLE001
         git_log.warning("Git: Fehler beim State-Commit: %s", exc)
 
