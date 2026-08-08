@@ -17,6 +17,7 @@ from datetime import datetime
 import clubs
 import config
 import db
+import mck
 import pegel
 import rss
 import storage
@@ -245,6 +246,20 @@ def main() -> None:
         if last_error is None:
             last_error = f"Clubs: {exc}"
 
+    # MCK Tankstellenpreise aktualisieren
+    try:
+        import json as _json
+        import os as _os
+        mck_data = mck.fetch_prices()
+        mck_path = _os.path.join(_os.path.dirname(__file__), "mck.json")
+        with open(mck_path, "w", encoding="utf-8") as _f:
+            _json.dump(mck_data, _f, ensure_ascii=False, indent=2)
+        logger.info("MCK: Preise gespeichert (%s).", mck_path)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("MCK: Fehler beim Preis-Abruf: %s", exc)
+        if last_error is None:
+            last_error = f"MCK: {exc}"
+
     # Hinweis: ELWIS-NfB-Scan und Telegram-Alerts werden vollständig vom
     # NfB-Monitor (artifacts/nfb-monitor/app.py) übernommen.
     # Kein separater ELWIS-Scan mehr im Wächter → kein Doppel-Scan.
@@ -320,6 +335,7 @@ def _git_commit_state() -> None:
             "reffenthal-waechter/clubs_seen.json",
             "reffenthal-waechter/run_status.json",
             "reffenthal-waechter/nfb.json",   # vom NfB-Monitor geschrieben
+            "reffenthal-waechter/mck.json",   # MCK Tankstellenpreise
         ]
         run(["git", "add", "--force"] + files)
 

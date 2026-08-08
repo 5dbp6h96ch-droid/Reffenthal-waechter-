@@ -251,6 +251,33 @@ if (STATIC_MODE) {
       }
     }
 
+    // /api/mck → mck.json (MCK Kurpfalz Mannheim Tankstellenpreise)
+    if (url.endsWith('/api/mck')) {
+      try {
+        const r = await rawFetch(`${GITHUB_RAW}/mck.json`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const raw = await r.json();
+        return new Response(JSON.stringify(raw), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') throw err;
+        return new Response(
+          JSON.stringify({
+            source: 'MCK Kurpfalz Mannheim',
+            petrol: null,
+            diesel: null,
+            unit: '€/l',
+            sourceDate: null,
+            checkedAt: null,
+            error: 'Nicht erreichbar',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+
     // Alle anderen Fetches → normaler Browser-Fetch
     return _origFetch(input, init);
   };

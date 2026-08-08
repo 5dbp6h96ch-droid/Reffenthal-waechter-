@@ -312,6 +312,7 @@ export default function HomeScreen() {
   const [newsOpen, setNewsOpen] = useState(false);
   const [vereineOpen, setVereineOpen] = useState(false);
   const [nfbOpen, setNfbOpen] = useState(false);
+  const [mckOpen, setMckOpen] = useState(false);
 
   // HVZ-Vorhersage: Cache-Busting-Timestamp, aktualisiert alle 5 Min (= HVZ-Takt)
   const [hvzTs, setHvzTs] = useState(() => Math.floor(Date.now() / 300_000));
@@ -456,6 +457,26 @@ export default function HomeScreen() {
     retry: 2,
   });
 
+  // MCK Tankstellenpreise
+  const {
+    data: mckData,
+    isLoading: mckLoading,
+    isError: mckIsError,
+    refetch: refetchMck,
+    isRefetching: mckRefetching,
+  } = useQuery<MckData>({
+    queryKey: ['mck'],
+    queryFn: async () => {
+      const res = await fetch(`${nfbApiBase}/api/mck`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json() as Promise<MckData>;
+    },
+    staleTime: 60 * 60_000,
+    refetchInterval: 60 * 60_000,
+    refetchIntervalInBackground: false,
+    retry: 2,
+  });
+
   // ── NfB notifications ────────────────────────────────────────────────────
   const {
     notifEnabled: nfbNotifEnabled,
@@ -501,7 +522,7 @@ export default function HomeScreen() {
       (m.km_von == null || m.km_bis == null || (m.km_von <= nfbKmBis && m.km_bis >= nfbKmVon)),
   ).length ?? 0;
 
-  const isRefreshing = stateRefetching || trefferRefetching || statusRefetching || clubsRefetching || nfbRefetching;
+  const isRefreshing = stateRefetching || trefferRefetching || statusRefetching || clubsRefetching || nfbRefetching || mckRefetching;
 
   // Dreh-Animation für den Refresh-Button
   const spinAnim = useRef(new Animated.Value(0)).current;
@@ -535,7 +556,8 @@ export default function HomeScreen() {
     void refetchStatus();
     void refetchClubs();
     void refetchNfb();
-  }, [refetchState, refetchTreffer, refetchStatus, refetchClubs, refetchNfb]);
+    void refetchMck();
+  }, [refetchState, refetchTreffer, refetchStatus, refetchClubs, refetchNfb, refetchMck]);
 
   const lastRunAt = waechterStatus?.last_run_at ?? null;
   const lastRunMs = lastRunAt ? Date.now() - new Date(lastRunAt).getTime() : null;
@@ -1485,6 +1507,120 @@ export default function HomeScreen() {
           ))}
         </View>
 
+        {/* ── MCK Tankstelle Card ── */}
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: colors.radius,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            gap: 12,
+          }}
+        >
+          {/* Header */}
+          <TouchableOpacity
+            onPress={() => { if (!mckOpen) void refetchMck(); setMckOpen(o => !o); }}
+            activeOpacity={0.7}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <Text
+              style={{
+                fontSize: 10,
+                fontFamily: 'SpaceGrotesk_600SemiBold',
+                color: colors.mutedForeground,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+              }}
+            >
+              ⛽ MCK Tankstelle
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {!mckOpen && mckData?.petrol != null && mckData?.diesel != null && (
+                <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                  B {mckData.petrol.toFixed(3).replace('.', ',')} | D {mckData.diesel.toFixed(3).replace('.', ',')}
+                </Text>
+              )}
+              <Feather name={mckOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.mutedForeground} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Expanded content */}
+          {mckOpen && (
+            mckLoading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (mckIsError || (mckData && mckData.petrol == null && mckData.diesel == null)) ? (
+              <View style={{ gap: 8 }}>
+                <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                  ⚠️ Tankstellenpreise momentan nicht abrufbar
+                </Text>
+                <TouchableOpacity onPress={() => void Linking.openURL('https://www.mck-mannheim.de/')} activeOpacity={0.7}>
+                  <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.primary }}>
+                    Quelle: MCK Kurpfalz Mannheim ↗
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : mckData ? (
+              <View style={{ gap: 12 }}>
+                {/* Preisboxen */}
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  {([['Benzin', mckData.petrol], ['Diesel', mckData.diesel]] as [string, number | null][]).map(([label, price]) => (
+                    <View
+                      key={label}
+                      style={{
+                        flex: 1,
+                        backgroundColor: colors.background,
+                        borderRadius: (colors.radius as number) - 2,
+                        padding: 12,
+                        alignItems: 'center',
+                        gap: 2,
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.mutedForeground, textTransform: 'uppercase', letterSpacing: 1.5 }}>
+                        {label}
+                      </Text>
+                      <Text style={{ fontSize: 22, fontFamily: 'SpaceGrotesk_700Bold', color: colors.foreground }}>
+                        {price != null ? price.toFixed(3).replace('.', ',') : '–'}
+                      </Text>
+                      <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                        €/l
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Meta */}
+                <View style={{ gap: 3, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium', color: colors.mutedForeground }}>
+                    24/7 SB-Automaten-Tankstelle
+                  </Text>
+                  {mckData.sourceDate ? (
+                    <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                      Stand: {mckData.sourceDate}
+                    </Text>
+                  ) : null}
+                  {mckData.checkedAt ? (
+                    <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                      Zuletzt geprüft: {new Date(mckData.checkedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} Uhr
+                    </Text>
+                  ) : null}
+                </View>
+
+                {/* Quellenlink */}
+                <TouchableOpacity
+                  onPress={() => void Linking.openURL('https://www.mck-mannheim.de/')}
+                  activeOpacity={0.7}
+                  style={{ alignItems: 'center' }}
+                >
+                  <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.primary }}>
+                    Quelle: MCK Kurpfalz Mannheim ↗
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null
+          )}
+        </View>
+
         {/* ── Clubs Card ── */}
         <View
           style={{
@@ -2233,6 +2369,16 @@ export default function HomeScreen() {
     </View>
   );
 }
+
+type MckData = {
+  source: string;
+  petrol: number | null;
+  diesel: number | null;
+  unit: string;
+  sourceDate?: string | null;
+  checkedAt?: string | null;
+  error?: string;
+};
 
 type NfbMeldung = {
   nfb_id: string; titel: string; km_von: number | null; km_bis: number | null;
