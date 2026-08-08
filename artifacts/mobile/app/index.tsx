@@ -15,6 +15,7 @@ import {
   Switch,
   Modal,
   Pressable,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -311,6 +312,16 @@ export default function HomeScreen() {
   const [newsOpen, setNewsOpen] = useState(false);
   const [vereineOpen, setVereineOpen] = useState(false);
   const [nfbOpen, setNfbOpen] = useState(false);
+
+  // HVZ-Vorhersage: Cache-Busting-Timestamp, aktualisiert alle 5 Min (= HVZ-Takt)
+  const [hvzTs, setHvzTs] = useState(() => Math.floor(Date.now() / 300_000));
+  useEffect(() => {
+    const timer = setInterval(
+      () => setHvzTs(Math.floor(Date.now() / 300_000)),
+      300_000,
+    );
+    return () => clearInterval(timer);
+  }, []);
 
   // iOS-Installationsbutton: nur im Safari-Browser auf iPhone/iPad anzeigen,
   // nicht wenn die App bereits im Standalone-Modus (Home Screen) läuft.
@@ -886,6 +897,74 @@ export default function HomeScreen() {
             />
           )}
         </View>
+
+        {/* ── HVZ Vorhersage Card ── */}
+        {(() => {
+          const imgW = SCREEN_W - 32 - 32; // outer paddingHorizontal + card padding
+          const imgH = Math.round(imgW * (600 / 800));
+          return (
+            <View
+              style={{
+                backgroundColor: colors.card,
+                borderRadius: colors.radius,
+                padding: 16,
+                borderWidth: 1,
+                borderColor: colors.border,
+                gap: 12,
+              }}
+            >
+              {/* Header */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontFamily: 'SpaceGrotesk_600SemiBold',
+                    color: colors.mutedForeground,
+                    letterSpacing: 2,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Vorhersage
+                </Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    void Linking.openURL(
+                      'https://www.hvz.baden-wuerttemberg.de/pegel.html?id=09017',
+                    )
+                  }
+                  activeOpacity={0.7}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontFamily: 'SpaceGrotesk_400Regular',
+                      color: colors.mutedForeground,
+                    }}
+                  >
+                    LUBW / HVZ
+                  </Text>
+                  <Feather name="external-link" size={11} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Vorhersage-Grafik — alle 5 Min erneuert (HVZ-Takt) */}
+              <Image
+                source={{
+                  uri: `https://www.hvz.baden-wuerttemberg.de/gifs/09017-2001.GIF?t=${hvzTs}`,
+                }}
+                style={{ width: imgW, height: imgH, borderRadius: 6, alignSelf: 'center' }}
+                resizeMode="contain"
+              />
+            </View>
+          );
+        })()}
 
         {/* ── NfB-Meldungen Card ── */}
         <View
