@@ -73,7 +73,7 @@ jobs:
           INJECT+='<meta name="mobile-web-app-capable" content="yes">'
           INJECT+='<meta name="apple-mobile-web-app-capable" content="yes">'
           INJECT+='<meta name="apple-mobile-web-app-status-bar-style" content="default">'
-          INJECT+='<meta name="apple-mobile-web-app-title" content="Rhein Infos">'
+          INJECT+='<meta name="apple-mobile-web-app-title" content="R(h)einschiffer">'
           INJECT+='<meta name="theme-color" content="#143D45">'
 
           sed -i "s|</head>|${INJECT}</head>|" "$DIST/index.html"
