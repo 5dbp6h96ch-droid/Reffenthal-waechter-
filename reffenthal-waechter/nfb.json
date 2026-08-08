@@ -8,7 +8,7 @@
       "gueltig_ab": "11. Aug. 2026 17:45\n                                Uhr",
       "gueltig_bis": "11. Aug. 2026 20:00\n                                    Uhr",
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2044",
-      "first_seen": "2026-08-08T12:37:05.031976+00:00",
+      "first_seen": "2026-08-08T13:06:31.199659+00:00",
       "is_new": 1
     },
     {
@@ -19,7 +19,7 @@
       "gueltig_ab": "9. Aug. 2026 10:45\n                                Uhr",
       "gueltig_bis": "9. Aug. 2026 13:00\n                                    Uhr",
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/1996",
-      "first_seen": "2026-08-08T12:37:04.301224+00:00",
+      "first_seen": "2026-08-08T13:06:30.606563+00:00",
       "is_new": 1
     },
     {
@@ -46,5 +46,5 @@
     }
   ],
   "count": 4,
-  "updated_at": "2026-08-08T12:37:05.626695+00:00"
+  "updated_at": "2026-08-08T13:06:31.724145+00:00"
 }
