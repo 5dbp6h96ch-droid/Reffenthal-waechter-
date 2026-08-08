@@ -3,7 +3,8 @@ app.py – NfB-Monitor: Flask-Weboberfläche + APScheduler-Hintergrundjob.
 
 Alle Routen laufen unter dem Prefix /nfb (Replit-Proxy-Pfad).
 Der Hintergrundjob läuft alle 30 Minuten und fragt neue ELWIS-NfBs
-für Rhein km 380–415 ab, gespeichert in einer SQLite-Datenbank.
+für Rhein km 380–435 ab, gespeichert in einer SQLite-Datenbank.
+Neue Treffer werden direkt per Telegram gemeldet.
 
 Starten:
     python app.py
@@ -11,10 +12,12 @@ Starten:
 
 import logging
 import os
+import re
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 
+import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, render_template
 
@@ -35,6 +38,10 @@ URL_PREFIX        = ""                   # Proxy-Prefix /nfb wird von Express be
 SCAN_INTERVAL_MIN = 30                   # Wie oft der Hintergrundjob läuft
 NEW_HOURS         = 24                   # Meldungen jünger als N Stunden = „neu"
 
+# ── Telegram-Konfiguration ─────────────────────────────────────────────────────
+TELEGRAM_BOT_TOKEN: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID:   str = "916729935"    # Empfänger-Chat
+
 # Flask mit URL-Prefix konfigurieren
 app = Flask(__name__)
 app.config["APPLICATION_ROOT"] = "/"
@@ -43,23 +50,39 @@ app.config["PREFERRED_URL_SCHEME"] = "https"
 
 # ── Datenbank ──────────────────────────────────────────────────────────────────
 def init_db() -> None:
-    """Erstellt die SQLite-Tabellen beim ersten Start."""
+    """Erstellt die SQLite-Tabellen beim ersten Start; migriert bestehende Schemas."""
     with sqlite3.connect(DB_PATH) as con:
         con.execute("""
             CREATE TABLE IF NOT EXISTS nfb (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                nfb_id      TEXT    UNIQUE NOT NULL,   -- z.B. '2026/1911'
-                titel       TEXT    NOT NULL,
-                km_von      REAL,                       -- kleinster Rhein-km-Wert
-                km_bis      REAL,                       -- größter Rhein-km-Wert
-                gueltig_ab  TEXT,
-                gueltig_bis TEXT,
-                url         TEXT,
-                first_seen  TEXT    NOT NULL,           -- ISO-8601 UTC
-                last_seen   TEXT    NOT NULL,           -- ISO-8601 UTC
-                expired     INTEGER NOT NULL DEFAULT 0  -- 0=aktiv, 1=abgelaufen
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                nfb_id          TEXT    UNIQUE NOT NULL,   -- z.B. '2026/1911'
+                titel           TEXT    NOT NULL,
+                km_von          REAL,                       -- kleinster Rhein-km-Wert
+                km_bis          REAL,                       -- größter Rhein-km-Wert
+                gueltig_ab      TEXT,
+                gueltig_bis     TEXT,
+                url             TEXT,
+                first_seen      TEXT    NOT NULL,           -- ISO-8601 UTC
+                last_seen       TEXT    NOT NULL,           -- ISO-8601 UTC
+                expired         INTEGER NOT NULL DEFAULT 0, -- 0=aktiv, 1=abgelaufen
+                telegram_sent   INTEGER NOT NULL DEFAULT 0  -- 1=Telegram-Alert versendet
             )
         """)
+        # Migration: telegram_sent-Spalte für bestehende Tabellen nachrüsten.
+        # Bereits vorhandene Zeilen werden als gesendet markiert (=1), damit
+        # historische NfBs keine Telegram-Flut auslösen.
+        existing_cols = {
+            row[1]
+            for row in con.execute("PRAGMA table_info(nfb)").fetchall()
+        }
+        if "telegram_sent" not in existing_cols:
+            con.execute(
+                "ALTER TABLE nfb ADD COLUMN telegram_sent INTEGER NOT NULL DEFAULT 1"
+            )
+            logger.info(
+                "Datenbank-Migration: Spalte 'telegram_sent' ergänzt "
+                "(vorhandene Zeilen als bereits gesendet markiert)."
+            )
         # Scan-Fortschritt (letzte bekannte ID pro Jahr)
         con.execute("""
             CREATE TABLE IF NOT EXISTS scan_state (
@@ -97,6 +120,150 @@ def _save_last_id(year: int, last_id: int) -> None:
             "INSERT INTO scan_state (key, value) VALUES (?, ?)"
             " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             (f"last_id_{year}", str(last_id)),
+        )
+        con.commit()
+
+
+def _backfill_if_range_changed(year: int) -> None:
+    """Rollt den Scan-Zeiger zurück wenn KM_BIS seit dem letzten Start gewachsen ist.
+
+    Beim ersten Start nach einer KM_BIS-Erweiterung wurden bereits geprüfte IDs
+    mit dem alten, engeren Filter verworfen.  Damit keine aktiven NfBs im neuen
+    Bereich dauerhaft fehlen, wird last_id um INITIAL_LOOKBACK zurückgesetzt,
+    sodass der nächste Scan-Lauf die IDs mit dem neuen Filter erneut prüft.
+    """
+    km_bis_key = "km_bis_config"
+    stored_km_bis_str: str | None = None
+
+    with get_db() as con:
+        row = con.execute(
+            "SELECT value FROM scan_state WHERE key = ?", (km_bis_key,)
+        ).fetchone()
+        if row:
+            stored_km_bis_str = row["value"]
+
+    current_km_bis = str(scraper.KM_BIS)
+
+    if stored_km_bis_str == current_km_bis:
+        return  # Keine Änderung – nichts zu tun
+
+    # KM_BIS hat sich verändert (oder war noch nie gespeichert).
+    # Scan-Zeiger zurückrollen damit die neuen km auch rückwirkend geprüft werden.
+    old_last_id = _load_last_id(year)
+    new_last_id = max(0, old_last_id - scraper.INITIAL_LOOKBACK)
+
+    with get_db() as con:
+        con.execute(
+            "INSERT INTO scan_state (key, value) VALUES (?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (f"last_id_{year}", str(new_last_id)),
+        )
+        con.execute(
+            "INSERT INTO scan_state (key, value) VALUES (?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (km_bis_key, current_km_bis),
+        )
+        con.commit()
+
+    logger.info(
+        "KM_BIS geändert (%s → %s): Scan-Zeiger zurückgesetzt von %d auf %d "
+        "(Backfill der letzten %d IDs beim nächsten Lauf).",
+        stored_km_bis_str or "–",
+        current_km_bis,
+        old_last_id,
+        new_last_id,
+        scraper.INITIAL_LOOKBACK,
+    )
+
+
+# ── Telegram-Versand ───────────────────────────────────────────────────────────
+def _escape_md(text: str) -> str:
+    """Escaped Sonderzeichen für Telegram MarkdownV1."""
+    for ch in ("_", "*", "`", "["):
+        text = text.replace(ch, f"\\{ch}")
+    return text
+
+
+def _format_telegram_message(entry: dict) -> str:
+    """Formatiert einen NfB-Eintrag als Telegram-Nachricht."""
+    nfb_id  = entry.get("nfb_id", "")
+    titel   = _escape_md(entry.get("titel", "Kein Titel"))
+    km_von  = entry.get("km_von")
+    km_bis  = entry.get("km_bis")
+    ab      = _escape_md(re.sub(r"\s+", " ", entry.get("gueltig_ab", "") or "").strip())
+    bis_str = _escape_md(re.sub(r"\s+", " ", entry.get("gueltig_bis", "") or "").strip())
+    url     = entry.get("url", "")
+
+    if km_von is not None and km_bis is not None:
+        km_str = (
+            f"km {km_von:.1f}–{km_bis:.1f}" if km_von != km_bis else f"km {km_von:.1f}"
+        )
+    else:
+        km_str = "km unbekannt"
+
+    lines = [
+        f"⚓ *NfB {nfb_id} – Rhein {km_str}*",
+        "",
+        f"*{titel}*",
+    ]
+    if ab:
+        lines += ["", f"📅 von {ab}"]
+        if bis_str:
+            lines.append(f"📅 bis {bis_str}")
+    if url:
+        lines += ["", f"🔗 [Detailseite]({url})"]
+
+    return "\n".join(lines)
+
+
+def _send_telegram(text: str) -> bool:
+    """Sendet eine Nachricht über die Telegram Bot API.
+
+    Gibt True zurück bei Erfolg, False bei Fehler oder fehlendem Token.
+    Fehler werden geloggt; die Anwendung läuft weiter.
+    """
+    if not TELEGRAM_BOT_TOKEN:
+        logger.warning(
+            "Telegram: TELEGRAM_BOT_TOKEN nicht gesetzt – Benachrichtigung übersprungen."
+        )
+        return False
+    if not TELEGRAM_CHAT_ID:
+        logger.warning(
+            "Telegram: TELEGRAM_CHAT_ID nicht konfiguriert – Benachrichtigung übersprungen."
+        )
+        return False
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    try:
+        resp = requests.post(
+            url,
+            json={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": text,
+                "parse_mode": "Markdown",
+                "disable_web_page_preview": False,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        logger.info("Telegram: Nachricht gesendet (%d Zeichen).", len(text))
+        return True
+    except requests.exceptions.HTTPError as exc:
+        logger.error(
+            "Telegram: HTTP-Fehler %s – %s",
+            exc.response.status_code,
+            exc.response.text[:200],
+        )
+    except requests.exceptions.RequestException as exc:
+        logger.error("Telegram: Verbindungsfehler: %s", exc)
+    return False
+
+
+def _mark_telegram_sent(nfb_id: str) -> None:
+    """Setzt telegram_sent=1 für eine NfB-ID in der Datenbank."""
+    with get_db() as con:
+        con.execute(
+            "UPDATE nfb SET telegram_sent = 1 WHERE nfb_id = ?", (nfb_id,)
         )
         con.commit()
 
@@ -141,10 +308,181 @@ def _upsert_nfb(entry: dict) -> bool:
             return True
 
 
+# ── Telegram-Retry ─────────────────────────────────────────────────────────────
+def _retry_pending_telegram_alerts() -> None:
+    """Sendet ausstehende Telegram-Alerts für Einträge mit telegram_sent=0.
+
+    Wird am Anfang jedes Scan-Laufs aufgerufen, damit vorübergehend
+    fehlgeschlagene Benachrichtigungen beim nächsten Lauf erneut versucht werden.
+    """
+    try:
+        with get_db() as con:
+            rows = con.execute(
+                "SELECT nfb_id, titel, km_von, km_bis, gueltig_ab, gueltig_bis, url "
+                "FROM nfb WHERE telegram_sent = 0 AND expired = 0"
+            ).fetchall()
+    except Exception as exc:
+        logger.error("Telegram-Retry: DB-Fehler: %s", exc)
+        return
+
+    if not rows:
+        return
+
+    logger.info("Telegram-Retry: %d ausstehende Alerts.", len(rows))
+    for row in rows:
+        entry = dict(row)
+        msg = _format_telegram_message(entry)
+        if _send_telegram(msg):
+            _mark_telegram_sent(entry["nfb_id"])
+            logger.info("Telegram-Retry: %s erfolgreich gesendet.", entry["nfb_id"])
+        else:
+            logger.warning("Telegram-Retry: %s noch nicht gesendet (nächster Versuch beim nächsten Lauf).", entry["nfb_id"])
+
+
+# ── nfb.json Export ────────────────────────────────────────────────────────────
+def _export_nfb_json() -> None:
+    """Exportiert aktive NfBs als JSON-Datei ins Wächter-Verzeichnis.
+
+    Die Datei reffenthal-waechter/nfb.json wird nach jedem Scan geschrieben.
+    Die mobile App liest diese Datei über GitHub Raw.
+    Der NfB-Monitor veröffentlicht sie anschließend per _publish_nfb_json_via_api() zu GitHub.
+    """
+    import json
+    threshold_new = (datetime.now(timezone.utc) - timedelta(hours=NEW_HOURS)).isoformat()
+    try:
+        with get_db() as con:
+            rows = con.execute("""
+                SELECT nfb_id, titel, km_von, km_bis, gueltig_ab,
+                       gueltig_bis, url, first_seen,
+                       (first_seen > ?) AS is_new
+                FROM   nfb
+                WHERE  expired = 0
+                ORDER  BY first_seen DESC
+            """, (threshold_new,)).fetchall()
+
+        meldungen = [dict(r) for r in rows]
+        payload = {
+            "meldungen": meldungen,
+            "count": len(meldungen),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        # Zielort: reffenthal-waechter/nfb.json (vom Workspace-Root aus)
+        out_path = os.path.normpath(
+            os.path.join(
+                os.path.dirname(__file__),  # artifacts/nfb-monitor/
+                "..", "..",                  # → workspace root
+                "reffenthal-waechter",
+                "nfb.json",
+            )
+        )
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        logger.info("nfb.json exportiert: %d Einträge → %s", len(meldungen), out_path)
+    except Exception as exc:
+        logger.warning("nfb.json Export fehlgeschlagen: %s", exc)
+
+
+def _publish_nfb_json_via_api() -> None:
+    """Veröffentlicht nfb.json über die GitHub Contents API (atomarer SHA-Check).
+
+    Nutzt GITHUB_TOKEN (Replit Secret).
+    Im Gegensatz zu git-push gibt es keine Race Conditions mit dem Wächter,
+    da die API das aktuelle SHA der Datei im Request verlangt und bei
+    Konflikten 409 zurückgibt – dann wird der aktuelle SHA neu gelesen und
+    ein weiterer Versuch unternommen.
+    Fehler werden geloggt, kein Absturz.
+    """
+    import base64
+
+    token = os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        logger.debug("GitHub-API: GITHUB_TOKEN nicht gesetzt – kein nfb.json Upload.")
+        return
+
+    out_path = os.path.normpath(
+        os.path.join(
+            os.path.dirname(__file__), "..", "..",
+            "reffenthal-waechter", "nfb.json",
+        )
+    )
+    if not os.path.isfile(out_path):
+        logger.warning("GitHub-API: nfb.json nicht gefunden – Export fehlgeschlagen?")
+        return
+
+    api_log = logging.getLogger("github.api")
+    owner   = "5dbp6h96ch-droid"
+    repo    = "Reffenthal-waechter-"
+    path    = "reffenthal-waechter/nfb.json"
+    api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    with open(out_path, "rb") as f:
+        raw_bytes = f.read()
+    content_b64 = base64.b64encode(raw_bytes).decode()
+
+    MAX_RETRIES = 3
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            # Aktuellen SHA der Datei abrufen (erforderlich für Updates)
+            get_resp = requests.get(api_url, headers=headers, timeout=15)
+            current_sha: str | None = None
+            if get_resp.status_code == 200:
+                current_sha = get_resp.json().get("sha")
+            elif get_resp.status_code != 404:
+                api_log.warning(
+                    "GitHub-API: GET nfb.json → HTTP %d", get_resp.status_code
+                )
+                return
+
+            payload: dict = {
+                "message": "data: nfb.json aktualisiert [skip ci]",
+                "content": content_b64,
+                "branch": "main",
+            }
+            if current_sha:
+                payload["sha"] = current_sha
+
+            put_resp = requests.put(
+                api_url, json=payload, headers=headers, timeout=20
+            )
+            if put_resp.status_code in (200, 201):
+                api_log.info("GitHub-API: nfb.json erfolgreich veröffentlicht.")
+                return
+            elif put_resp.status_code == 409 and attempt < MAX_RETRIES:
+                api_log.warning(
+                    "GitHub-API: Konflikt beim PUT (Versuch %d/%d) – erneuter Versuch.",
+                    attempt, MAX_RETRIES,
+                )
+                # Kurz warten damit das Remote-SHA stabil ist
+                import time
+                time.sleep(2)
+                continue
+            else:
+                api_log.warning(
+                    "GitHub-API: PUT nfb.json → HTTP %d: %s",
+                    put_resp.status_code,
+                    put_resp.text[:200],
+                )
+                return
+        except requests.exceptions.RequestException as exc:
+            api_log.warning("GitHub-API: Netzwerkfehler (Versuch %d): %s", attempt, exc)
+            if attempt < MAX_RETRIES:
+                import time
+                time.sleep(2)
+
+    api_log.warning("GitHub-API: nfb.json nach %d Versuchen nicht veröffentlicht.", MAX_RETRIES)
+
+
 # ── Hintergrundjob ─────────────────────────────────────────────────────────────
 def run_scan() -> None:
     """
-    Scannt neue ELWIS-NfBs und speichert Treffer in der DB.
+    Scannt neue ELWIS-NfBs, speichert Treffer in der DB, sendet Telegram-Alerts
+    und exportiert nfb.json für die Mobile-App.
     Wird alle 30 Minuten vom APScheduler aufgerufen.
     Fehler werden geloggt; die Anwendung stürzt nicht ab.
     """
@@ -152,6 +490,9 @@ def run_scan() -> None:
     last_id = _load_last_id(year)
 
     logger.info("Scan startet (letzter Index: %d/%04d) …", year, last_id)
+
+    # Ausstehende Telegram-Alerts aus vorherigen Läufen nachliefern
+    _retry_pending_telegram_alerts()
 
     try:
         treffer, new_last_id = scraper.scan(last_id=last_id, year=year)
@@ -164,55 +505,26 @@ def run_scan() -> None:
         if _upsert_nfb(entry):
             neue += 1
             logger.info("Neu: %s – %s", entry["nfb_id"], entry["titel"])
+            # Telegram-Alert für neue NfBs (Retry beim nächsten Lauf falls fehlgeschlagen)
+            msg = _format_telegram_message(entry)
+            if _send_telegram(msg):
+                _mark_telegram_sent(entry["nfb_id"])
 
     if new_last_id > last_id:
         _save_last_id(year, new_last_id)
 
     logger.info("Scan fertig: %d Treffer, %d davon neu.", len(treffer), neue)
 
-    # nfb.json für GitHub Pages schreiben
+    # nfb.json für Mobile-App exportieren und atomar via GitHub Contents API veröffentlichen
     _export_nfb_json()
-
-
-def _export_nfb_json() -> None:
-    """
-    Schreibt alle aktiven NfBs als nfb.json ins Wächter-Verzeichnis,
-    damit die statische GitHub-Pages-App sie laden kann.
-    """
-    import json
-    threshold_new = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-    try:
-        with get_db() as con:
-            rows = con.execute("""
-                SELECT nfb_id, titel, km_von, km_bis, gueltig_ab,
-                       gueltig_bis, url, first_seen,
-                       (first_seen > ?) AS is_new
-                FROM nfb WHERE expired = 0
-                ORDER BY first_seen DESC
-            """, (threshold_new,)).fetchall()
-        meldungen = [dict(r) for r in rows]
-        payload = {"meldungen": meldungen, "count": len(meldungen)}
-
-        # Ziel: reffenthal-waechter/nfb.json (von GitHub Raw gelesen)
-        out_path = os.path.join(
-            os.path.dirname(__file__),   # artifacts/nfb-monitor/
-            "..", "..",                  # → workspace root
-            "reffenthal-waechter",
-            "nfb.json",
-        )
-        out_path = os.path.normpath(out_path)
-        with open(out_path, "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False, indent=2)
-        logger.info("nfb.json exportiert: %d Einträge → %s", len(meldungen), out_path)
-    except Exception as exc:
-        logger.warning("nfb.json Export fehlgeschlagen: %s", exc)
+    _publish_nfb_json_via_api()
 
 
 # ── Flask-Routen ───────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
     """
-    Tabelle aller aktiven NfBs für Rhein km 380–415.
+    Tabelle aller aktiven NfBs für Rhein km 380–435.
     Abgelaufene Meldungen werden nicht angezeigt.
     Neue Meldungen (first_seen < NEW_HOURS) sind grün markiert.
     """
@@ -266,6 +578,9 @@ def _get_last_scan_time() -> str | None:
 # ── Start ──────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     init_db()
+
+    # Backfill: Scan-Zeiger zurückrollen wenn KM_BIS seit dem letzten Start gewachsen ist.
+    _backfill_if_range_changed(datetime.now().year)
 
     # APScheduler: erster Lauf sofort im Hintergrund, danach alle 30 Min.
     scheduler = BackgroundScheduler(daemon=True, timezone="UTC")

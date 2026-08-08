@@ -23,7 +23,7 @@ BASE_URL        = "https://www.elwis.de/DE/dynamisch/Nfb"
 USER_AGENT      = "Mozilla/5.0 (compatible; NfB-Monitor/1.0)"
 
 KM_VON: int     = 380          # Bereich-Untergrenze Rhein-km
-KM_BIS: int     = 415          # Bereich-Obergrenze Rhein-km
+KM_BIS: int     = 435          # Bereich-Obergrenze Rhein-km  (abgestimmt auf Wächter-Bereich)
 
 MAX_PER_RUN: int        = 80   # Maximale IDs pro Scan-Lauf
 INITIAL_LOOKBACK: int   = 300  # Beim ersten Lauf: wie viele IDs zurückblicken

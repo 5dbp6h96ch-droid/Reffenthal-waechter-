@@ -17,7 +17,6 @@ from datetime import datetime
 import clubs
 import config
 import db
-import elwis
 import pegel
 import rss
 import storage
@@ -231,24 +230,9 @@ def main() -> None:
         if last_error is None:
             last_error = f"Clubs: {exc}"
 
-    # Elwis / WSA Schifffahrtsnachrichten (Rhein km 380–435)
-    try:
-        logger.info("─── Elwis-Check startet ───")
-        elwis_results, state = elwis.check_elwis(state)
-        elwis_new = 0
-        for entry in elwis_results:
-            nfb_id = entry.get("nfb_id", "")
-            dedup_key = f"elwis:{nfb_id}"
-            if dedup_key in seen:
-                continue
-            msg = elwis.format_telegram_message(entry)
-            success = telegram.send_message(msg)
-            if success:
-                seen.add(dedup_key)
-                elwis_new += 1
-        logger.info("Elwis: %d neue Rhein-NfBs gesendet.", elwis_new)
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Elwis: Unerwarteter Fehler: %s", exc)
+    # Hinweis: ELWIS-NfB-Scan und Telegram-Alerts werden vollständig vom
+    # NfB-Monitor (artifacts/nfb-monitor/app.py) übernommen.
+    # Kein separater ELWIS-Scan mehr im Wächter → kein Doppel-Scan.
 
     # Pegel überwachen
     try:
@@ -286,6 +270,11 @@ def _git_commit_state() -> None:
 
     Nur aktiv wenn GITHUB_TOKEN gesetzt ist.
     Fehler werden geloggt aber nicht weitergeworfen.
+
+    Strategie: fetch → merge → eigene Dateien stagen → commit → normaler push.
+    Kein force-push, damit parallele Schreiber (z.B. NfB-Monitor via Contents API)
+    nicht überschrieben werden.  Da Wächter und NfB-Monitor unterschiedliche Dateien
+    schreiben, entstehen dabei keine Merge-Konflikte.
     """
     import os
     import subprocess
@@ -306,16 +295,24 @@ def _git_commit_state() -> None:
                 args, cwd=root, capture_output=True, text=True, timeout=30
             )
 
-        # Aktuelle Remote-Änderungen holen (non-fatal)
-        run(["git", "fetch", repo_url, "main"])
+        run(["git", "config", "user.email", "waechter@replit.local"])
+        run(["git", "config", "user.name", "Reffenthal-Wächter"])
 
-        # Dateien stagen
+        # Remote-Stand holen und als Basis für unseren Commit übernehmen.
+        # -X ours: bei Konflikten (extrem unwahrscheinlich, da disjunkte Dateien)
+        #          gewinnen unsere Änderungen.
+        run(["git", "fetch", repo_url, "main"])
+        run(["git", "merge", "FETCH_HEAD", "--no-edit", "-X", "ours",
+             "--allow-unrelated-histories"])
+
+        # Nur eigene Zustandsdateien stagen.
+        # nfb.json wird vom NfB-Monitor via GitHub Contents API verwaltet
+        # und darf hier nicht überschrieben werden.
         files = [
             "reffenthal-waechter/state.json",
             "reffenthal-waechter/seen.json",
             "reffenthal-waechter/clubs_seen.json",
             "reffenthal-waechter/run_status.json",
-            "reffenthal-waechter/nfb.json",
         ]
         run(["git", "add", "--force"] + files)
 
@@ -325,15 +322,10 @@ def _git_commit_state() -> None:
             git_log.debug("Git: Keine Änderungen, kein Commit nötig.")
             return
 
-        run(["git", "config", "user.email", "waechter@replit.local"])
-        run(["git", "config", "user.name", "Reffenthal-Wächter"])
-
         run(["git", "commit", "-m", "chore: Wächter-Zustand aktualisiert [skip ci]"])
 
-        # Force-Push: Der Wächter hat immer den aktuellsten Zustand (hat gerade gelesen+geschrieben).
-        # Andere Pushes (z.B. Code-Deployments) landen auf anderem Inhalt als den Datendateien,
-        # daher ist ein force-push für die JSON-Datendateien sicher.
-        result = run(["git", "push", "--force", repo_url, "main"])
+        # Normaler push (kein --force): Remote-Stand wurde bereits via merge eingearbeitet.
+        result = run(["git", "push", repo_url, "main"])
         if result.returncode == 0:
             git_log.info("Git: Zustand erfolgreich gepusht.")
         else:
