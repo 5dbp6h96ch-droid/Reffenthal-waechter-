@@ -24,6 +24,7 @@ replit.nix
 # Daten & Zustand
 # seen.json und state.json werden absichtlich getrackt –
 # GitHub Pages liest sie direkt über raw.githubusercontent.com
+nfb.json
 *.log
 
 # Secrets
