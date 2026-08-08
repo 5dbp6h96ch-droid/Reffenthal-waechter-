@@ -119,21 +119,37 @@ if (STATIC_MODE) {
       }
     }
 
-    // /api/nfb → nfb.json auf GitHub (leere Liste als Fallback)
-    if (url.endsWith('/api/nfb')) {
+    // /api/nfb?km_von=X&km_bis=Y → nfb.json auf GitHub, client-seitig filtern
+    const nfbUrlMatch = url.match(/\/api\/nfb(\?.*)?$/);
+    if (nfbUrlMatch) {
+      // km-Bereich aus Query-Params lesen
+      let kmVon: number | null = null;
+      let kmBis: number | null = null;
+      if (nfbUrlMatch[1]) {
+        const qp = new URLSearchParams(nfbUrlMatch[1].slice(1));
+        const v = Number(qp.get('km_von'));
+        const b = Number(qp.get('km_bis'));
+        if (!isNaN(v) && !isNaN(b)) { kmVon = v; kmBis = b; }
+      }
       try {
         const r = await rawFetch(`${GITHUB_RAW}/nfb.json`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json();
-        // nfb.json hat Format { meldungen: [...], count: N }
-        const meldungen = Array.isArray(raw?.meldungen) ? raw.meldungen : [];
+        let meldungen: unknown[] = Array.isArray(raw?.meldungen) ? raw.meldungen : [];
+        // Client-seitig nach km filtern wenn Bereich angegeben
+        if (kmVon !== null && kmBis !== null) {
+          meldungen = meldungen.filter((m: unknown) => {
+            const entry = m as { km_von?: number | null; km_bis?: number | null };
+            if (entry.km_von == null || entry.km_bis == null) return true; // Allgemeine Meldungen immer zeigen
+            return entry.km_von <= kmBis! && entry.km_bis >= kmVon!;
+          });
+        }
         return new Response(JSON.stringify({ meldungen, count: meldungen.length }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') throw err;
-        // Noch keine nfb.json committed → leere Liste zeigen statt Fehler
         return new Response(JSON.stringify({ meldungen: [], count: 0 }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },

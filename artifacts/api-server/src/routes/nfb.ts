@@ -2,7 +2,6 @@ import { Router, type IRouter } from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { DatabaseSync } from "node:sqlite";
-import { GetNfbResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
@@ -23,15 +22,27 @@ router.get("/nfb", (req, res): void => {
     } catch (openErr) {
       // DB not initialised yet (NfB-Monitor hasn't run) – return empty list
       req.log.warn({ openErr, path: NfB_DB }, "NfB DB not available – returning empty list");
-      res.json(GetNfbResponse.parse({ meldungen: [], count: 0 }));
+      res.json({ meldungen: [], count: 0 });
       return;
     }
 
-    const stmt = db.prepare(
+    // Optional km range filter via query params ?km_von=380&km_bis=415
+    const kmVon = req.query.km_von !== undefined ? Number(req.query.km_von) : null;
+    const kmBis = req.query.km_bis !== undefined ? Number(req.query.km_bis) : null;
+    const filterByKm = kmVon !== null && kmBis !== null && !isNaN(kmVon) && !isNaN(kmBis);
+
+    // When km filter is active: include rows that overlap with [kmVon, kmBis],
+    // or rows without km info (general notices with no position data).
+    const sql =
       "SELECT nfb_id, titel, km_von, km_bis, gueltig_ab, gueltig_bis, url, first_seen " +
-        "FROM nfb WHERE expired=0 ORDER BY first_seen DESC",
-    );
-    const rows = stmt.all() as {
+      "FROM nfb WHERE expired=0" +
+      (filterByKm
+        ? " AND (km_von IS NULL OR km_bis IS NULL OR (km_von <= ? AND km_bis >= ?))"
+        : "") +
+      " ORDER BY first_seen DESC";
+
+    const stmt = db.prepare(sql);
+    const rows = (filterByKm ? stmt.all(kmBis, kmVon) : stmt.all()) as {
       nfb_id: string;
       titel: string;
       km_von: number | null;
@@ -55,8 +66,7 @@ router.get("/nfb", (req, res): void => {
       is_new: now - new Date(row.first_seen).getTime() < NfB_NEW_WINDOW_MS,
     }));
 
-    const data = GetNfbResponse.parse({ meldungen, count: meldungen.length });
-    res.json(data);
+    res.json({ meldungen, count: meldungen.length });
   } catch (err) {
     req.log.error({ err, db: NfB_DB }, "Failed to read NfB database");
     res.status(503).json({ error: "Could not load NfB data", path: NfB_DB });

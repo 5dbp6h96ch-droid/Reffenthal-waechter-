@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  TextInput,
+  Keyboard,
   Linking,
   Platform,
   Dimensions,
@@ -27,8 +29,9 @@ import {
   useGetWaechterTreffer,
   useGetWaechterStatus,
   useGetWaechterClubs,
-  useGetNfb,
 } from '@workspace/api-client-react';
+import { useQuery } from '@tanstack/react-query';
+import type { NfbList } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 
 // ─── Time range ──────────────────────────────────────────────────────────────
@@ -304,7 +307,18 @@ export default function HomeScreen() {
   const [vereineOpen, setVereineOpen] = useState(true);
   const [nfbOpen, setNfbOpen] = useState(true);
 
-  // Load persisted range on mount
+  // NfB km-Bereich
+  const NFB_KM_DEFAULT_VON = 380;
+  const NFB_KM_DEFAULT_BIS = 415;
+  const NFB_KM_KEY = 'nfb_km_range';
+  const [nfbKmVon, setNfbKmVon] = useState(NFB_KM_DEFAULT_VON);
+  const [nfbKmBis, setNfbKmBis] = useState(NFB_KM_DEFAULT_BIS);
+  const [nfbKmEdit, setNfbKmEdit] = useState(false);
+  const [nfbKmInputVon, setNfbKmInputVon] = useState(String(NFB_KM_DEFAULT_VON));
+  const [nfbKmInputBis, setNfbKmInputBis] = useState(String(NFB_KM_DEFAULT_BIS));
+  const nfbKmBisRef = useRef<TextInput>(null);
+
+  // Load persisted ranges on mount
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((val) => {
@@ -313,7 +327,37 @@ export default function HomeScreen() {
         }
       })
       .catch(() => {});
+
+    AsyncStorage.getItem(NFB_KM_KEY)
+      .then((val) => {
+        if (val) {
+          const parsed = JSON.parse(val) as { von: number; bis: number };
+          if (typeof parsed.von === 'number' && typeof parsed.bis === 'number') {
+            setNfbKmVon(parsed.von);
+            setNfbKmBis(parsed.bis);
+            setNfbKmInputVon(String(parsed.von));
+            setNfbKmInputBis(String(parsed.bis));
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const applyNfbKm = () => {
+    const von = parseInt(nfbKmInputVon, 10);
+    const bis = parseInt(nfbKmInputBis, 10);
+    if (!isNaN(von) && !isNaN(bis) && von <= bis) {
+      setNfbKmVon(von);
+      setNfbKmBis(bis);
+      AsyncStorage.setItem(NFB_KM_KEY, JSON.stringify({ von, bis })).catch(() => {});
+    } else {
+      // Reset inputs to current valid values on invalid input
+      setNfbKmInputVon(String(nfbKmVon));
+      setNfbKmInputBis(String(nfbKmBis));
+    }
+    setNfbKmEdit(false);
+    Keyboard.dismiss();
+  };
 
   const handleRangeChange = (range: TimeRange) => {
     setChartRange(range);
@@ -351,13 +395,31 @@ export default function HomeScreen() {
     isRefetching: clubsRefetching,
   } = useGetWaechterClubs();
 
+  // NfB mit km-Bereich-Filter — eigener useQuery statt generiertem Hook
+  const nfbApiBase = process.env.EXPO_PUBLIC_DOMAIN
+    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+    : '';
   const {
     data: nfbData,
     isLoading: nfbLoading,
     isError: nfbError,
     refetch: refetchNfb,
     isRefetching: nfbRefetching,
-  } = useGetNfb();
+  } = useQuery<NfbList>({
+    queryKey: ['nfb', nfbKmVon, nfbKmBis],
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams({
+        km_von: String(nfbKmVon),
+        km_bis: String(nfbKmBis),
+      });
+      const res = await fetch(`${nfbApiBase}/api/nfb?${params.toString()}`, { signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json() as Promise<NfbList>;
+    },
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+    retry: 2,
+  });
 
   const isRefreshing = stateRefetching || trefferRefetching || statusRefetching || clubsRefetching || nfbRefetching;
 
@@ -1406,7 +1468,7 @@ export default function HomeScreen() {
         >
           {/* Section header – anklickbar zum Auf-/Zuklappen */}
           <TouchableOpacity
-            onPress={() => setNfbOpen(o => !o)}
+            onPress={() => { if (!nfbKmEdit) setNfbOpen(o => !o); }}
             activeOpacity={0.7}
             style={{
               flexDirection: 'row',
@@ -1425,16 +1487,6 @@ export default function HomeScreen() {
                 }}
               >
                 NfB
-              </Text>
-              <Text
-                style={{
-                  fontSize: 10,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.mutedForeground,
-                  opacity: 0.6,
-                }}
-              >
-                km 380–415
               </Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -1465,6 +1517,108 @@ export default function HomeScreen() {
               />
             </View>
           </TouchableOpacity>
+
+          {/* km-Bereich – immer sichtbar, editierbar */}
+          {nfbKmEdit ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                backgroundColor: colors.muted,
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+              }}
+            >
+              <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                km
+              </Text>
+              <TextInput
+                value={nfbKmInputVon}
+                onChangeText={setNfbKmInputVon}
+                keyboardType="number-pad"
+                returnKeyType="next"
+                onSubmitEditing={() => nfbKmBisRef.current?.focus()}
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.foreground,
+                  backgroundColor: colors.card,
+                  borderRadius: 6,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  minWidth: 52,
+                  textAlign: 'center',
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+                selectTextOnFocus
+              />
+              <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>–</Text>
+              <TextInput
+                ref={nfbKmBisRef}
+                value={nfbKmInputBis}
+                onChangeText={setNfbKmInputBis}
+                keyboardType="number-pad"
+                returnKeyType="done"
+                onSubmitEditing={applyNfbKm}
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.foreground,
+                  backgroundColor: colors.card,
+                  borderRadius: 6,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  minWidth: 52,
+                  textAlign: 'center',
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+                selectTextOnFocus
+              />
+              <TouchableOpacity
+                onPress={applyNfbKm}
+                style={{
+                  marginLeft: 4,
+                  backgroundColor: colors.primary,
+                  borderRadius: 6,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                }}
+              >
+                <Feather name="check" size={14} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={() => setNfbKmEdit(true)}
+              activeOpacity={0.7}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                alignSelf: 'flex-start',
+                backgroundColor: colors.muted,
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+              }}
+            >
+              <Feather name="map-pin" size={12} color={colors.mutedForeground} />
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontFamily: 'SpaceGrotesk_500Medium',
+                  color: colors.mutedForeground,
+                }}
+              >
+                km {nfbKmVon}–{nfbKmBis}
+              </Text>
+              <Feather name="edit-2" size={11} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          )}
 
           {/* NfB content – nur sichtbar wenn aufgeklappt */}
           {nfbOpen && (nfbLoading ? (
