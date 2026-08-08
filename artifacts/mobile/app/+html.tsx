@@ -63,6 +63,71 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="apple-touch-icon" href={ICON_URL} />
 
         <ScrollViewStyleReset />
+
+        {/* Service-Worker-Registrierung – nur im Browser (Web-Build) */}
+        {/* eslint-disable-next-line @typescript-eslint/naming-convention */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+(function () {
+  if (!('serviceWorker' in navigator)) return;
+
+  /* Merken ob beim Seitenaufruf bereits ein SW aktiv war.
+     Nur dann lösen wir bei controllerchange einen Reload aus –
+     nicht beim allerersten Installieren. */
+  var hadController = !!navigator.serviceWorker.controller;
+  var reloading     = false;
+
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (hadController && !reloading) {
+      reloading = true;
+      window.location.reload();
+    }
+  });
+
+  window.addEventListener('load', function () {
+    navigator.serviceWorker
+      .register('/Reffenthal-waechter-/sw.js', { scope: '/Reffenthal-waechter-/' })
+      .then(function (reg) {
+        reg.addEventListener('updatefound', function () {
+          var worker = reg.installing;
+          if (!worker) return;
+          worker.addEventListener('statechange', function () {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+              showUpdateBanner(worker);
+            }
+          });
+        });
+        setInterval(function () { reg.update(); }, 5 * 60 * 1000);
+      })
+      .catch(function (err) {
+        console.warn('[SW] Registrierung fehlgeschlagen:', err);
+      });
+  });
+
+  function showUpdateBanner(worker) {
+    if (document.getElementById('sw-update-bar')) return;
+    var bar = document.createElement('div');
+    bar.id  = 'sw-update-bar';
+    bar.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#007AFF;color:#fff;padding:12px 18px;border-radius:14px;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:14px;font-weight:500;z-index:99999;display:flex;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,0.28);white-space:nowrap;';
+    var label = document.createElement('span');
+    label.textContent = '\uD83D\uDD04\u2009Neue Version verf\u00FCgbar';
+    var btn = document.createElement('button');
+    btn.textContent   = 'Aktualisieren';
+    btn.style.cssText = 'background:rgba(255,255,255,0.22);border:none;color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;';
+    btn.addEventListener('click', function () {
+      bar.remove();
+      worker.postMessage({ type: 'SKIP_WAITING' });
+    });
+    bar.appendChild(label);
+    bar.appendChild(btn);
+    document.body.appendChild(bar);
+    setTimeout(function () { if (bar.parentNode) bar.remove(); }, 30000);
+  }
+})();
+`,
+          }}
+        />
       </head>
       <body>{children}</body>
     </html>

@@ -57,6 +57,15 @@ jobs:
           cd artifacts/mobile
           pnpm exec expo export --platform web --output-dir dist
 
+      - name: Service Worker versionieren und in dist kopieren
+        run: |
+          VERSION=$(git rev-parse --short HEAD)
+          echo "SW-Cache-Version: rheinschiffer-${VERSION}"
+          sed "s/__CACHE_VERSION__/${VERSION}/g" \
+            artifacts/mobile/sw-template.js \
+            > artifacts/mobile/dist/sw.js
+          echo "✓ sw.js geschrieben"
+
       - name: Icon-Dateien und Meta-Tags einfügen
         run: |
           DIST=artifacts/mobile/dist
