@@ -57,6 +57,30 @@ jobs:
           cd artifacts/mobile
           pnpm exec expo export --platform web --output-dir dist
 
+      - name: Icon-Dateien und Meta-Tags einfügen
+        run: |
+          DIST=artifacts/mobile/dist
+          ICON=artifacts/mobile/assets/images/icon.png
+          BASE=/Reffenthal-waechter-
+
+          # Icon als apple-touch-icon.png und favicon.png in dist kopieren
+          cp "$ICON" "$DIST/apple-touch-icon.png"
+          cp "$ICON" "$DIST/favicon.png"
+
+          # apple-touch-icon, PNG-Favicon und PWA-Meta direkt vor </head> einfügen
+          INJECT='<link rel="apple-touch-icon" href="'"$BASE"'/apple-touch-icon.png">'
+          INJECT+='<link rel="icon" type="image/png" href="'"$BASE"'/favicon.png">'
+          INJECT+='<meta name="mobile-web-app-capable" content="yes">'
+          INJECT+='<meta name="apple-mobile-web-app-capable" content="yes">'
+          INJECT+='<meta name="apple-mobile-web-app-status-bar-style" content="default">'
+          INJECT+='<meta name="apple-mobile-web-app-title" content="Rhein Infos">'
+          INJECT+='<meta name="theme-color" content="#143D45">'
+
+          sed -i "s|</head>|${INJECT}</head>|" "$DIST/index.html"
+
+          echo "=== Eingefügte Tags ==="
+          grep -o '<link[^>]*>\|<meta[^>]*>' "$DIST/index.html" | head -20
+
       - name: GitHub Pages konfigurieren
         uses: actions/configure-pages@v5
 
