@@ -1352,7 +1352,7 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            nfbData.meldungen.map((m: NfbMeldung, i: number) => {
+            [...nfbData.meldungen].sort((a, b) => (a.km_von ?? 0) - (b.km_von ?? 0)).map((m: NfbMeldung, i: number) => {
               const isLast = i === nfbData.meldungen.length - 1;
               const kmRange =
                 m.km_von != null && m.km_bis != null
