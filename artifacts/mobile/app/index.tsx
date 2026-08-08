@@ -313,6 +313,7 @@ export default function HomeScreen() {
   const [vereineOpen, setVereineOpen] = useState(false);
   const [nfbOpen, setNfbOpen] = useState(false);
   const [mckOpen, setMckOpen] = useState(false);
+  const [hvzOpen, setHvzOpen] = useState(false);
 
   // HVZ-Vorhersage: Cache-Busting-Timestamp, aktualisiert alle 5 Min (= HVZ-Takt)
   const [hvzTs, setHvzTs] = useState(() => Math.floor(Date.now() / 300_000));
@@ -923,7 +924,7 @@ export default function HomeScreen() {
 
         {/* ── HVZ Vorhersage Card ── */}
         {(() => {
-          const imgW = SCREEN_W - 32 - 32; // outer paddingHorizontal + card padding
+          const imgW = SCREEN_W - 32 - 32;
           const imgH = Math.round(imgW * (600 / 800));
           return (
             <View
@@ -936,55 +937,46 @@ export default function HomeScreen() {
                 gap: 12,
               }}
             >
-              {/* Header */}
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontFamily: 'SpaceGrotesk_600SemiBold',
-                    color: colors.mutedForeground,
-                    letterSpacing: 2,
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Vorhersage
-                </Text>
+              {/* Header: linke Seite toggelt, rechte Seite öffnet LUBW */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <TouchableOpacity
-                  onPress={() =>
-                    void Linking.openURL(
-                      'https://www.hvz.baden-wuerttemberg.de/pegel.html?id=09017',
-                    )
-                  }
+                  onPress={() => setHvzOpen(o => !o)}
                   activeOpacity={0.7}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
                 >
                   <Text
                     style={{
-                      fontSize: 11,
-                      fontFamily: 'SpaceGrotesk_400Regular',
+                      fontSize: 10,
+                      fontFamily: 'SpaceGrotesk_600SemiBold',
                       color: colors.mutedForeground,
+                      letterSpacing: 2,
+                      textTransform: 'uppercase',
                     }}
                   >
+                    Vorhersage
+                  </Text>
+                  <Feather name={hvzOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.mutedForeground} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => void Linking.openURL('https://www.hvz.baden-wuerttemberg.de/pegel.html?id=09017')}
+                  activeOpacity={0.7}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                >
+                  <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
                     LUBW / HVZ
                   </Text>
                   <Feather name="external-link" size={11} color={colors.mutedForeground} />
                 </TouchableOpacity>
               </View>
 
-              {/* Vorhersage-Grafik — alle 5 Min erneuert (HVZ-Takt) */}
-              <Image
-                source={{
-                  uri: `https://www.hvz.baden-wuerttemberg.de/gifs/09017-2001.GIF?t=${hvzTs}`,
-                }}
-                style={{ width: imgW, height: imgH, borderRadius: 6, alignSelf: 'center' }}
-                resizeMode="contain"
-              />
+              {/* Vorhersage-Grafik — nur wenn aufgeklappt */}
+              {hvzOpen && (
+                <Image
+                  source={{ uri: `https://www.hvz.baden-wuerttemberg.de/gifs/09017-2001.GIF?t=${hvzTs}` }}
+                  style={{ width: imgW, height: imgH, borderRadius: 6, alignSelf: 'center' }}
+                  resizeMode="contain"
+                />
+              )}
             </View>
           );
         })()}
