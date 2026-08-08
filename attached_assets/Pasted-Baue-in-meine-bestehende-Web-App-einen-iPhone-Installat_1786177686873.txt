@@ -1,0 +1,51 @@
+Baue in meine bestehende Web-App einen iPhone-Installationsbutton ein.
+
+Ziel:
+Die Web-App soll auf iPhones einen gut sichtbaren Button „📲 Auf iPhone installieren“ anzeigen. Da iOS/Safari keine automatische Installation einer Web-App erlaubt, soll der Button beim Anklicken eine einfache, moderne Anleitung anzeigen.
+
+Wichtig:
+
+* Verändere das bestehende Design und Layout der Web-App möglichst nicht.
+* Bestehende Funktionen dürfen nicht verändert oder beschädigt werden.
+* Der Button soll sich optisch passend in das bestehende Design einfügen.
+* Der Button soll nur auf iPhones/iOS angezeigt werden.
+* Auf Android und Desktop soll der Button nicht angezeigt werden.
+
+Beim Klick auf „📲 Auf iPhone installieren“:
+
+1. Öffne ein modernes Modal/Popup.
+2. Erkläre kurz:
+    „So installierst du den Reffenthal Wächter auf deinem Home-Bildschirm:“
+3. Zeige die Schritte:
+    „1. Tippe in Safari auf das Teilen-Symbol ⬆️“
+    „2. Wähle ‚Zum Home-Bildschirm‘“
+    „3. Tippe auf ‚Hinzufügen‘“
+4. Verwende passende Symbole/Icons und eine verständliche Darstellung.
+5. Das Popup muss sich über ein X oder durch Tippen außerhalb schließen lassen.
+
+Installationsstatus:
+
+* Wenn die Web-App bereits als Home-Screen-Web-App gestartet wurde (iOS Standalone-Modus), soll der Button automatisch ausgeblendet werden.
+* Verwende dafür window.navigator.standalone.
+* Der Button soll also nicht innerhalb der bereits installierten Web-App erscheinen.
+* Versuche NICHT, die iOS-Sicherheitsbeschränkungen zu umgehen oder eine automatische Installation zu erzwingen.
+
+Zusätzlich:
+
+* Prüfe, ob bereits die nötigen iOS-PWA-Meta-Tags vorhanden sind.
+* Falls nicht, ergänze sie:
+    apple-mobile-web-app-capable
+    apple-mobile-web-app-title
+    apple-mobile-web-app-status-bar-style
+    sowie ein passendes apple-touch-icon.
+* Prüfe auch das vorhandene Web-App-Manifest und ergänze fehlende PWA-Angaben, ohne bestehende funktionierende Einstellungen unnötig zu verändern.
+* Der Installationsbutton soll auf mobilen Geräten gut bedienbar sein.
+* Nutze vorhandene CSS-/JavaScript-Strukturen des Projekts, anstatt unnötig neue Frameworks oder Bibliotheken einzubauen.
+
+Bitte analysiere zuerst die bestehende Codebasis und implementiere die Änderung direkt in den passenden Dateien.
+
+Am Ende:
+
+1. Liste die geänderten Dateien auf.
+2. Erkläre kurz, wie der Button funktioniert.
+3. Weise darauf hin, dass iOS die eigentliche Installation weiterhin durch den Benutzer bestätigen lassen muss.
