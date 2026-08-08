@@ -584,7 +584,7 @@ export default function HomeScreen() {
         ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingTop: topPad + 20,
+          paddingTop: topPad + 4,
           paddingBottom: botPad + 32,
           paddingHorizontal: 16,
           gap: 14,
@@ -604,16 +604,19 @@ export default function HomeScreen() {
           style={{
             alignItems: 'center',
             justifyContent: 'center',
-            paddingVertical: 10,
+            paddingTop: 2,
+            paddingBottom: 8,
             marginBottom: 2,
           }}
         >
-          {/* Zentrierter Titel */}
+          {/* Titel – volle Breite */}
           <Text
             style={{
-              fontSize: 28,
+              fontSize: 56,
               fontFamily: 'SpaceGrotesk_700Bold',
               color: colors.primary,
+              width: '100%',
+              textAlign: 'center',
             }}
             adjustsFontSizeToFit
             numberOfLines={1}
