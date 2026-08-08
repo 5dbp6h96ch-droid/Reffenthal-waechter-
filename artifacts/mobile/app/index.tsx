@@ -300,6 +300,8 @@ export default function HomeScreen() {
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   const [chartRange, setChartRange] = useState<TimeRange>(30);
+  const [newsOpen, setNewsOpen] = useState(true);
+  const [vereineOpen, setVereineOpen] = useState(true);
   const [nfbOpen, setNfbOpen] = useState(true);
 
   // Load persisted range on mount
@@ -1036,8 +1038,10 @@ export default function HomeScreen() {
             gap: 12,
           }}
         >
-          {/* Section header */}
-          <View
+          {/* Section header – anklickbar zum Auf-/Zuklappen */}
+          <TouchableOpacity
+            onPress={() => setNewsOpen(o => !o)}
+            activeOpacity={0.7}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -1055,30 +1059,37 @@ export default function HomeScreen() {
             >
               NEWS
             </Text>
-            {treffer != null && (
-              <View
-                style={{
-                  backgroundColor: colors.muted,
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                  borderRadius: 99,
-                }}
-              >
-                <Text
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {treffer != null && (
+                <View
                   style={{
-                    fontSize: 11,
-                    fontFamily: 'SpaceGrotesk_600SemiBold',
-                    color: colors.accent,
+                    backgroundColor: colors.muted,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 99,
                   }}
                 >
-                  {treffer.count}
-                </Text>
-              </View>
-            )}
-          </View>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color: colors.accent,
+                    }}
+                  >
+                    {treffer.count}
+                  </Text>
+                </View>
+              )}
+              <Feather
+                name={newsOpen ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={colors.mutedForeground}
+              />
+            </View>
+          </TouchableOpacity>
 
-          {/* Treffer content */}
-          {trefferLoading ? (
+          {/* Treffer content – nur sichtbar wenn aufgeklappt */}
+          {newsOpen && (trefferLoading ? (
             <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
               <ActivityIndicator color={colors.primary} />
             </View>
@@ -1182,7 +1193,7 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               );
             })
-          )}
+          ))}
         </View>
 
         {/* ── Vereine Card ── */}
@@ -1196,8 +1207,10 @@ export default function HomeScreen() {
             gap: 12,
           }}
         >
-          {/* Section header */}
-          <View
+          {/* Section header – anklickbar zum Auf-/Zuklappen */}
+          <TouchableOpacity
+            onPress={() => setVereineOpen(o => !o)}
+            activeOpacity={0.7}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -1215,30 +1228,37 @@ export default function HomeScreen() {
             >
               Vereine
             </Text>
-            {clubsData != null && clubsData.count > 0 && (
-              <View
-                style={{
-                  backgroundColor: colors.muted,
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                  borderRadius: 99,
-                }}
-              >
-                <Text
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {clubsData != null && clubsData.count > 0 && (
+                <View
                   style={{
-                    fontSize: 11,
-                    fontFamily: 'SpaceGrotesk_600SemiBold',
-                    color: colors.accent,
+                    backgroundColor: colors.muted,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 99,
                   }}
                 >
-                  {clubsData.count}
-                </Text>
-              </View>
-            )}
-          </View>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color: colors.accent,
+                    }}
+                  >
+                    {clubsData.count}
+                  </Text>
+                </View>
+              )}
+              <Feather
+                name={vereineOpen ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={colors.mutedForeground}
+              />
+            </View>
+          </TouchableOpacity>
 
-          {/* Clubs content */}
-          {clubsLoading ? (
+          {/* Clubs content – nur sichtbar wenn aufgeklappt */}
+          {vereineOpen && (clubsLoading ? (
             <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
               <ActivityIndicator color={colors.primary} />
             </View>
@@ -1370,7 +1390,7 @@ export default function HomeScreen() {
                 );
               });
             })()
-          )}
+          ))}
         </View>
 
         {/* ── NfB-Meldungen Card ── */}
