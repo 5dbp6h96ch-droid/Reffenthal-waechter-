@@ -60,11 +60,16 @@ if (STATIC_MODE) {
         const r = await rawFetch(`${GITHUB_RAW}/run_status.json`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json();
-        const data = { clubs: clubsArr, count: clubsArr.length, known_clubs: KNOWN_CLUBS };
-        return new Response(JSON.stringify(data), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({
+            last_pegel_cm: raw?.last_pegel_cm ?? null,
+            last_pegel_time: raw?.last_pegel_time ?? null,
+            last_daily_report_date: raw?.last_daily_report_date ?? null,
+            history: raw?.history ?? [],
+            threshold_cm: raw?.threshold_cm ?? 225,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
       } catch (err) {
         // AbortError neu werfen damit React Query es korrekt behandelt
         if (err instanceof Error && err.name === 'AbortError') throw err;
@@ -84,8 +89,7 @@ if (STATIC_MODE) {
         const urls = Array.isArray(raw)
           ? raw.filter((s): s is string => typeof s === 'string' && s.startsWith('http'))
           : [];
-        const data = { clubs: clubsArr, count: clubsArr.length, known_clubs: KNOWN_CLUBS };
-        return new Response(JSON.stringify(data), {
+        return new Response(JSON.stringify({ urls, count: urls.length }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -153,7 +157,21 @@ if (STATIC_MODE) {
             return entry.km_von <= kmBis! && entry.km_bis >= kmVon!;
           });
         }
-        return new Response(JSON.stringify({ meldungen, count: meldungen.length }), {
+        // is_new-Flag ergänzen falls nicht bereits vom Server gesetzt
+        const now = Date.now();
+        const withIsNew = meldungen.map((m) => {
+          const entry = m as { is_new?: boolean; first_seen?: string };
+          return {
+            ...(m as object),
+            is_new:
+              typeof entry.is_new === 'boolean'
+                ? entry.is_new
+                : entry.first_seen
+                  ? now - new Date(entry.first_seen).getTime() < NfB_NEW_WINDOW_MS
+                  : false,
+          };
+        });
+        return new Response(JSON.stringify({ meldungen: withIsNew, count: withIsNew.length }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -180,8 +198,19 @@ if (STATIC_MODE) {
         if (err instanceof Error && err.name === 'AbortError') throw err;
         // run_status.json wird nicht auf GitHub committed → leeren Fallback
         const fallback = { last_run_at: null, rss_new_count: 0, last_error: null };
+        return new Response(JSON.stringify(fallback), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
-  const apiBase = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+    // Alle anderen Fetches → normaler Browser-Fetch
+    return _origFetch(input, init);
+  };
+}
+
+const apiBase = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -238,15 +267,3 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
-
-        const withIsNew = meldungen.map((m) => ({
-          ...m,
-          is_new:
-            typeof m.is_new === 'boolean'
-              ? m.is_new
-              : m.first_seen
-                ? now - new Date(m.first_seen as string).getTime() < NfB_NEW_WINDOW_MS
-                : false,
-        }));
-
-        const now = Date.now();

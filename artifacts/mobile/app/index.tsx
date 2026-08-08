@@ -404,6 +404,7 @@ export default function HomeScreen() {
     isError: nfbError,
     refetch: refetchNfb,
     isRefetching: nfbRefetching,
+    dataUpdatedAt: nfbDataUpdatedAt,
   } = useQuery<NfbList>({
     queryKey: ['nfb', nfbKmVon, nfbKmBis],
     queryFn: async ({ signal }) => {
@@ -417,6 +418,7 @@ export default function HomeScreen() {
     },
     staleTime: 60_000,
     refetchInterval: 5 * 60_000,
+    refetchIntervalInBackground: false,
     retry: 2,
   });
 
@@ -1580,6 +1582,21 @@ export default function HomeScreen() {
               />
             </View>
           </TouchableOpacity>
+
+          {/* Last-updated hint */}
+          {nfbDataUpdatedAt > 0 && (
+            <Text
+              style={{
+                fontSize: 10,
+                fontFamily: 'SpaceGrotesk_400Regular',
+                color: colors.mutedForeground,
+                opacity: 0.6,
+                marginTop: -6,
+              }}
+            >
+              Aktualisiert {formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}
+            </Text>
+          )}
 
           {/* km-Bereich – immer sichtbar, editierbar */}
           {nfbKmEdit ? (
