@@ -1,5 +1,17 @@
 {
-  "meldungen": [],
-  "count": 0,
-  "updated_at": "2026-08-08T04:53:44.398397+00:00"
+  "meldungen": [
+    {
+      "nfb_id": "2026/2220",
+      "titel": "Informationsservice wegen andere",
+      "km_von": 424.0,
+      "km_bis": 431.0,
+      "gueltig_ab": "30. Jul. 2026 00:00\n                                Uhr",
+      "gueltig_bis": "30. Nov. 2026 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2220",
+      "first_seen": "2026-08-08T04:58:35.695197+00:00",
+      "is_new": 1
+    }
+  ],
+  "count": 1,
+  "updated_at": "2026-08-08T04:58:36.565422+00:00"
 }
