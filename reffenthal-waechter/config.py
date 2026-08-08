@@ -33,9 +33,14 @@ SEARCH_TERMS: list[str] = [
     "Zufahrt",
     "Einfahrt",
     "Pegel Speyer",
-    "Boot",
-    "Motorboot",
-    "Segelboot",
+]
+
+# Verbundfilter: Eintrag trifft nur zu wenn aus JEDER Gruppe mindestens ein Begriff vorkommt.
+# Gruppe 0 = Gewässer/Ort, Gruppe 1 = Fahrzeugtyp.
+# Ein Artikel über „Rhein Boot" trifft, „Rhein" allein nicht.
+COMPOUND_FILTER_GROUPS: list[list[str]] = [
+    ["Rhein", "Reffenthal", "Angelhofer Altrhein", "Otterstädter Altrhein"],
+    ["Boot", "Sportboot", "Motorboot", "Segelboot"],
 ]
 
 # ── Pegel ─────────────────────────────────────────────────────────────────────

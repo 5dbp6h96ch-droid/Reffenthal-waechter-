@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 import feedparser
 import requests
 
-from config import HTTP_TIMEOUT, RSS_FEEDS, SEARCH_TERMS, USER_AGENT
+from config import COMPOUND_FILTER_GROUPS, HTTP_TIMEOUT, RSS_FEEDS, SEARCH_TERMS, USER_AGENT
 
 # Einträge älter als N Tage werden ignoriert
 MAX_ENTRY_AGE_DAYS: int = 7
@@ -32,9 +32,35 @@ class RssEntry:
 
 
 def _contains_search_term(text: str) -> list[str]:
-    """Gibt alle Suchbegriffe zurück, die im Text (case-insensitiv) vorkommen."""
+    """Gibt alle passenden Suchbegriffe zurück (einfach + Verbundfilter).
+
+    Einfache Begriffe: einer allein reicht.
+    Verbundfilter: aus jeder Gruppe muss mindestens ein Begriff vorkommen.
+    """
     text_lower = text.lower()
-    return [term for term in SEARCH_TERMS if term.lower() in text_lower]
+    matched: list[str] = []
+
+    # 1. Einfache Einzelbegriffe
+    for term in SEARCH_TERMS:
+        if term.lower() in text_lower:
+            matched.append(term)
+
+    # 2. Verbundfilter – alle Gruppen müssen treffen
+    if COMPOUND_FILTER_GROUPS:
+        group_hits: list[str] = []
+        all_match = True
+        for group in COMPOUND_FILTER_GROUPS:
+            hits = [t for t in group if t.lower() in text_lower]
+            if not hits:
+                all_match = False
+                break
+            group_hits.extend(hits)
+        if all_match:
+            for term in group_hits:
+                if term not in matched:
+                    matched.append(term)
+
+    return matched
 
 
 def _make_entry_id(entry, feed_url: str) -> str:
