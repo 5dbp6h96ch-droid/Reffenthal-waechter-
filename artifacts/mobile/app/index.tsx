@@ -425,7 +425,7 @@ export default function HomeScreen() {
   });
 
   // ── NfB notifications ────────────────────────────────────────────────────
-  useNfbNotifications(nfbData?.meldungen);
+  useNfbNotifications(nfbData?.meldungen, nfbKmVon, nfbKmBis);
 
   // Deep-link: open the NfB section when user taps a notification
   const scrollRef = useRef<ScrollView>(null);

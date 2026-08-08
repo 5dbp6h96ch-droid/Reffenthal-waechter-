@@ -2,7 +2,11 @@
  * useNfbNotifications
  *
  * Fires a local Expo notification when new NfB notices (is_new: true) within the
- * watch range (km 380–415) appear that the user has not been notified about before.
+ * user-selected km watch range appear that the user has not been notified about before.
+ *
+ * The watch range (kmVon / kmBis) is passed by the caller and reflects whatever the
+ * user has persisted in AsyncStorage. Notices without km info are always included
+ * (cannot rule out relevance).
  *
  * Delivery paths:
  *   - Foreground/active: runs whenever NfB data loads or the app returns to foreground
@@ -37,17 +41,13 @@ type NfbMeldung = {
 const NOTIFIED_IDS_KEY = 'nfb_notified_ids_v1';
 const ANDROID_CHANNEL_ID = 'nfb-alerts';
 
-/** Mobile watch range — must agree with the "km 380–415" label in the NfB card */
-const WATCH_KM_VON = 380;
-const WATCH_KM_BIS = 415;
-
 /**
- * Returns true when a notice's km range overlaps [WATCH_KM_VON, WATCH_KM_BIS].
+ * Returns true when a notice's km range overlaps [watchKmVon, watchKmBis].
  * Notices without km info are included (cannot rule out relevance).
  */
-function isInWatchRange(m: NfbMeldung): boolean {
+function isInWatchRange(m: NfbMeldung, watchKmVon: number, watchKmBis: number): boolean {
   if (m.km_von == null || m.km_bis == null) return true;
-  return m.km_von <= WATCH_KM_BIS && m.km_bis >= WATCH_KM_VON;
+  return m.km_von <= watchKmBis && m.km_bis >= watchKmVon;
 }
 
 /**
@@ -57,17 +57,23 @@ function isInWatchRange(m: NfbMeldung): boolean {
  */
 let processingChain: Promise<void> = Promise.resolve();
 
-async function scheduleNfbNotifications(items: NfbMeldung[]): Promise<void> {
+async function scheduleNfbNotifications(
+  items: NfbMeldung[],
+  watchKmVon: number,
+  watchKmBis: number,
+): Promise<void> {
   if (Platform.OS === 'web') return;
 
   try {
     const Notifications = await import('expo-notifications');
 
+    const kmLabel = `Rhein km ${watchKmVon}–${watchKmBis}`;
+
     // Android: create channel before any permission request or notification
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
         name: 'NfB-Meldungen',
-        description: 'Neue Nachrichten für Binnenschifffahrt (Rhein km 380–415)',
+        description: `Neue Nachrichten für Binnenschifffahrt (${kmLabel})`,
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#143D45',
@@ -94,8 +100,8 @@ async function scheduleNfbNotifications(items: NfbMeldung[]): Promise<void> {
     const permResult = (await Notifications.requestPermissionsAsync()) as any;
     const granted: boolean = permResult.granted === true;
 
-    // Only consider notices within the mobile watch range (km 380–415)
-    const newInRange = items.filter((m) => m.is_new && isInWatchRange(m));
+    // Only consider notices within the user's watch range
+    const newInRange = items.filter((m) => m.is_new && isInWatchRange(m, watchKmVon, watchKmBis));
 
     // Keep badge count in sync even before we decide to fire a notification
     if (granted) {
@@ -116,8 +122,8 @@ async function scheduleNfbNotifications(items: NfbMeldung[]): Promise<void> {
 
     const title =
       toNotify.length === 1
-        ? 'Neue NfB-Meldung · Rhein km 380–415'
-        : `${toNotify.length} neue NfB-Meldungen · Rhein km 380–415`;
+        ? `Neue NfB-Meldung · ${kmLabel}`
+        : `${toNotify.length} neue NfB-Meldungen · ${kmLabel}`;
     const body =
       toNotify.length === 1
         ? toNotify[0].titel
@@ -151,25 +157,35 @@ async function scheduleNfbNotifications(items: NfbMeldung[]): Promise<void> {
 }
 
 /** Enqueue a notification-check run onto the serial processing chain */
-function enqueueCheck(items: NfbMeldung[]): void {
-  processingChain = processingChain.then(() => scheduleNfbNotifications(items));
+function enqueueCheck(items: NfbMeldung[], watchKmVon: number, watchKmBis: number): void {
+  processingChain = processingChain.then(() =>
+    scheduleNfbNotifications(items, watchKmVon, watchKmBis),
+  );
 }
 
-export function useNfbNotifications(meldungen: NfbMeldung[] | undefined) {
-  // Keep the latest meldungen accessible in the AppState listener without
-  // triggering unnecessary re-subscriptions.
+export function useNfbNotifications(
+  meldungen: NfbMeldung[] | undefined,
+  watchKmVon: number,
+  watchKmBis: number,
+) {
+  // Keep the latest meldungen and range accessible in the AppState listener
+  // without triggering unnecessary re-subscriptions.
   const meldungenRef = useRef<NfbMeldung[] | undefined>(meldungen);
   meldungenRef.current = meldungen;
+  const watchKmVonRef = useRef(watchKmVon);
+  watchKmVonRef.current = watchKmVon;
+  const watchKmBisRef = useRef(watchKmBis);
+  watchKmBisRef.current = watchKmBis;
 
-  const enqueue = useCallback((items: NfbMeldung[]) => {
-    enqueueCheck(items);
+  const enqueue = useCallback((items: NfbMeldung[], kmVon: number, kmBis: number) => {
+    enqueueCheck(items, kmVon, kmBis);
   }, []);
 
-  // Run whenever NfB data arrives/changes
+  // Run whenever NfB data or the watch range changes
   useEffect(() => {
     if (!meldungen) return;
-    enqueue(meldungen);
-  }, [meldungen, enqueue]);
+    enqueue(meldungen, watchKmVon, watchKmBis);
+  }, [meldungen, watchKmVon, watchKmBis, enqueue]);
 
   // Re-run on every foreground resume so that:
   // a) users who denied then re-enabled permission in system settings get notified
@@ -180,7 +196,7 @@ export function useNfbNotifications(meldungen: NfbMeldung[] | undefined) {
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState === 'active') {
         const current = meldungenRef.current;
-        if (current) enqueue(current);
+        if (current) enqueue(current, watchKmVonRef.current, watchKmBisRef.current);
       }
     };
 

@@ -39,6 +39,8 @@ export const NFB_BACKGROUND_TASK = 'nfb-background-fetch';
 /** AsyncStorage key where the API base URL is persisted for background use */
 const API_BASE_URL_KEY = 'nfb_bg_api_base_url';
 
+/** AsyncStorage key where the user's NfB km range is persisted (see index.tsx) */
+const NFB_KM_KEY = 'nfb_km_range';
 /**
  * Fallback static data source (used in GitHub Pages / STATIC_MODE deployment
  * where no API server is available). The NfB monitor pushes nfb.json here.
@@ -46,10 +48,9 @@ const API_BASE_URL_KEY = 'nfb_bg_api_base_url';
 const STATIC_NfB_URL =
   'https://raw.githubusercontent.com/5dbp6h96ch-droid/Reffenthal-waechter-/main/reffenthal-waechter/nfb.json';
 const NfB_NEW_WINDOW_MS = 24 * 60 * 60 * 1000;
-
-/** Mobile watch range (must match hook + UI label) */
-const WATCH_KM_VON = 380;
-const WATCH_KM_BIS = 415;
+/** Default watch range — matches the app default in index.tsx */
+const DEFAULT_KM_VON = 380;
+const DEFAULT_KM_BIS = 415;
 const NOTIFIED_IDS_KEY = 'nfb_notified_ids_v1';
 const ANDROID_CHANNEL_ID = 'nfb-alerts';
 
@@ -58,6 +59,21 @@ export async function saveApiBaseUrl(baseUrl: string): Promise<void> {
   await AsyncStorage.setItem(API_BASE_URL_KEY, baseUrl).catch(() => {});
 }
 
+/** Load the user's persisted km range, falling back to the default 380–415 */
+async function loadKmRange(): Promise<{ von: number; bis: number }> {
+  try {
+    const val = await AsyncStorage.getItem(NFB_KM_KEY);
+    if (val) {
+      const parsed = JSON.parse(val) as { von: number; bis: number };
+      if (typeof parsed.von === 'number' && typeof parsed.bis === 'number') {
+        return parsed;
+      }
+    }
+  } catch {
+    // ignore — fall through to default
+  }
+  return { von: DEFAULT_KM_VON, bis: DEFAULT_KM_BIS };
+}
 interface NfbMeldungRaw {
   nfb_id: string;
   titel: string;
@@ -67,9 +83,9 @@ interface NfbMeldungRaw {
   first_seen?: string; // ISO 8601; used to derive is_new when field is missing
 }
 
-function overlapsWatchRange(m: NfbMeldungRaw): boolean {
+function overlapsWatchRange(m: NfbMeldungRaw, watchKmVon: number, watchKmBis: number): boolean {
   if (m.km_von == null || m.km_bis == null) return true;
-  return m.km_von <= WATCH_KM_BIS && m.km_bis >= WATCH_KM_VON;
+  return m.km_von <= watchKmBis && m.km_bis >= watchKmVon;
 }
 
 /** Called by the OS in the background. Must return a BackgroundFetchResult. */
@@ -78,12 +94,35 @@ const BG_RESULT_NO_DATA = 1;
 const BG_RESULT_NEW_DATA = 2;
 const BG_RESULT_FAILED   = 3;
 
+/** Called by the OS in the background. Must return a numeric BackgroundFetchResult. */
 async function backgroundTask(): Promise<number> {
   if (!BackgroundFetch) return BG_RESULT_FAILED;
   try {
-    const baseUrl = await AsyncStorage.getItem(API_BASE_URL_KEY).catch(() => null);
-    const nfbUrl = baseUrl ? `${baseUrl}/api/nfb` : STATIC_NfB_URL;
+    const [baseUrl, kmRange] = await Promise.all([
+      AsyncStorage.getItem(API_BASE_URL_KEY).catch(() => null),
+      loadKmRange(),
+    ]);
 
+    const { von: watchKmVon, bis: watchKmBis } = kmRange;
+    const kmLabel = `Rhein km ${watchKmVon}–${watchKmBis}`;
+
+    // Determine the NfB API URL: prefer the persisted API server base URL with
+    // km range params, fall back to the static GitHub raw source for
+    // Pages/offline deployments (static JSON has no server-side filtering, so
+    // we filter client-side via overlapsWatchRange below).
+    let nfbUrl: string;
+    if (baseUrl) {
+      const params = new URLSearchParams({
+        km_von: String(watchKmVon),
+        km_bis: String(watchKmBis),
+      });
+      nfbUrl = `${baseUrl}/api/nfb?${params.toString()}`;
+    } else {
+      nfbUrl = STATIC_NfB_URL;
+    }
+
+    // AbortSignal.timeout() is not available in React Native — use a manual
+    // AbortController + setTimeout pair instead.
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15_000);
     let res: Response;
@@ -109,9 +148,14 @@ async function backgroundTask(): Promise<number> {
             : false,
     }));
 
-    const newInRange = meldungen.filter((m) => m.is_new && overlapsWatchRange(m));
+    // Apply client-side range filter (server already filtered when baseUrl is
+    // set, but the static fallback returns all notices).
+    const newInRange = meldungen.filter(
+      (m) => m.is_new && overlapsWatchRange(m, watchKmVon, watchKmBis),
+    );
     if (newInRange.length === 0) return BG_RESULT_NO_DATA;
 
+    // Deduplicate — same store as the foreground hook
     const raw = await AsyncStorage.getItem(NOTIFIED_IDS_KEY).catch(() => null);
     const notifiedIds: string[] = raw ? (JSON.parse(raw) as string[]) : [];
     const notifiedSet = new Set(notifiedIds);
@@ -130,7 +174,7 @@ async function backgroundTask(): Promise<number> {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
         name: 'NfB-Meldungen',
-        description: 'Neue Nachrichten für Binnenschifffahrt (Rhein km 380–415)',
+        description: `Neue Nachrichten für Binnenschifffahrt (${kmLabel})`,
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#143D45',
@@ -139,8 +183,8 @@ async function backgroundTask(): Promise<number> {
 
     const title =
       toNotify.length === 1
-        ? 'Neue NfB-Meldung · Rhein km 380–415'
-        : `${toNotify.length} neue NfB-Meldungen · Rhein km 380–415`;
+        ? `Neue NfB-Meldung · ${kmLabel}`
+        : `${toNotify.length} neue NfB-Meldungen · ${kmLabel}`;
     const body =
       toNotify.length === 1
         ? toNotify[0].titel
@@ -200,3 +244,4 @@ export async function registerNfbBackgroundFetch(): Promise<void> {
     // Already registered or unavailable — ignore
   }
 }
+
