@@ -1635,17 +1635,23 @@ export default function HomeScreen() {
 
           {/* Last-updated hint */}
           {nfbDataUpdatedAt > 0 && (
-            <Text
-              style={{
-                fontSize: 10,
-                fontFamily: 'SpaceGrotesk_400Regular',
-                color: colors.mutedForeground,
-                opacity: 0.6,
-                marginTop: -6,
-              }}
-            >
-              Aktualisiert {formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -6 }}>
+              {nfbError && (
+                <Feather name="alert-circle" size={11} color="#E8620A" />
+              )}
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: nfbError ? '#E8620A' : colors.mutedForeground,
+                  opacity: nfbError ? 1 : 0.6,
+                }}
+              >
+                {nfbError
+                  ? `Fehler beim Aktualisieren · Stand ${formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}`
+                  : `Aktualisiert ${formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}`}
+              </Text>
+            </View>
           )}
 
           {/* km-Bereich – immer sichtbar, editierbar */}
