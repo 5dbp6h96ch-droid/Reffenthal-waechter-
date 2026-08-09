@@ -78,12 +78,12 @@ export default function Root({ children }: PropsWithChildren) {
   /* Merken ob beim Seitenaufruf bereits ein SW aktiv war.
      Nur dann lösen wir bei controllerchange einen Reload aus –
      nicht beim allerersten Installieren. */
-  var hadController = !!navigator.serviceWorker.controller;
-  var reloading     = false;
+  /* pendingReload wird NUR gesetzt wenn der User auf "Aktualisieren" tippt.
+     Verhindert Auto-Reload durch Android-Chrome-interne SW-Promotion. */
+  var pendingReload = false;
 
   navigator.serviceWorker.addEventListener('controllerchange', function () {
-    if (hadController && !reloading) {
-      reloading = true;
+    if (pendingReload) {
       window.location.reload();
     }
   });
@@ -120,6 +120,7 @@ export default function Root({ children }: PropsWithChildren) {
     btn.style.cssText = 'background:rgba(255,255,255,0.22);border:none;color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;';
     btn.addEventListener('click', function () {
       bar.remove();
+      pendingReload = true;
       worker.postMessage({ type: 'SKIP_WAITING' });
     });
     bar.appendChild(label);

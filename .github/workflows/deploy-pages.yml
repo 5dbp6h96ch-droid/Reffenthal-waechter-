@@ -72,11 +72,14 @@ jobs:
           ICON=artifacts/mobile/assets/images/icon.png
           BASE=/Reffenthal-waechter-
 
-          # Icon als apple-touch-icon.png und favicon.png in dist kopieren
-          cp "$ICON" "$DIST/apple-touch-icon.png"
-          cp "$ICON" "$DIST/favicon.png"
+          # PWA-Icons in korrekten Größen in dist kopieren
+          cp artifacts/mobile/public/icon-192.png       "$DIST/icon-192.png"
+          cp artifacts/mobile/public/icon-512.png       "$DIST/icon-512.png"
+          cp artifacts/mobile/public/apple-touch-icon.png "$DIST/apple-touch-icon.png"
+          cp artifacts/mobile/public/favicon.png        "$DIST/favicon.png"
+          echo "✓ Icons kopiert (192, 512, apple-touch-icon, favicon)"
 
-          # Web App Manifest kopieren (wird von Expo nicht automatisch eingebunden)
+          # Web App Manifest kopieren
           cp artifacts/mobile/public/manifest.webmanifest "$DIST/manifest.webmanifest"
           echo "✓ manifest.webmanifest kopiert"
 

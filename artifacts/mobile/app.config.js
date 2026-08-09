@@ -4,7 +4,7 @@
 // → baseUrl bleibt leer → alles läuft wie bisher.
 
 const base = process.env.EXPO_ROUTER_BASE_URL || '';
-const origin = process.env.EXPO_PUBLIC_ORIGIN || 'https://replit.com/';
+const origin = process.env.EXPO_PUBLIC_ORIGIN || 'https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/';
 
 /** @type {import('expo/config').ExpoConfig} */
 module.exports = {
