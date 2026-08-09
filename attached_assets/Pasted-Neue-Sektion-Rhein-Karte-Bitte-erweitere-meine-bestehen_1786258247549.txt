@@ -1,0 +1,233 @@
+Neue Sektion: 🗺️ Rhein-Karte
+
+Bitte erweitere meine bestehende R(h)einschiffer-Web-App um eine neue Sektion „🗺️ Rhein-Karte“.
+
+Ziel
+
+Die Karte soll eine übersichtliche geografische Darstellung wichtiger Informationen entlang des Rheins bieten.
+
+Die erste Version soll bewusst einfach und performant bleiben.
+
+1. Kartenbibliothek
+
+Verwende eine für eine GitHub-Pages-PWA geeignete Kartenbibliothek, bevorzugt Leaflet.
+
+Keine proprietäre Kartenlösung mit kostenpflichtigem API-Key verwenden.
+
+Die Karte muss auf:
+
+* iPhone
+* Android
+* Desktop
+
+funktionieren.
+
+Touch-Zoom und Verschieben müssen funktionieren.
+
+2. Position der neuen Sektion
+
+Füge eine neue Sektion:
+
+🗺️ Rhein-Karte
+
+in die bestehende Navigation ein.
+
+Das bestehende Design und die bestehende Navigation sollen erhalten bleiben.
+
+Die Karte soll sich optisch vollständig in das R(h)einschiffer-Design einfügen.
+
+3. Kartenbereich
+
+Beim Öffnen der Karte soll der sichtbare Bereich sinnvoll auf den relevanten Rheinabschnitt zentriert werden.
+
+Die Karte darf nicht unnötig die gesamte Welt anzeigen.
+
+Auf kleinen Displays muss sie vollständig nutzbar sein.
+
+4. Marker
+
+Implementiere zunächst Marker für vorhandene bzw. bereits in der App verfügbare Daten:
+
+🌊 Pegel
+
+Verwende die bereits vorhandenen Pegeldaten.
+
+Jeder Pegel bekommt einen Marker.
+
+Beim Antippen:
+
+* Name des Pegels
+* aktueller Pegelstand
+* vorhandene Tendenz
+* vorhandene Vorhersage, falls bereits verfügbar
+* Zeitpunkt der letzten Aktualisierung
+
+Beispiel:
+
+Pegel Speyer
+
+3,54 m
+
+📈 +12 cm
+
+Aktualisiert: 08:42 Uhr
+
+Keine neue Pegel-Datenquelle hinzufügen.
+
+⸻
+
+5. ⛽ Tankstellen
+
+Verwende die bereits vorhandenen MCK-Tankstellendaten.
+
+Der vorhandene MCK-Standort soll als Marker angezeigt werden.
+
+Beim Antippen:
+
+MCK Kurpfalz
+
+* vorhandene Preisangaben
+* Benzin
+* Diesel
+* vorhandene Adresse/Informationen
+
+Keine neue Tankstellen-Datenquelle einführen.
+
+⸻
+
+6. ⚓ Clubs
+
+Verwende die bereits vorhandenen Club-Daten der App.
+
+Clubs sollen als Marker angezeigt werden.
+
+Beim Antippen:
+
+* Clubname
+* vorhandene Adresse
+* vorhandene Kontaktdaten
+* vorhandene Website
+* vorhandene weitere Informationen
+
+Keine Daten doppelt pflegen, wenn diese bereits an anderer Stelle in der App vorhanden sind.
+
+⸻
+
+7. 🚧 NfB / Verkehrsbehinderungen
+
+Prüfe die vorhandenen NfB-Daten.
+
+Wenn eine NfB eindeutig geografisch einem Ort/Rheinabschnitt zugeordnet werden kann, darf dafür ein Marker erzeugt werden.
+
+Beim Antippen:
+
+* Titel der Meldung
+* kurze Beschreibung
+* Datum
+* vorhandene Gültigkeit
+* Link/Detailansicht zur bestehenden NfB-Funktion
+
+Wichtig:
+
+Keine ungenauen oder erfundenen Koordinaten erzeugen.
+
+Wenn eine NfB nicht zuverlässig geografisch zugeordnet werden kann, soll sie NICHT auf der Karte erscheinen.
+
+8. Filter
+
+Oberhalb der Karte einfache Filter:
+
+Alle | 🌊 Pegel | ⛽ Tankstellen | ⚓ Clubs | 🚧 Meldungen
+
+Die Filter sollen Marker ein-/ausblenden.
+
+Standardmäßig:
+
+Alle
+
+9. Marker-Daten
+
+Die Karte darf keine eigenen parallelen Datenbestände erzeugen, wenn die Informationen bereits in der App vorhanden sind.
+
+Möglichst vorhandene Datenstrukturen wiederverwenden.
+
+Koordinaten nur aus zuverlässigen vorhandenen Daten oder einer eindeutig definierten statischen Ortszuordnung verwenden.
+
+Keine geratenen Koordinaten.
+
+10. Performance
+
+Die Karte darf die Startseite nicht unnötig verlangsamen.
+
+Wenn möglich:
+
+* Kartenbibliothek erst laden, wenn die Rhein-Karte geöffnet wird.
+* Marker nur für sichtbare/relevante Daten erzeugen.
+* keine unnötigen Netzwerkaufrufe.
+
+11. Offline
+
+Wenn die Karte bereits zuvor geladen wurde, soll die App soweit technisch möglich die zuletzt bekannten Markerinformationen weiterhin anzeigen können.
+
+Wenn keine aktuellen Daten verfügbar sind, muss deutlich erkennbar sein:
+
+„Offline – Daten vom letzten Abruf“
+
+Keine falschen aktuellen Werte anzeigen.
+
+12. Bestehende Funktionen schützen
+
+Nicht verändern oder entfernen:
+
+* NfB / WSV
+* Pegeldaten
+* Pegelvorhersage
+* MCK-Tankstellen
+* Clubs
+* Wächter
+* „Seit deinem letzten Besuch“
+* PWA-Installation
+* Service Worker
+* PWA-Updatefunktion
+
+Insbesondere darf die bestehende Funktion
+
+„Seit deinem letzten Besuch“
+
+weiterhin funktionieren.
+
+13. PWA
+
+Die Karte muss unter dem bestehenden GitHub-Pages-Pfad funktionieren:
+
+/Reffenthal-waechter-/
+
+Keine absoluten Pfade verwenden, die den GitHub-Pages-Unterpfad umgehen.
+
+14. Abschluss
+
+Nach der Implementierung teste:
+
+1. iPhone
+2. Android
+3. Desktop
+4. Karte öffnen
+5. Zoom und Verschieben
+6. Pegelmarker
+7. MCK-Marker
+8. Clubmarker
+9. NfB-Marker, sofern geografisch eindeutig
+10. Filter
+11. Offline-Verhalten
+12. GitHub-Pages-Deployment
+
+Gib anschließend an:
+
+* welche Dateien geändert wurden,
+* welche Bibliothek verwendet wurde,
+* welche Datenquellen für die Marker verwendet werden,
+* wie die Koordinaten bestimmt werden,
+* ob zusätzliche externe APIs benötigt werden,
+* und ob bestehende Funktionen unverändert geblieben sind.
+
+Wichtig: Noch keine Routenplanung, Navigation, Entfernungsmessung oder Push-Funktion implementieren.
