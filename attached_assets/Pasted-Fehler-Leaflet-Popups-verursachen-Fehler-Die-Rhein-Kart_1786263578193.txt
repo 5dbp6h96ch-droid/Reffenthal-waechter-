@@ -1,0 +1,142 @@
+Fehler: Leaflet-Popups verursachen Fehler
+
+Die Rhein-Karte und die Marker sind sichtbar, aber sobald ich einen Marker antippe, verursacht das Popup einen Fehler.
+
+Bitte untersuche und behebe ausschließlich die Popup-Funktion.
+
+Betroffene Marker
+
+* 🌊 Pegel Speyer
+* ⛽ MCK
+* ⚓ Clubs
+* 🚧 NfB
+
+1. Fehler reproduzieren
+
+Teste jeden Marker einzeln:
+
+1. Pegelmarker antippen
+2. MCK-Marker antippen
+3. Clubmarker antippen
+4. NfB-Marker antippen
+
+Ermittle den exakten JavaScript-/React-Fehler.
+
+Nicht nur vermuten.
+
+2. Wahrscheinliche Fehlerquellen prüfen
+
+Untersuche insbesondere:
+
+* Popup
+* Marker
+* React-Komponenten innerhalb von Popup
+* externe Links
+* nicht definierte Daten
+* undefined / null
+* falsche React-Leaflet-Props
+* HTML-Inhalte innerhalb des Popups
+* Event-Handler
+* dynamische Daten aus React Query
+
+3. Popup zunächst minimal machen
+
+Falls die Ursache nicht sofort eindeutig ist, reduziere zunächst jedes Popup auf einfachen Text.
+
+Beispiel:
+
+Pegel:
+
+Pegel Speyer
+
+MCK:
+
+MCK Kurpfalz
+
+Club:
+
+Clubname
+
+NfB:
+
+NfB-Titel
+
+Wenn diese einfachen Popups funktionieren, füge die einzelnen Daten anschließend schrittweise wieder hinzu.
+
+4. Daten absichern
+
+Alle optionalen Daten müssen sicher behandelt werden.
+
+Kein direkter Zugriff auf möglicherweise nicht vorhandene Werte.
+
+Beispielsweise nicht:
+
+club.website.url
+
+wenn club.website eventuell nicht existiert.
+
+Stattdessen sichere Fallbacks verwenden.
+
+5. Externe Links
+
+Club- und WSV-Links dürfen das Popup nicht zum Absturz bringen.
+
+Wenn kein gültiger Link vorhanden ist, einfach keinen Link anzeigen.
+
+Wenn ein Link vorhanden ist, muss er eine gültige HTTPS-URL sein.
+
+6. React / React-Leaflet
+
+Keine Hooks innerhalb von:
+
+* Marker-Callbacks
+* Popup-Inhalten
+* .map()
+* Event-Handlern
+
+verwenden.
+
+Keine React-Komponente innerhalb eines Callbacks erzeugen, die gegen die bestehenden React-Regeln verstößt.
+
+7. Bestehende Datenquellen
+
+Nicht ändern:
+
+* state.last_pegel_cm
+* last_pegel_time
+* mckData
+* clubsData.known_clubs
+* nfbData.meldungen
+
+Nur die Darstellung im Popup reparieren.
+
+8. Bestehende Funktionen schützen
+
+Nicht verändern:
+
+* Kartenanzeige
+* Marker
+* Filter
+* NfB
+* Pegel
+* MCK
+* Clubs
+* Wächter
+* „Seit deinem letzten Besuch“
+* Service Worker
+* PWA
+* Update-System
+
+9. Abschluss
+
+Bitte gib mir:
+
+1. den exakten ursprünglichen Fehler,
+2. die Ursache,
+3. die geänderte Datei,
+4. die konkrete Korrektur,
+5. ob alle vier Popup-Typen funktionieren,
+6. ob TypeScript fehlerfrei ist,
+7. ob der Produktions-Build erfolgreich ist.
+
+Bitte erst als fertig melden, wenn ein Klick auf jeden vorhandenen Marker ohne JavaScript-Fehler funktioniert.
