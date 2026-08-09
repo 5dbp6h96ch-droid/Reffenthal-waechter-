@@ -114,23 +114,35 @@ function rheinKmToLatLon(km: number): [number, number] {
 //                 (email: info@mck-mannheim.com · website: mck-mannheim.com)
 //                 Die Kraftstoffabgabe erfolgt am Steg der MCK-Marina (Altrhein Mannheim-Süd).
 //
-// Nur Clubs mit eindeutig verifizierten OSM-Koordinaten werden angezeigt.
-// Einträge ohne zuverlässige Position wurden bewusst entfernt.
+// Club-Koordinaten – alle via OSM/Nominatim verifiziert (Stand 2026-08-09):
 //
 //   '1. MBC Speyer'       OSM Way 111093673 "1. MBC Speyer" (leisure=marina)
-//                         Birkenweg / Tannenweg, Speyer-Rheinauen, exakt
+//                         Birkenweg / Tannenweg, Speyer-Rheinauen
+//
+//   'Yachthafen Speyer'   OSM Way 75605471 "Yachthafen Speyer" (leisure=marina)
+//                         Hafenstraße, Kernstadt-Süd, Speyer
+//                         Nominatim: https://nominatim.openstreetmap.org/search?q=Yachthafen+Speyer
+//
+//   'YC Otterstadt (Angelhofer Altrhein)'
+//                         OSM Way 712400725 "YCOA Yacht-Club Otterstadt im Angelwald" (leisure=marina)
+//                         Lärchenweg, Otterstadt, Rheinauen – Kurzname YCOA = ycoa.de
+//                         Nominatim: https://nominatim.openstreetmap.org/search?q=Otterstadt+marina+Rhein
 //
 //   'MYCL Kiefweiher'     OSM Way 47040265 "Motor-Yacht-Club Ludwigshafen"
 //                         Website: www.mycl.de – Kiefweiher-Anlage, Ludwigshafen
 //
-//   'MCK Kurpfalz Mannheim' OSM Node 2126207931 (identisch mit MCK_FUEL), exakt
+//   'WCC Kiefweiher'      OSM Way 47042848 "Wasser- und Campingclub Mannheim Ludwigshafen"
+//                         Kiefweiher, Ludwigshafen-Rheingönheim
+//                         Overpass: way/47042848 (tourism=camp_site + sport)
 //
-// Entfernt (keine verlässliche OSM-Position gefunden):
-//   'Yachthafen Speyer', 'YC Otterstadt (Angelhofer Altrhein)', 'WCC Kiefweiher'
+//   'MCK Kurpfalz Mannheim' OSM Node 2126207931 (identisch mit MCK_FUEL)
 const CLUB_COORDS: Record<string, [number, number]> = {
-  '1. MBC Speyer':         [49.3658717, 8.4740140],  // OSM Way 111093673
-  'MYCL Kiefweiher':       [49.4403332, 8.4517300],  // OSM Way 47040265
-  'MCK Kurpfalz Mannheim': [49.4164899, 8.5014938],  // OSM Node 2126207931
+  '1. MBC Speyer':                       [49.3658717, 8.4740140],  // OSM Way 111093673
+  'Yachthafen Speyer':                   [49.3195801, 8.4468747],  // OSM Way 75605471
+  'YC Otterstadt (Angelhofer Altrhein)': [49.3598200, 8.4756122],  // OSM Way 712400725
+  'MYCL Kiefweiher':                     [49.4403332, 8.4517300],  // OSM Way 47040265
+  'WCC Kiefweiher':                      [49.4419289, 8.4593312],  // OSM Way 47042848
+  'MCK Kurpfalz Mannheim':               [49.4164899, 8.5014938],  // OSM Node 2126207931
 };
 
 // Pegel Speyer – WSV PEGELONLINE, Station "SPEYER", Rhein-km 400.61
