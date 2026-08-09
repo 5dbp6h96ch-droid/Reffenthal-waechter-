@@ -122,13 +122,13 @@ function makeIcon(emoji: string, bg: string): L.DivIcon {
   });
 }
 
-// ── Popup-Inline-Styles ───────────────────────────────────────────────────────
-const PS = {
-  wrap:  'font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.55;min-width:170px;max-width:240px;',
-  title: 'font-size:14px;font-weight:700;margin-bottom:5px;display:block;',
-  row:   'margin:2px 0;',
-  muted: 'color:#666;font-size:11px;',
-  link:  'color:#1565C0;font-size:12px;text-decoration:none;',
+// ── Popup-Inline-Styles (React CSSProperties – NICHT CSS-Strings) ────────────
+const PS: Record<string, React.CSSProperties> = {
+  wrap:  { fontFamily: 'system-ui,-apple-system,sans-serif', fontSize: '13px', lineHeight: 1.55, minWidth: '170px', maxWidth: '240px' },
+  title: { fontSize: '14px', fontWeight: 700, marginBottom: '5px', display: 'block' },
+  row:   { margin: '2px 0' },
+  muted: { color: '#666', fontSize: '11px' },
+  link:  { color: '#1565C0', fontSize: '12px', textDecoration: 'none' },
 };
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
@@ -280,9 +280,9 @@ export default function RheinKarte({
           {show('pegel') && pegelCm !== null && (
             <Marker position={PEGEL_SPEYER} icon={icons.pegel}>
               <Popup>
-                <div style={PS.wrap as React.CSSProperties}>
-                  <span style={PS.title as React.CSSProperties}>🌊 Pegel Speyer</span>
-                  <div style={{ margin: '2px 0' }}>
+                <div style={PS.wrap}>
+                  <span style={PS.title}>🌊 Pegel Speyer</span>
+                  <div style={PS.row}>
                     <span style={{ fontSize: '22px', fontWeight: 700, color: '#1565C0' }}>
                       {(pegelCm / 100).toFixed(2)} m
                     </span>
@@ -290,7 +290,7 @@ export default function RheinKarte({
                       ({pegelCm} cm)
                     </span>
                   </div>
-                  <div style={{ color: '#666', fontSize: '11px' }}>
+                  <div style={PS.muted}>
                     Aktualisiert: {fmtTime(pegelTime)}
                   </div>
                 </div>
@@ -302,20 +302,20 @@ export default function RheinKarte({
           {show('mck') && mckData && (
             <Marker position={MCK_FUEL} icon={icons.mck}>
               <Popup>
-                <div style={PS.wrap as React.CSSProperties}>
-                  <span style={PS.title as React.CSSProperties}>⛽ {mckData.source}</span>
+                <div style={PS.wrap}>
+                  <span style={PS.title}>⛽ {mckData.source}</span>
                   {mckData.petrol !== null && (
-                    <div style={{ margin: '2px 0' }}>
+                    <div style={PS.row}>
                       Benzin: <strong>{fmtPrice(mckData.petrol, mckData.unit)}</strong>
                     </div>
                   )}
                   {mckData.diesel !== null && (
-                    <div style={{ margin: '2px 0' }}>
+                    <div style={PS.row}>
                       Diesel: <strong>{fmtPrice(mckData.diesel, mckData.unit)}</strong>
                     </div>
                   )}
                   {mckData.sourceDate && (
-                    <div style={{ color: '#666', fontSize: '11px' }}>Stand: {mckData.sourceDate}</div>
+                    <div style={PS.muted}>Stand: {mckData.sourceDate}</div>
                   )}
                 </div>
               </Popup>
@@ -326,16 +326,18 @@ export default function RheinKarte({
           {show('clubs') && clubMarkers.map(c => (
             <Marker key={c.name} position={c.pos} icon={icons.club}>
               <Popup>
-                <div style={PS.wrap as React.CSSProperties}>
-                  <span style={PS.title as React.CSSProperties}>{c.icon} {c.name}</span>
-                  <a
-                    href={c.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={PS.link as React.CSSProperties}
-                  >
-                    {c.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                  </a>
+                <div style={PS.wrap}>
+                  <span style={PS.title}>{c.icon} {c.name}</span>
+                  {c.url ? (
+                    <a
+                      href={c.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={PS.link}
+                    >
+                      {c.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                    </a>
+                  ) : null}
                 </div>
               </Popup>
             </Marker>
@@ -345,30 +347,30 @@ export default function RheinKarte({
           {show('nfb') && nfbMarkers.map(m => (
             <Marker key={m.nfb_id} position={[m.lat, m.lon]} icon={icons.nfb}>
               <Popup>
-                <div style={PS.wrap as React.CSSProperties}>
-                  <span style={{ ...PS.title as React.CSSProperties, fontSize: '13px' }}>
+                <div style={PS.wrap}>
+                  <span style={{ ...PS.title, fontSize: '13px' }}>
                     🚧 {m.titel}
                   </span>
-                  <div style={PS.row as React.CSSProperties}>
+                  <div style={PS.row}>
                     km {m.km_von} – {m.km_bis}
                   </div>
                   {(m.gueltig_ab || m.gueltig_bis) && (
-                    <div style={PS.muted as React.CSSProperties}>
+                    <div style={PS.muted}>
                       Gültig: {m.gueltig_ab ?? '?'} – {m.gueltig_bis ?? '?'}
                     </div>
                   )}
-                  {m.url && (
+                  {m.url ? (
                     <div style={{ marginTop: '5px' }}>
                       <a
                         href={m.url}
                         target="_blank"
                         rel="noreferrer"
-                        style={PS.link as React.CSSProperties}
+                        style={PS.link}
                       >
                         Details auf WSV →
                       </a>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </Popup>
             </Marker>
