@@ -41,6 +41,7 @@ import { useNfbNotifications } from '@/hooks/useNfbNotifications';
 import { useColors } from '@/hooks/useColors';
 import { useSinceLastVisit } from '@/hooks/useSinceLastVisit';
 import type { VisitChange } from '@/hooks/useSinceLastVisit';
+import RheinKarte from '@/components/RheinKarte';
 // Local type aliases matching the generated API schemas (api-client-react types
 // are not resolved by the mobile tsconfig due to missing project references).
 
@@ -316,6 +317,7 @@ export default function HomeScreen() {
   const [nfbOpen, setNfbOpen] = useState(false);
   const [mckOpen, setMckOpen] = useState(false);
   const [hvzOpen, setHvzOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
 
   // HVZ-Vorhersage: Cache-Busting-Timestamp, aktualisiert alle 5 Min (= HVZ-Takt)
   const [hvzTs, setHvzTs] = useState(() => Math.floor(Date.now() / 300_000));
@@ -1947,6 +1949,42 @@ export default function HomeScreen() {
               });
             })()
           ))}
+        </View>
+
+        {/* ── Rhein-Karte Card ── */}
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: colors.radius,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            gap: 12,
+          }}
+        >
+          {/* Section header – anklickbar zum Auf-/Zuklappen */}
+          <TouchableOpacity
+            onPress={() => setMapOpen(o => !o)}
+            activeOpacity={0.7}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <Text style={{ fontSize: 14, fontFamily: 'SpaceGrotesk_700Bold', color: colors.foreground }}>
+              🗺️ Rhein-Karte
+            </Text>
+            <Feather name={mapOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.mutedForeground} />
+          </TouchableOpacity>
+
+          {mapOpen && (
+            <RheinKarte
+              pegelCm={state?.last_pegel_cm ?? null}
+              pegelTime={state?.last_pegel_time ?? null}
+              mckData={mckData}
+              knownClubs={clubsData?.known_clubs ?? []}
+              nfbMeldungen={nfbData?.meldungen ?? []}
+              isOffline={stateError}
+              colors={colors}
+            />
+          )}
         </View>
 
         {/* ── NEWS Card ── */}
