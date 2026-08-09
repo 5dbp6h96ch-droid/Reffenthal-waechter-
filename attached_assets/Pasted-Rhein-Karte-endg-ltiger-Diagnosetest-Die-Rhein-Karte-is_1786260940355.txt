@@ -1,0 +1,161 @@
+Rhein-Karte – endgültiger Diagnosetest
+
+Die Rhein-Karte ist in der veröffentlichten App weiterhin NICHT sichtbar.
+
+Bitte keine weiteren Funktionen hinzufügen und keine Vermutungen als Lösung melden.
+
+Wir führen jetzt einen Minimaltest durch.
+
+Ziel
+
+Auf der veröffentlichten GitHub-Pages-Web-App muss beim Öffnen von
+
+🗺️ Rhein-Karte
+
+zunächst eine völlig einfache Leaflet-Karte erscheinen.
+
+Noch OHNE:
+
+* Pegelmarker
+* MCK
+* Clubs
+* NfB
+* Filter
+* Datenabfragen
+
+Nur eine Karte.
+
+1. Sichtbarer Testbereich
+
+Die Sektion muss auf der Startseite eindeutig sichtbar sein:
+
+🗺️ Rhein-Karte
+
+Darunter bzw. nach Antippen muss ein Kartencontainer erscheinen.
+
+Der Kartencontainer muss eine feste Höhe von mindestens:
+
+400px
+
+haben.
+
+2. Minimaler Leaflet-Test
+
+Verwende in RheinKarte.web.tsx zunächst nur:
+
+* Leaflet
+* MapContainer
+* TileLayer
+* definierte Höhe
+* sinnvolle Rhein-Zentrierung
+
+Keine Marker und keine vorhandenen React-Query-Daten verwenden.
+
+3. Kritisch: Browser-Initialisierung
+
+Die Leaflet-Komponente darf während Expo Static Export / SSG NICHT auf Browser-APIs zugreifen.
+
+Kein:
+
+* window
+* document
+* L.divIcon()
+
+auf Modulebene.
+
+Alles Browser-spezifische erst nach dem Mount ausführen.
+
+4. CSS
+
+Stelle sicher, dass Leaflet-CSS tatsächlich im veröffentlichten Build vorhanden ist.
+
+Die Datei muss nach dem Deployment unter exakt diesem Pfad erreichbar sein:
+
+/Reffenthal-waechter-/leaflet.css
+
+Und +html.tsx muss den korrekten Unterpfad verwenden.
+
+5. Kartenkacheln
+
+Verwende zunächst nur einen normalen OpenStreetMap-TileLayer über HTTPS.
+
+Die Karte muss auch ohne Marker sichtbar sein.
+
+6. Produktions-Build prüfen
+
+Ganz wichtig:
+
+Nicht nur Replit Preview testen.
+
+Führe den tatsächlichen Produktions-Build aus und prüfe:
+
+* dist/index.html
+* dist/leaflet.css
+* erzeugtes JS-Bundle
+* GitHub-Actions-Deployment
+
+7. Nach Deployment testen
+
+Prüfe die tatsächlich veröffentlichte URL:
+
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/
+
+Wenn möglich mit einem frischen Browser-Kontext bzw. ohne alten Service-Worker-Cache.
+
+8. Wenn die Minimal-Karte funktioniert
+
+Erst DANACH schrittweise wieder hinzufügen:
+
+1. Pegel
+2. MCK
+3. Clubs
+4. NfB
+5. Filter
+
+Nach jedem Schritt prüfen.
+
+9. Wenn die Minimal-Karte NICHT funktioniert
+
+Dann bitte NICHT erneut behaupten, dass sie funktioniert.
+
+Gib stattdessen den konkreten Fehler aus:
+
+* Browser-JavaScript-Fehler
+* fehlende CSS-Datei
+* fehlende Leaflet-Datei
+* Tile-Fehler
+* React-/Expo-Fehler
+* falscher GitHub-Pages-Pfad
+* Service-Worker-Problem
+
+Wichtig
+
+Bestehende Funktionen NICHT verändern:
+
+* NfB
+* Pegel
+* MCK
+* Clubs
+* Wächter
+* „Seit deinem letzten Besuch“
+* PWA
+* Service Worker
+* Update-System
+
+Nur die Rhein-Karte diagnostizieren.
+
+Abschlussbericht
+
+Bitte gib mir nach dem Test:
+
+A) Ist die reine Leaflet-Karte im Produktions-Build sichtbar? Ja/Nein
+
+B) Ist /Reffenthal-waechter-/leaflet.css im Deployment vorhanden? Ja/Nein
+
+C) Gibt es einen Browser-JavaScript-Fehler? Wenn ja, exakt welcher?
+
+D) Werden OpenStreetMap-Kacheln geladen? Ja/Nein
+
+E) Welche Datei wurde zuletzt geändert?
+
+Erst wenn A = JA ist, die echten Marker wieder hinzufügen.
