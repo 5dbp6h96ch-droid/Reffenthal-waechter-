@@ -60,26 +60,32 @@ export interface RheinKarteProps {
 }
 
 // ── Rhein-km → [lat, lon] Interpolation ──────────────────────────────────────
-// Stützpunkte: amtlich verortete Pegelstationen / Kilometermarken
+// Quellen:
+//   WSV  = amtliche WSV PEGELONLINE REST-API (exakt, Stand 2026-08-09)
+//          https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations/<NAME>.json
+//   OSM  = OpenStreetMap / Overpass API (verifiziert, Stand 2026-08-09)
+//   EST  = Schätzung anhand Satellitenbild (nur für Bereiche ohne WSV-Station)
+//
+// Stützpunkte sind aufsteigend nach Rhein-km geordnet (Basel → Nordsee).
 const KM_REFS: [number, number, number][] = [
-  [149, 48.583,  7.752],  // Strasbourg-Süd
-  [163, 48.700,  7.863],  // Gambsheim
-  [200, 48.907,  8.082],  // Maxau / Karlsruhe
-  [280, 49.104,  8.282],  // Germersheim
-  [355, 49.230,  8.360],  // nördlich Germersheim
-  [400, 49.316,  8.440],  // Speyer
-  [419, 49.468,  8.464],  // Mannheim
-  [443, 49.632,  8.374],  // Worms
-  [496, 49.950,  8.270],  // Mainz
-  [531, 50.033,  8.118],  // Wiesbaden
-  [555, 49.982,  7.933],  // Rüdesheim / Bingen
-  [590, 50.356,  7.595],  // Koblenz
-  [640, 50.728,  7.098],  // Andernach / Bonn
-  [659, 50.928,  6.958],  // Köln
-  [688, 51.221,  6.777],  // Düsseldorf
-  [780, 51.764,  6.389],  // Rees
-  [815, 51.870,  6.120],  // Grenze NL-DE
-  [900, 52.000,  5.700],  // Niederrhein NL
+  // --- Oberrhein / Elsass (EST – kein WSV-Pegel abgefragt) ---
+  [166.0,  47.558,  7.588],  // Basel                 (EST – Dreiländerbrücke)
+  [228.0,  48.022,  7.563],  // Breisach              (EST)
+  [291.0,  48.587,  7.768],  // Kehl / Strasbourg     (EST)
+  // --- Mittelrhein / Oberrhein DE (WSV PEGELONLINE, exakt) ---
+  [362.327, 49.038977, 8.305564],  // MAXAU (Karlsruhe)  WSV
+  [400.610, 49.323807, 8.448705],  // SPEYER             WSV
+  [424.733, 49.483940, 8.455165],  // MANNHEIM           WSV
+  [443.370, 49.631837, 8.377519],  // WORMS              WSV
+  [498.270, 50.003995, 8.275319],  // MAINZ              WSV
+  [528.360, 49.970342, 7.899668],  // BINGEN             WSV
+  [546.230, 50.085438, 7.764962],  // KAUB               WSV
+  [591.490, 50.358640, 7.604741],  // KOBLENZ            WSV
+  [654.800, 50.736398, 7.108045],  // BONN               WSV
+  // --- Niederrhein (EST zwischen WSV-Punkten) ---
+  [688.0,   50.960,   6.790],     // Köln               (EST)
+  [814.000, 51.646143, 6.606820], // WESEL              WSV
+  [862.000, 51.849827, 6.112447], // LOBITH (NL-Grenze) WSV
 ];
 
 function rheinKmToLatLon(km: number): [number, number] {
@@ -98,18 +104,39 @@ function rheinKmToLatLon(km: number): [number, number] {
 }
 
 // ── Statische Koordinaten ──────────────────────────────────────────────────
-// Quellen: amtliche Pegelkarten, Yachthafenregister, OpenStreetMap-verifiziert
+// Quellen und Genauigkeit:
+//
+//   PEGEL_SPEYER  WSV PEGELONLINE REST-API, Station "SPEYER", exakt
+//                 https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations/SPEYER.json
+//                 Rhein-km 400.61
+//
+//   MCK_FUEL      OpenStreetMap Node 2126207931 "MCK Motoryacht-Club Kurpfalz Mannheim"
+//                 (email: info@mck-mannheim.com · website: mck-mannheim.com)
+//                 Die Kraftstoffabgabe erfolgt am Steg der MCK-Marina (Altrhein Mannheim-Süd).
+//
+// Nur Clubs mit eindeutig verifizierten OSM-Koordinaten werden angezeigt.
+// Einträge ohne zuverlässige Position wurden bewusst entfernt.
+//
+//   '1. MBC Speyer'       OSM Way 111093673 "1. MBC Speyer" (leisure=marina)
+//                         Birkenweg / Tannenweg, Speyer-Rheinauen, exakt
+//
+//   'MYCL Kiefweiher'     OSM Way 47040265 "Motor-Yacht-Club Ludwigshafen"
+//                         Website: www.mycl.de – Kiefweiher-Anlage, Ludwigshafen
+//
+//   'MCK Kurpfalz Mannheim' OSM Node 2126207931 (identisch mit MCK_FUEL), exakt
+//
+// Entfernt (keine verlässliche OSM-Position gefunden):
+//   'Yachthafen Speyer', 'YC Otterstadt (Angelhofer Altrhein)', 'WCC Kiefweiher'
 const CLUB_COORDS: Record<string, [number, number]> = {
-  '1. MBC Speyer':                       [49.3180, 8.4450],
-  'Yachthafen Speyer':                   [49.3138, 8.4427],
-  'YC Otterstadt (Angelhofer Altrhein)': [49.3368, 8.3942],
-  'MYCL Kiefweiher':                     [49.4720, 8.5132],
-  'WCC Kiefweiher':                      [49.4728, 8.5138],
-  'MCK Kurpfalz Mannheim':               [49.4660, 8.5010],
+  '1. MBC Speyer':         [49.3658717, 8.4740140],  // OSM Way 111093673
+  'MYCL Kiefweiher':       [49.4403332, 8.4517300],  // OSM Way 47040265
+  'MCK Kurpfalz Mannheim': [49.4164899, 8.5014938],  // OSM Node 2126207931
 };
 
-const PEGEL_SPEYER: [number, number] = [49.3163, 8.4350];
-const MCK_FUEL:    [number, number] = [49.4660, 8.5010];
+// Pegel Speyer – WSV PEGELONLINE, Station "SPEYER", Rhein-km 400.61
+const PEGEL_SPEYER: [number, number] = [49.323807, 8.448705];
+// MCK Motoryacht-Club Kurpfalz Mannheim – OSM Node 2126207931
+const MCK_FUEL:    [number, number] = [49.4164899, 8.5014938];
 
 // ── DivIcon-Fabrik (NUR nach Mount aufrufbar – braucht DOM) ───────────────────
 function makeIcon(emoji: string, bg: string): L.DivIcon {
