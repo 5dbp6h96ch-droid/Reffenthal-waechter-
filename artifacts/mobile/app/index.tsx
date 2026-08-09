@@ -490,8 +490,9 @@ export default function HomeScreen() {
   } = useNfbNotifications(nfbData?.meldungen, nfbKmVon, nfbKmBis);
 
   // Deep-link: open the NfB section when user taps a notification
-  const scrollRef = useRef<ScrollView>(null);
-  const nfbCardRef = useRef<View>(null);
+  const scrollRef    = useRef<ScrollView>(null);
+  const nfbCardRef   = useRef<View>(null);
+  const pegelCardRef = useRef<View>(null);
   useEffect(() => {
     if (Platform.OS === 'web') return;
     let sub: { remove: () => void } | null = null;
@@ -707,103 +708,158 @@ export default function HomeScreen() {
             >
               🕐 Seit deinem letzten Besuch
             </Text>
-            {sinceLastVisitChanges.map((change: VisitChange) => {
-              if (change.kind === 'nfb') {
-                return (
-                  <TouchableOpacity
-                    key="nfb"
-                    onPress={() => {
-                      setNfbOpen(true);
-                      setTimeout(() => {
-                        nfbCardRef.current?.measureLayout(
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          scrollRef.current as any,
-                          (_x, y) => scrollRef.current?.scrollTo({ y, animated: true }),
-                          () => {},
-                        );
-                      }, 300);
-                    }}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                  >
+            {/* Feste Reihenfolge: NfB → Pegel → Sperrung → MCK */}
+            {sinceLastVisitChanges
+              .slice()
+              .sort((a, b) => {
+                const ORDER: Record<string, number> = { nfb: 0, pegel: 1, sperrung: 2, mck: 3 };
+                return (ORDER[a.kind] ?? 99) - (ORDER[b.kind] ?? 99);
+              })
+              .map((change) => {
+                if (change.kind === 'nfb') {
+                  return (
+                    <TouchableOpacity
+                      key="nfb"
+                      onPress={() => {
+                        setNfbOpen(true);
+                        setTimeout(() => {
+                          nfbCardRef.current?.measureLayout(
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            scrollRef.current as any,
+                            (_x, y) => scrollRef.current?.scrollTo({ y, animated: true }),
+                            () => {},
+                          );
+                        }, 300);
+                      }}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontFamily: 'SpaceGrotesk_500Medium',
+                          color: colors.foreground,
+                        }}
+                      >
+                        {'🟠 '}
+                        {change.newCount}{' '}
+                        {change.newCount === 1 ? 'neue NfB' : 'neue NfBs'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }
+                if (change.kind === 'pegel') {
+                  const up = change.deltaCm > 0;
+                  return (
+                    <TouchableOpacity
+                      key="pegel"
+                      onPress={() => {
+                        setTimeout(() => {
+                          pegelCardRef.current?.measureLayout(
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            scrollRef.current as any,
+                            (_x, y) => scrollRef.current?.scrollTo({ y, animated: true }),
+                            () => {},
+                          );
+                        }, 100);
+                      }}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontFamily: 'SpaceGrotesk_500Medium',
+                          color: colors.foreground,
+                        }}
+                      >
+                        {up ? '📈' : '📉'}{' '}
+                        {'Pegel Speyer '}
+                        {up ? '+' : ''}
+                        {change.deltaCm}{' cm'}
+                        {'   '}
+                        <Text style={{ fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground, fontSize: 12 }}>
+                          {change.oldCm} → {change.newCm} cm
+                        </Text>
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }
+                if (change.kind === 'sperrung') {
+                  return (
+                    <TouchableOpacity
+                      key="sperrung"
+                      onPress={() => {
+                        setNfbOpen(true);
+                        setTimeout(() => {
+                          nfbCardRef.current?.measureLayout(
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            scrollRef.current as any,
+                            (_x, y) => scrollRef.current?.scrollTo({ y, animated: true }),
+                            () => {},
+                          );
+                        }, 300);
+                      }}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontFamily: 'SpaceGrotesk_500Medium',
+                          color: colors.foreground,
+                        }}
+                      >
+                        {'🚧 '}
+                        {change.count}{' '}
+                        {change.count === 1 ? 'neue Sperrmeldung' : 'neue Sperrmeldungen'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }
+                if (change.kind === 'mck') {
+                  const lines: string[] = [];
+                  if (
+                    change.oldPetrol !== null &&
+                    change.newPetrol !== null &&
+                    change.oldPetrol !== change.newPetrol
+                  ) {
+                    lines.push(
+                      `Benzin ${change.oldPetrol.toFixed(2)} → ${change.newPetrol.toFixed(2)} €/l`,
+                    );
+                  }
+                  if (
+                    change.oldDiesel !== null &&
+                    change.newDiesel !== null &&
+                    change.oldDiesel !== change.newDiesel
+                  ) {
+                    lines.push(
+                      `Diesel ${change.oldDiesel.toFixed(2)} → ${change.newDiesel.toFixed(2)} €/l`,
+                    );
+                  }
+                  if (lines.length === 0) return null;
+                  return (
                     <Text
+                      key="mck"
                       style={{
                         fontSize: 14,
                         fontFamily: 'SpaceGrotesk_500Medium',
                         color: colors.foreground,
                       }}
                     >
-                      {'🆕 '}
-                      {change.newCount}{' '}
-                      {change.newCount === 1 ? 'neue NfB-Meldung' : 'neue NfB-Meldungen'}
+                      {'⛽ '}
+                      {lines.join(' · ')}
                     </Text>
-                  </TouchableOpacity>
-                );
-              }
-              if (change.kind === 'pegel') {
-                const up = change.deltaCm > 0;
-                return (
-                  <Text
-                    key="pegel"
-                    style={{
-                      fontSize: 14,
-                      fontFamily: 'SpaceGrotesk_500Medium',
-                      color: colors.foreground,
-                    }}
-                  >
-                    {up ? '📈' : '📉'}{' '}
-                    {'Pegel Speyer '}
-                    {up ? '+' : ''}
-                    {change.deltaCm}{' cm'}
-                    {'   '}
-                    <Text style={{ fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground, fontSize: 12 }}>
-                      {change.oldCm} → {change.newCm} cm
-                    </Text>
-                  </Text>
-                );
-              }
-              if (change.kind === 'mck') {
-                const lines: string[] = [];
-                if (
-                  change.oldPetrol !== null &&
-                  change.newPetrol !== null &&
-                  change.oldPetrol !== change.newPetrol
-                ) {
-                  lines.push(
-                    `Benzin ${change.oldPetrol.toFixed(2)} → ${change.newPetrol.toFixed(2)} €/l`,
                   );
                 }
-                if (
-                  change.oldDiesel !== null &&
-                  change.newDiesel !== null &&
-                  change.oldDiesel !== change.newDiesel
-                ) {
-                  lines.push(
-                    `Diesel ${change.oldDiesel.toFixed(2)} → ${change.newDiesel.toFixed(2)} €/l`,
-                  );
-                }
-                if (lines.length === 0) return null;
-                return (
-                  <Text
-                    key="mck"
-                    style={{
-                      fontSize: 14,
-                      fontFamily: 'SpaceGrotesk_500Medium',
-                      color: colors.foreground,
-                    }}
-                  >
-                    {'⛽ '}
-                    {lines.join(' · ')}
-                  </Text>
-                );
-              }
-              return null;
-            })}
+                return null;
+              })}
           </View>
         )}
 
         {/* ── Pegel Hero Card ── */}
         <View
+          ref={pegelCardRef}
           style={{
             backgroundColor: colors.primary,
             borderRadius: colors.radius + 4,

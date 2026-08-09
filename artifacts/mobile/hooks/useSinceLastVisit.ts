@@ -25,16 +25,27 @@ const PEGEL_MIN_DELTA_CM = 2;
 
 // ── Public types ──────────────────────────────────────────────────────────────
 export type VisitChange =
-  | { kind: 'nfb';   newCount: number }
-  | { kind: 'pegel'; oldCm: number; newCm: number; deltaCm: number }
+  | { kind: 'nfb';      newCount: number }
+  | { kind: 'sperrung'; count: number }
+  | { kind: 'pegel';    oldCm: number; newCm: number; deltaCm: number }
   | { kind: 'mck';
       oldPetrol: number | null; newPetrol: number | null;
       oldDiesel: number | null; newDiesel: number | null;
     };
 
 // Minimale Typen – kompatibel mit den existierenden NfbMeldung / MckData-Typen
-export type NfbMeldungMin = { nfb_id: string; expired?: boolean };
+export type NfbMeldungMin = { nfb_id: string; titel: string; expired?: boolean };
 export type MckDataMin    = { petrol: number | null; diesel: number | null };
+
+// ── Sperrmeldungs-Erkennung ───────────────────────────────────────────────────
+// Erkennt eindeutige Sperrungen/Behinderungen anhand von NfB-Titeln.
+// Bewusst konservativ: nur klare Schlüsselwörter, keine unsicheren Heuristiken.
+const SPERRUNG_KEYWORDS = ['gesperr', 'sperrung', 'behinderung'] as const;
+
+function isSperrung(titel: string): boolean {
+  const lower = titel.toLowerCase();
+  return SPERRUNG_KEYWORDS.some(kw => lower.includes(kw));
+}
 
 // ── Stored snapshot ───────────────────────────────────────────────────────────
 type StoredSnapshot = {
@@ -103,19 +114,26 @@ export function useSinceLastVisit(
       });
   }, []);
 
-  // 2a. NfB-Vergleich
+  // 2a. NfB-Vergleich (inkl. Sperrmeldungs-Erkennung)
   useEffect(() => {
     if (stored === null || nfbDone.current || !nfbOk || nfbMeldungen === undefined) return;
     nfbDone.current = true;
 
-    const currentIds = nfbMeldungen.filter(m => !m.expired).map(m => m.nfb_id);
+    const activeMeldungen = nfbMeldungen.filter(m => !m.expired);
+    const currentIds = activeMeldungen.map(m => m.nfb_id);
 
     if (!stored.isFirstVisit && stored.nfbIds !== null) {
-      const prevSet = new Set(stored.nfbIds);
-      const newIds  = currentIds.filter(id => !prevSet.has(id));
-      if (newIds.length > 0) {
-        setChanges(prev => [...prev, { kind: 'nfb', newCount: newIds.length }]);
-      }
+      const prevSet      = new Set(stored.nfbIds);
+      const newIds       = currentIds.filter(id => !prevSet.has(id));
+      const newIdSet     = new Set(newIds);
+      const sperrCount   = activeMeldungen
+        .filter(m => newIdSet.has(m.nfb_id) && isSperrung(m.titel))
+        .length;
+
+      const nextChanges: VisitChange[] = [];
+      if (newIds.length > 0)  nextChanges.push({ kind: 'nfb',      newCount: newIds.length });
+      if (sperrCount > 0)     nextChanges.push({ kind: 'sperrung', count: sperrCount });
+      if (nextChanges.length > 0) setChanges(prev => [...prev, ...nextChanges]);
     }
 
     // Aktuellen Stand speichern
