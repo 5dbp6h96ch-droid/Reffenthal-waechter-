@@ -185,7 +185,11 @@ function fmtPrice(v: number | null | undefined, unit: string): string {
 export default function RheinKarte({
   pegelCm, pegelTime, mckData, knownClubs, nfbMeldungen, isOffline, colors,
 }: RheinKarteProps) {
-  const [filter, setFilter] = useState<FilterKey>('all');
+  const [filter,  setFilter]  = useState<FilterKey>('all');
+  /** true = OpenSeaMap-Seamark-Layer aktiv */
+  const [nautik,  setNautik]  = useState(false);
+  /** true = mindestens eine Seamark-Kachel konnte nicht geladen werden */
+  const [seamarkError, setSeamarkError] = useState(false);
 
   // SSG-Guard: kein DOM beim Expo-Static-Export → erst nach Browser-Mount rendern
   const [mounted, setMounted] = useState(false);
@@ -263,23 +267,66 @@ export default function RheinKarte({
         </View>
       )}
 
-      {/* Filterleiste */}
-      <RNScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
-        <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 2 }}>
-          {FILTERS.map(f => {
-            const active = filter === f.key;
+      {/* Filterleiste + Layer-Umschalter */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        {/* Marker-Filter (scrollbar) */}
+        <RNScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 1 }}>
+          <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 2 }}>
+            {FILTERS.map(f => {
+              const active = filter === f.key;
+              return (
+                <TouchableOpacity
+                  key={f.key}
+                  onPress={() => setFilter(f.key)}
+                  activeOpacity={0.75}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 5,
+                    borderRadius: 99,
+                    backgroundColor: active ? colors.primary as string : 'transparent',
+                    borderWidth: 1,
+                    borderColor: active ? colors.primary as string : colors.border as string,
+                  }}
+                >
+                  <Text style={{
+                    fontSize: 12,
+                    fontFamily: 'SpaceGrotesk_500Medium',
+                    color: active ? '#FFFFFF' : colors.mutedForeground as string,
+                  }}>
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </RNScrollView>
+
+        {/* Layer-Umschalter: 🗺️ Karte | ⚓ Nautik */}
+        <View style={{
+          flexDirection: 'row',
+          borderRadius: 99,
+          borderWidth: 1,
+          borderColor: colors.border as string,
+          overflow: 'hidden',
+          flexShrink: 0,
+        }}>
+          {(['karte', 'nautik'] as const).map((layer, i) => {
+            const active = nautik ? layer === 'nautik' : layer === 'karte';
             return (
               <TouchableOpacity
-                key={f.key}
-                onPress={() => setFilter(f.key)}
+                key={layer}
+                onPress={() => {
+                  const toNautik = layer === 'nautik';
+                  setNautik(toNautik);
+                  if (!toNautik) setSeamarkError(false);
+                }}
                 activeOpacity={0.75}
                 style={{
-                  paddingHorizontal: 12,
+                  paddingHorizontal: 10,
                   paddingVertical: 5,
-                  borderRadius: 99,
                   backgroundColor: active ? colors.primary as string : 'transparent',
-                  borderWidth: 1,
-                  borderColor: active ? colors.primary as string : colors.border as string,
+                  borderLeftWidth: i === 1 ? 1 : 0,
+                  borderColor: colors.border as string,
                 }}
               >
                 <Text style={{
@@ -287,13 +334,27 @@ export default function RheinKarte({
                   fontFamily: 'SpaceGrotesk_500Medium',
                   color: active ? '#FFFFFF' : colors.mutedForeground as string,
                 }}>
-                  {f.label}
+                  {layer === 'karte' ? '🗺️' : '⚓'}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </View>
-      </RNScrollView>
+      </View>
+
+      {/* Seamark-Fehlerhinweis */}
+      {nautik && seamarkError && (
+        <View style={{
+          backgroundColor: '#FF9500',
+          borderRadius: 8,
+          paddingHorizontal: 12,
+          paddingVertical: 5,
+        }}>
+          <Text style={{ fontSize: 12, color: '#FFF', fontFamily: 'SpaceGrotesk_500Medium' }}>
+            ⚓ Nautische Karte momentan nicht verfügbar.
+          </Text>
+        </View>
+      )}
 
       {/* Karte – feste Höhe 400px (Pflicht für Leaflet) */}
       <View style={{
@@ -310,10 +371,27 @@ export default function RheinKarte({
           style={{ height: '100%', width: '100%' }}
           scrollWheelZoom
         >
+          {/* Basis: OpenStreetMap */}
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+
+          {/* Nautik-Layer: OpenSeaMap Seamarks (nur wenn ⚓ Nautik aktiv)
+              URL-Quelle: https://www.openseamap.org (offizielle Kartenseite, verifiziert 2026-08-09)
+              Lizenz: CC BY-SA 2.0
+              Wird erst geladen wenn der Nutzer ⚓ wählt – kein unnötiger Ladevorgang beim Start. */}
+          {nautik && (
+            <TileLayer
+              url="https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openseamap.org" target="_blank" rel="noreferrer">OpenSeaMap</a> contributors (CC BY-SA 2.0)'
+              opacity={1}
+              eventHandlers={{
+                tileerror: () => setSeamarkError(true),
+                tileload:  () => setSeamarkError(false),
+              }}
+            />
+          )}
 
           {/* 🌊 Pegel Speyer */}
           {show('pegel') && pegelCm !== null && (
@@ -420,7 +498,8 @@ export default function RheinKarte({
 
       {/* Quellenhinweis */}
       <Text style={{ fontSize: 10, color: colors.mutedForeground as string, textAlign: 'right' }}>
-        Kartendaten © OpenStreetMap-Mitwirkende · Koordinaten: Pegelkarten / Rhein-km-Interpolation
+        {'© OpenStreetMap-Mitwirkende'}
+        {nautik ? ' · © OpenSeaMap contributors (CC BY-SA 2.0)' : ''}
       </Text>
     </View>
   );
