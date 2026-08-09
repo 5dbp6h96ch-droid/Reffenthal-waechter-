@@ -1,0 +1,208 @@
+„Seit deinem letzten Besuch“ – erweitern und verbessern
+
+Die bestehende Funktion „Seit deinem letzten Besuch“ ist bereits implementiert.
+
+Bitte NICHT eine zweite parallele Funktion erstellen.
+
+Erweitere die bestehende Implementierung so, dass sie für den Nutzer eine kompakte Zusammenfassung der wichtigsten Änderungen seit dem letzten Besuch darstellt.
+
+Darstellung
+
+Oben auf der Startseite soll bei vorhandenen Änderungen erscheinen:
+
+🕐 Seit deinem letzten Besuch
+
+Beispiele:
+
+🟠 2 neue NfB
+
+📈 Pegel Speyer +18 cm
+
+🚧 1 neue Sperrmeldung
+
+Nur tatsächlich vorhandene Änderungen anzeigen.
+
+Wenn es keine Änderungen gibt, soll die Karte nicht erscheinen.
+
+1. NfB
+
+Verwende die bereits vorhandene NfB-Datenquelle.
+
+Erkenne neue NfB anhand der bereits verwendeten eindeutigen nfb_id.
+
+Beispiel:
+
+🟠 2 neue NfB
+
+Beim Antippen direkt zur bestehenden NfB-Sektion scrollen.
+
+Keine neue Datenquelle.
+
+2. Pegel
+
+Verwende weiterhin:
+
+rsv_pegel_cm
+
+und die vorhandenen aktuellen Pegeldaten.
+
+Berechne:
+
+aktueller Pegel - letzter gespeicherter Pegel
+
+Beispiel:
+
+342 cm → 360 cm
+
+Anzeige:
+
+📈 Pegel Speyer +18 cm
+
+Bei fallendem Pegel:
+
+📉 Pegel Speyer -18 cm
+
+Die bestehende Toleranz von 2 cm beibehalten.
+
+3. Sperrmeldungen
+
+Erweitere die bestehende NfB-Auswertung.
+
+Wenn eine neue NfB eindeutig als Sperrung / Verkehrsbehinderung / relevante Sperrmeldung erkannt werden kann, zusätzlich anzeigen:
+
+🚧 1 neue Sperrmeldung
+
+Bei mehreren:
+
+🚧 3 neue Sperrmeldungen
+
+Wichtig:
+
+Nicht jede NfB automatisch als Sperrmeldung zählen.
+
+Nur Meldungen, deren vorhandene Daten eindeutig auf:
+
+* Sperrung
+* Behinderung
+* gesperrten Abschnitt
+* Verkehrsbehinderung
+
+hinweisen.
+
+Keine künstliche Klassifizierung anhand unsicherer Vermutungen.
+
+4. Mehrere Änderungen
+
+Wenn beispielsweise gleichzeitig vorhanden:
+
+* 2 neue NfB
+* Pegel +18 cm
+* 1 neue Sperrmeldung
+
+soll angezeigt werden:
+
+🕐 Seit deinem letzten Besuch
+
+🟠 2 neue NfB
+📈 Pegel Speyer +18 cm
+🚧 1 neue Sperrmeldung
+
+5. Lokale Speicherung
+
+Die bestehende AsyncStorage-Logik weiterverwenden.
+
+Bestehende Schlüssel nicht unnötig ändern:
+
+rsv_nfb_ids
+
+rsv_pegel_cm
+
+rsv_mck_petrol
+
+rsv_mck_diesel
+
+Falls ein zusätzlicher Zeitstempel sinnvoll ist, kann ergänzt werden:
+
+rsv_last_visit
+
+Dieser soll den tatsächlichen Zeitpunkt des letzten erfolgreichen Datenabgleichs speichern.
+
+6. Erster Besuch
+
+Beim allerersten Start:
+
+Keine Änderungen anzeigen.
+
+Aktuellen Datenstand als Ausgangspunkt speichern.
+
+7. Offline
+
+Wenn eine Datenquelle nicht erfolgreich geladen werden konnte:
+
+* diese Quelle nicht vergleichen
+* gespeicherten Wert nicht überschreiben
+* keine falsche Änderung anzeigen
+
+8. Klickverhalten
+
+Die einzelnen Einträge sollen anklickbar sein:
+
+Neue NfB → NfB-Sektion
+
+Pegel → Pegel-Sektion
+
+Sperrmeldung → NfB-Sektion
+
+Nicht zu einer neuen Seite navigieren.
+
+9. Geräteverwaltung vorbereiten
+
+Die lokale Datenstruktur so sauber halten, dass wir später optional einen Benutzer-/Geräte-Server hinzufügen können.
+
+Aber JETZT:
+
+* keine Anmeldung
+* keine Nutzerkonten
+* keine Geräte-ID
+* keine personenbezogenen Daten
+* kein Backend
+
+10. Bestehende Funktionen schützen
+
+Nicht verändern:
+
+* Rhein-Karte
+* Pegel
+* Pegelvorhersage
+* NfB
+* MCK
+* Clubs
+* Wächter
+* PWA
+* Service Worker
+* Update-System
+
+Keine neue parallele „Seit deinem letzten Besuch“-Implementierung erstellen.
+
+11. Abschlussprüfung
+
+Bitte testen:
+
+1. Erster App-Start → keine Karte.
+2. Datenstand speichern.
+3. Neue NfB simulieren.
+4. Pegeländerung simulieren.
+5. Sperrmeldung simulieren.
+6. App erneut öffnen.
+7. Zusammenfassung erscheint.
+8. Einträge sind anklickbar.
+9. Nach dem Besuch werden dieselben Änderungen nicht erneut als neu angezeigt.
+10. Offline-Test durchführen.
+
+Bitte anschließend angeben:
+
+* welche Dateien geändert wurden,
+* welche Local-Storage-/AsyncStorage-Schlüssel verwendet werden,
+* wie Sperrmeldungen erkannt werden,
+* ob TypeScript fehlerfrei ist,
+* ob der Produktions-Build erfolgreich ist.
