@@ -3,7 +3,7 @@ name: Reffenthal-Wächter
 on:
   # Alle 30 Minuten automatisch ausführen
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "17,47 * * * *"
 
   # Manuell ausführen über GitHub Actions UI
   workflow_dispatch:
