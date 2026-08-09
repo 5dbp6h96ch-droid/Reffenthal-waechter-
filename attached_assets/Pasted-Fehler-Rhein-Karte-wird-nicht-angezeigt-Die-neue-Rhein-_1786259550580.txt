@@ -1,0 +1,118 @@
+Fehler: Rhein-Karte wird nicht angezeigt
+
+Die neue Rhein-Karte ist laut Abschlussbericht implementiert, wird aber in der veröffentlichten Web-App nicht sichtbar.
+
+Bitte untersuche und behebe den Fehler vollständig.
+
+Aktuelle Dateien
+
+* artifacts/mobile/components/RheinKarte.web.tsx
+* artifacts/mobile/components/RheinKarte.tsx
+* artifacts/mobile/app/index.tsx
+* artifacts/mobile/app/+html.tsx
+* artifacts/mobile/public/leaflet.css
+* .github/workflows/deploy-pages.yml
+
+App-URL
+
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/
+
+Prüfe zuerst
+
+1. Wird die Sektion „🗺️ Rhein-Karte“ überhaupt in index.tsx gerendert?
+2. Wird mapOpen tatsächlich auf true gesetzt?
+3. Wird auf Web wirklich RheinKarte.web.tsx geladen?
+4. Wird versehentlich der native Stub RheinKarte.tsx verwendet?
+5. Gibt es einen Import-/Routing-Fehler?
+6. Gibt es JavaScript-Fehler beim Mounten von Leaflet?
+7. Wird react-leaflet korrekt für die Web-Version gebundelt?
+8. Ist Leaflet CSS tatsächlich im veröffentlichten dist vorhanden?
+9. Existiert die CSS-Datei nach dem GitHub-Pages-Build unter:
+    /Reffenthal-waechter-/leaflet.css
+10. Hat die Leaflet-Karte ein definiertes Höhenmaß?
+
+Besonders prüfen: Kartenhöhe
+
+Eine Leaflet-Karte wird nicht sichtbar, wenn ihr Container keine explizite Höhe besitzt.
+
+Prüfe deshalb insbesondere den Container von RheinKarte.web.tsx.
+
+Er muss beispielsweise eine definierte Höhe besitzen, etwa:
+
+height: 400px
+
+bzw. eine responsive Höhe.
+
+Nicht nur height: 100% verwenden, wenn der Elterncontainer selbst keine definierte Höhe besitzt.
+
+GitHub Pages
+
+Prüfe alle Pfade auf den Unterpfad:
+
+/Reffenthal-waechter-/
+
+Keine Ressourcen dürfen versehentlich von:
+
+/leaflet.css
+
+statt:
+
+/Reffenthal-waechter-/leaflet.css
+
+geladen werden.
+
+OpenStreetMap
+
+Prüfe außerdem, ob die Kartenkacheln geladen werden.
+
+Falls die Leaflet-Karte selbst erscheint, aber nur eine leere Fläche zeigt, prüfe:
+
+* Tile-URL
+* Netzwerkfehler
+* HTTPS
+* OpenStreetMap-Attribution
+
+React Native / Expo
+
+Die Web-Version darf nicht durch den nativen Stub ersetzt werden.
+
+Für GitHub Pages muss tatsächlich:
+
+RheinKarte.web.tsx
+
+verwendet werden.
+
+Wichtig
+
+Keine anderen Funktionen verändern.
+
+Nicht ändern:
+
+* NfB
+* Pegel
+* MCK
+* Clubs
+* Wächter
+* „Seit deinem letzten Besuch“
+* Service Worker
+* PWA-Updatefunktion
+
+Nur den Kartenfehler beheben.
+
+Nach der Reparatur
+
+Bitte teste den tatsächlich erzeugten GitHub-Pages-Build und nicht nur die lokale Replit-Vorschau.
+
+Bestätige:
+
+1. URL öffnen
+2. „🗺️ Rhein-Karte“ sichtbar
+3. Karte sichtbar
+4. Kartenkacheln sichtbar
+5. Zoom funktioniert
+6. Marker sichtbar
+7. Filter funktionieren
+8. iPhone Safari funktioniert
+9. Android Chrome funktioniert
+
+Gib mir anschließend die konkrete Ursache des Fehlers und welche Dateien du geändert hast.
