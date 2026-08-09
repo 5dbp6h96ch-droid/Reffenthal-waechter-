@@ -1,0 +1,180 @@
+Technische Fehler und PWA-Probleme in R(h)einschiffer beheben
+
+Bitte behebe die folgenden Punkte in meinem bestehenden GitHub-Projekt Reffenthal-waechter-.
+
+1. PWA-Update auf iPhone und Android
+
+Die neue Version der App darf nicht automatisch neu laden, sobald ein neuer Service Worker erkannt wird.
+
+Gewünschtes Verhalten:
+
+1. Neue Version wird erkannt.
+2. Banner anzeigen:
+    „🔄 Neue Version verfügbar · Aktualisieren“
+3. Erst wenn der Benutzer auf „Aktualisieren“ tippt:
+    * SKIP_WAITING
+    * auf controllerchange warten
+    * App neu laden
+
+Kein automatischer Reload im Hintergrund.
+
+Beim ersten Start darf ebenfalls kein unnötiger Reload erfolgen.
+
+Die vorhandene Git-SHA-Versionierung des Service Workers und die Cache-Logik beibehalten.
+
+⸻
+
+2. PWA-App-Name vereinheitlichen
+
+Der Name muss überall exakt lauten:
+
+R(h)einschiffer
+
+Prüfe und korrigiere insbesondere:
+
+* manifest.webmanifest
+* name
+* short_name
+* <title>
+* apple-mobile-web-app-title
+* Expo/PWA-Name
+* app.json
+* app.config.js
+
+name und short_name sollen nicht mehr unterschiedliche Schreibweisen verwenden.
+
+⸻
+
+3. PWA-Icons korrigieren
+
+Erzeuge echte PWA-Icon-Dateien mit den korrekten Größen:
+
+icon-192.png
+icon-512.png
+apple-touch-icon.png
+favicon.png
+
+Die Manifest-Einträge müssen tatsächlich zu den jeweiligen Bildgrößen passen.
+
+Keine 512px-Datei einfach als 192px-Datei deklarieren.
+
+Achte darauf, dass die Icons für Android-PWA-Installation und iOS-Home-Screen geeignet sind.
+
+Die bestehenden App-Symbole optisch nicht unnötig verändern.
+
+⸻
+
+4. GitHub-Pages-Pfad prüfen
+
+Die veröffentlichte App läuft unter:
+
+/Reffenthal-waechter-/
+
+Prüfe deshalb:
+
+* Service-Worker-Pfad
+* Service-Worker-Scope
+* Manifest-Pfad
+* start_url
+* Asset-Pfade
+* Icons
+* scope
+
+Alles muss mit dem GitHub-Pages-Unterpfad funktionieren.
+
+Die App darf nicht versehentlich auf / statt auf /Reffenthal-waechter-/ verweisen.
+
+⸻
+
+5. Replit-Origin bereinigen
+
+Prüfe app.config.js.
+
+Die Produktionskonfiguration soll nicht unnötig auf:
+
+https://replit.com/
+
+als Fallback verweisen.
+
+Verwende für die Produktions-PWA die tatsächliche GitHub-Pages-Adresse:
+
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/
+
+Bestehende Environment-Variablen weiterhin berücksichtigen, falls sie für lokale Entwicklung benötigt werden.
+
+⸻
+
+6. Web-Push
+
+Wichtig:
+
+Noch keine Push-Infrastruktur implementieren.
+
+Das aktuelle useNfbNotifications.ts verwendet für die Web-Version keine echten Web-Push-Benachrichtigungen.
+
+Das soll in diesem Schritt nur dokumentiert werden.
+
+Web Push wird anschließend separat mit einer geeigneten Lösung wie OneSignal umgesetzt.
+
+⸻
+
+7. Bestehende Funktionen schützen
+
+Keine bestehenden:
+
+* Sektionen
+* Datenquellen
+* Navigation
+* Pegeldaten
+* NFB-Funktionen
+* MCK-Tankstellenfunktion
+* Designs
+
+verändern oder entfernen.
+
+Nur die oben genannten technischen Probleme beheben.
+
+⸻
+
+8. Nach der Änderung testen
+
+Bitte teste insbesondere:
+
+iPhone
+
+* PWA installieren
+* neue Version deployen
+* Update erkennen
+* Banner anzeigen
+* kein automatischer Reload
+* Klick auf „Aktualisieren“
+* neue Version wird geladen
+
+Android Chrome
+
+* PWA installieren
+* neue Version deployen
+* Update erkennen
+* Banner anzeigen
+* Klick auf „Aktualisieren“
+* neue Version wird geladen
+
+Offline
+
+* bereits geladene App funktioniert weiterhin offline soweit vorgesehen.
+
+⸻
+
+Abschlussbericht
+
+Gib mir nach Abschluss genau diese Informationen:
+
+1. Welche Dateien geändert wurden.
+2. Welche neuen Dateien erstellt wurden.
+3. Wie der Service-Worker-Updateprozess jetzt funktioniert.
+4. Welche name und short_name im Manifest stehen.
+5. Welche start_url und scope verwendet werden.
+6. Welche Icon-Dateien und Größen verwendet werden.
+7. Ob der GitHub-Pages-Unterpfad korrekt berücksichtigt wird.
+8. Bestätige, dass kein automatischer Reload mehr ohne Benutzeraktion erfolgt.
+9. Bestätige, dass Web Push noch nicht implementiert wurde.
