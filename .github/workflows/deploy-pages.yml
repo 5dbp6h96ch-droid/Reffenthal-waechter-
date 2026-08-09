@@ -87,8 +87,11 @@ jobs:
           cp artifacts/mobile/public/leaflet.css "$DIST/leaflet.css"
           echo "✓ leaflet.css kopiert"
 
-          # apple-touch-icon, PNG-Favicon und PWA-Meta direkt vor </head> einfügen
-          INJECT='<link rel="apple-touch-icon" href="'"$BASE"'/apple-touch-icon.png">'
+          # Leaflet CSS + apple-touch-icon, PNG-Favicon und PWA-Meta direkt vor </head> einfügen
+          # Leaflet CSS MUSS in der statischen index.html stehen, da +html.tsx-head-Elemente
+          # vom Expo-Static-Export NICHT in das HTML gerendert werden.
+          INJECT='<link rel="stylesheet" href="'"$BASE"'/leaflet.css">'
+          INJECT+='<link rel="apple-touch-icon" href="'"$BASE"'/apple-touch-icon.png">'
           INJECT+='<link rel="icon" type="image/png" href="'"$BASE"'/favicon.png">'
           INJECT+='<meta name="mobile-web-app-capable" content="yes">'
           INJECT+='<meta name="apple-mobile-web-app-capable" content="yes">'
