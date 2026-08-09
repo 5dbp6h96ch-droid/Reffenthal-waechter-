@@ -1,0 +1,187 @@
+⚓ OpenSeaMap-Nautik-Layer in die bestehende Rhein-Karte integrieren
+
+Die bestehende Rhein-Karte funktioniert bereits mit:
+
+* Leaflet / React-Leaflet
+* Pegelmarker
+* MCK-Marker
+* Clubmarkern
+* NfB-Markern
+* funktionierenden Popups
+* Filtern
+
+Jetzt soll zusätzlich ein OpenSeaMap-Nautik-Layer integriert werden.
+
+Ziel
+
+In der Rhein-Karte soll es einen Umschalter geben:
+
+🗺️ Karte | ⚓ Nautik
+
+Standardmäßig bleibt die bisherige Karte aktiv.
+
+Bei ⚓ Nautik wird der OpenSeaMap-Seamark-Layer als zusätzliche Ebene über der bestehenden Karte angezeigt.
+
+Die bestehende Basiskarte NICHT ersetzen.
+
+OpenSeaMap
+
+Verwende die offizielle OpenSeaMap-Einbindung bzw. den offiziell dokumentierten Seamark-Tile-Layer.
+
+Die offizielle Dokumentation nennt:
+
+https://t1.openseamap.org/seamark/
+
+bzw. den dokumentierten OpenSeaMap-Tile-Server.
+
+Bitte vor der Implementierung prüfen, welcher HTTPS-Endpunkt aktuell für die Einbindung vorgesehen ist.
+
+Nicht einfach einen beliebigen Drittanbieter-Tile-Server verwenden.
+
+Wichtig: Attribution
+
+Die OpenSeaMap-Lizenz und Attribution müssen korrekt berücksichtigt werden.
+
+Auf der Karte muss dauerhaft eine gut sichtbare Attribution vorhanden sein, mindestens sinngemäß:
+
+© OpenStreetMap contributors · © OpenSeaMap contributors
+
+Die OpenSeaMap-Kartenkacheln stehen laut offizieller Dokumentation unter CC BY-SA 2.0.
+
+Die OpenStreetMap-Daten stehen unter ODbL.
+
+Die Attribution darf nicht entfernt oder versteckt werden.
+
+Leaflet Layer
+
+Verwende einen separaten Leaflet TileLayer für OpenSeaMap.
+
+Sinngemäß:
+
+<TileLayer
+  url="AKTUELL_VERIFIZIERTE_OPENSEAMAP_TILE_URL"
+  attribution="© OpenStreetMap contributors · © OpenSeaMap contributors"
+/>
+
+Die konkrete URL bitte anhand der aktuellen offiziellen OpenSeaMap-Dokumentation verifizieren.
+
+Layer-Verhalten
+
+🗺️ Karte
+
+→ normale bestehende OpenStreetMap-Karte
+
+⚓ Nautik
+
+→ normale Basiskarte bleibt sichtbar
+
+→ OpenSeaMap-Seamark-Layer wird darüber eingeblendet
+
+Unsere eigenen Marker bleiben sichtbar:
+
+🌊 Pegel
+⛽ MCK
+⚓ Clubs
+🚧 NfB
+
+Rhein-km
+
+Wenn OpenSeaMap an der jeweiligen Zoomstufe Rhein-km bzw. nautische Informationen darstellt, diese Darstellung von OpenSeaMap übernehmen.
+
+KEINE eigene Rhein-km-Interpolation mehr implementieren.
+
+Keine künstlichen Rhein-km-Marker hinzufügen.
+
+Die bereits vorhandenen geografisch korrigierten Markerpositionen NICHT verändern.
+
+Mobile Darstellung
+
+Der Umschalter muss auf iPhone gut funktionieren.
+
+Beispiel:
+
+🗺️ Karte  ⚓ Nautik
+
+Keine überfüllte Oberfläche.
+
+Performance
+
+Der OpenSeaMap-Layer darf erst geladen bzw. aktiviert werden, wenn der Nutzer ⚓ Nautik auswählt.
+
+Nicht unnötig beim App-Start laden.
+
+Offline
+
+OpenSeaMap-Kacheln NICHT künstlich vollständig offline cachen.
+
+Wenn keine Internetverbindung besteht, soll die normale vorhandene Offline-Behandlung der App erhalten bleiben.
+
+Ein fehlender OpenSeaMap-Layer darf die restliche App nicht beeinträchtigen.
+
+Fehlerbehandlung
+
+Wenn OpenSeaMap nicht erreichbar ist:
+
+* bestehende Karte bleibt sichtbar
+* eigene Marker bleiben sichtbar
+* kein JavaScript-Fehler
+* optional dezenter Hinweis:
+
+„Nautische Karte momentan nicht verfügbar.“
+
+Keine Änderungen an
+
+* Pegeldaten
+* MCK
+* Clubs
+* NfB
+* Popups
+* Markerpositionen
+* „Seit deinem letzten Besuch“
+* Service Worker
+* PWA
+* Update-System
+
+Dateien
+
+Die bestehende:
+
+artifacts/mobile/components/RheinKarte.web.tsx
+
+soll möglichst die einzige funktionale Datei sein, die für den Layer geändert wird.
+
+Nur weitere Dateien ändern, wenn technisch notwendig.
+
+Test
+
+Nach Implementierung prüfen:
+
+1. 🗺️ Karte funktioniert weiterhin.
+2. ⚓ Nautik lässt sich aktivieren.
+3. OpenSeaMap-Seamarks erscheinen.
+4. Rhein-km/nautische Informationen von OpenSeaMap sind sichtbar, sofern sie für den jeweiligen Zoom vorhanden sind.
+5. Eigene Marker bleiben sichtbar.
+6. Popups funktionieren weiterhin.
+7. Filter funktionieren weiterhin.
+8. Nautik lässt sich wieder deaktivieren.
+9. iPhone Safari funktioniert.
+10. Android Chrome funktioniert.
+11. Bei fehlendem OpenSeaMap-Zugriff stürzt die App nicht ab.
+12. Attribution ist sichtbar und korrekt.
+
+Abschlussbericht
+
+Bitte genau angeben:
+
+* verwendete OpenSeaMap-Tile-URL
+* Quelle der URL
+* verwendete Attribution
+* Lizenzhinweis
+* geänderte Dateien
+* ob die normale Karte unverändert bleibt
+* ob eigene Marker über dem Nautik-Layer sichtbar bleiben
+* TypeScript-Status
+* Produktions-Build-Status
+* Git-Commit
+
+Bitte keine Rhein-km-Eigenimplementierung mehr hinzufügen.
