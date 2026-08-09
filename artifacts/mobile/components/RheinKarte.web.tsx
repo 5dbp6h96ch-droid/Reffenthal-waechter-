@@ -8,7 +8,7 @@
  *              Rhein-km → lat/lon Interpolation für NfB-Meldungen.
  * Daten:       Ausschließlich über Props – keine eigenen API-Aufrufe.
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView as RNScrollView, Linking } from 'react-native';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -124,12 +124,8 @@ function makeIcon(emoji: string, bg: string): L.DivIcon {
   });
 }
 
-const ICONS = {
-  pegel: makeIcon('🌊', '#1565C0'),
-  mck:   makeIcon('⛽', '#BF360C'),
-  club:  makeIcon('⚓', '#1B5E20'),
-  nfb:   makeIcon('🚧', '#E65100'),
-};
+// ICONS nicht auf Modulebene erstellen – L.divIcon() braucht das DOM
+// und crasht beim Expo-SSG-Export. Icons werden lazy im Komponenten-Body erzeugt.
 
 // ── Hilfsfunktion ─────────────────────────────────────────────────────────────
 function fmtTime(iso: string | null): string {
@@ -150,6 +146,23 @@ export default function RheinKarte({
   pegelCm, pegelTime, mckData, knownClubs, nfbMeldungen, isOffline, colors,
 }: RheinKarteProps) {
   const [filter, setFilter] = useState<FilterKey>('all');
+
+  // SSG-Guard: Leaflet braucht window + DOM. Beim Expo-Static-Export gibt es
+  // beides nicht → Komponente rendert erst nach dem Browser-Mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  const icons = useMemo(() => {
+    if (!mounted) return null;
+    return {
+      pegel: makeIcon('🌊', '#1565C0'),
+      mck:   makeIcon('⛽', '#BF360C'),
+      club:  makeIcon('⚓', '#1B5E20'),
+      nfb:   makeIcon('🚧', '#E65100'),
+    };
+  }, [mounted]);
+
+  if (!mounted || !icons) return null;
 
   const show = (k: FilterKey) => filter === 'all' || filter === k;
 
@@ -250,7 +263,7 @@ export default function RheinKarte({
 
           {/* 🌊 Pegel Speyer */}
           {show('pegel') && pegelCm !== null && (
-            <Marker position={PEGEL_SPEYER} icon={ICONS.pegel}>
+            <Marker position={PEGEL_SPEYER} icon={icons.pegel}>
               <Popup>
                 <div style={PS.wrap as React.CSSProperties}>
                   <span style={PS.title as React.CSSProperties}>Pegel Speyer</span>
@@ -268,7 +281,7 @@ export default function RheinKarte({
 
           {/* ⛽ MCK Tankstelle */}
           {show('mck') && mckData && (
-            <Marker position={MCK_FUEL} icon={ICONS.mck}>
+            <Marker position={MCK_FUEL} icon={icons.mck}>
               <Popup>
                 <div style={PS.wrap as React.CSSProperties}>
                   <span style={PS.title as React.CSSProperties}>{mckData.source}</span>
@@ -288,7 +301,7 @@ export default function RheinKarte({
 
           {/* ⚓ Clubs */}
           {show('clubs') && clubMarkers.map(c => (
-            <Marker key={c.name} position={c.pos} icon={ICONS.club}>
+            <Marker key={c.name} position={c.pos} icon={icons.club}>
               <Popup>
                 <div style={PS.wrap as React.CSSProperties}>
                   <span style={PS.title as React.CSSProperties}>{c.icon} {c.name}</span>
@@ -307,7 +320,7 @@ export default function RheinKarte({
 
           {/* 🚧 NfB-Meldungen */}
           {show('nfb') && nfbMarkers.map(m => (
-            <Marker key={m.nfb_id} position={[m.lat, m.lon]} icon={ICONS.nfb}>
+            <Marker key={m.nfb_id} position={[m.lat, m.lon]} icon={icons.nfb}>
               <Popup>
                 <div style={PS.wrap as React.CSSProperties}>
                   <span style={{ ...PS.title as React.CSSProperties, fontSize: '13px' }}>

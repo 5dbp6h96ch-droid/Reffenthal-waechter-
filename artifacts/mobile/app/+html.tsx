@@ -65,6 +65,9 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Web App Manifest – erforderlich für Android-PWA-Updates */}
         <link rel="manifest" href="/Reffenthal-waechter-/manifest.webmanifest" />
 
+        {/* Leaflet CSS – für die Rhein-Karte; lokal gehostet damit der SW es cached */}
+        <link rel="stylesheet" href="/Reffenthal-waechter-/leaflet.css" />
+
         <ScrollViewStyleReset />
 
         {/* Service-Worker-Registrierung – nur im Browser (Web-Build) */}

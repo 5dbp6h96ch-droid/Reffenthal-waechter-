@@ -83,6 +83,10 @@ jobs:
           cp artifacts/mobile/public/manifest.webmanifest "$DIST/manifest.webmanifest"
           echo "✓ manifest.webmanifest kopiert"
 
+          # Leaflet CSS – für die Rhein-Karte (offline-fähig via Service Worker)
+          cp artifacts/mobile/public/leaflet.css "$DIST/leaflet.css"
+          echo "✓ leaflet.css kopiert"
+
           # apple-touch-icon, PNG-Favicon und PWA-Meta direkt vor </head> einfügen
           INJECT='<link rel="apple-touch-icon" href="'"$BASE"'/apple-touch-icon.png">'
           INJECT+='<link rel="icon" type="image/png" href="'"$BASE"'/favicon.png">'
