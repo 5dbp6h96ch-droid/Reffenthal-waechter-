@@ -39,6 +39,8 @@ import { useQuery } from '@tanstack/react-query';
 import type { NfbList } from '@workspace/api-client-react';
 import { useNfbNotifications } from '@/hooks/useNfbNotifications';
 import { useColors } from '@/hooks/useColors';
+import { useSinceLastVisit } from '@/hooks/useSinceLastVisit';
+import type { VisitChange } from '@/hooks/useSinceLastVisit';
 // Local type aliases matching the generated API schemas (api-client-react types
 // are not resolved by the mobile tsconfig due to missing project references).
 
@@ -578,6 +580,16 @@ export default function HomeScreen() {
       : colors.mutedForeground;
   const statusLabel = isAlarm ? 'ALARM' : isSafe ? 'SICHER' : null;
 
+  // ── Seit deinem letzten Besuch ──────────────────────────────────────────────
+  const sinceLastVisitChanges = useSinceLastVisit(
+    nfbData?.meldungen,
+    !nfbLoading && !nfbError && nfbData !== undefined,
+    currentCm,
+    !stateLoading && !stateError && state !== undefined,
+    mckData,
+    !mckLoading && !mckIsError && mckData !== undefined,
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
@@ -668,6 +680,125 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* ── Seit deinem letzten Besuch ── */}
+        {sinceLastVisitChanges.length > 0 && (
+          <View
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: colors.radius,
+              borderWidth: 1,
+              borderColor: colors.border,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              gap: 8,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 10,
+                fontFamily: 'SpaceGrotesk_500Medium',
+                color: colors.mutedForeground,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+              }}
+            >
+              🕐 Seit deinem letzten Besuch
+            </Text>
+            {sinceLastVisitChanges.map((change: VisitChange) => {
+              if (change.kind === 'nfb') {
+                return (
+                  <TouchableOpacity
+                    key="nfb"
+                    onPress={() => {
+                      setNfbOpen(true);
+                      setTimeout(() => {
+                        nfbCardRef.current?.measureLayout(
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          scrollRef.current as any,
+                          (_x, y) => scrollRef.current?.scrollTo({ y, animated: true }),
+                          () => {},
+                        );
+                      }, 300);
+                    }}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontFamily: 'SpaceGrotesk_500Medium',
+                        color: colors.foreground,
+                      }}
+                    >
+                      {'🆕 '}
+                      {change.newCount}{' '}
+                      {change.newCount === 1 ? 'neue NfB-Meldung' : 'neue NfB-Meldungen'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }
+              if (change.kind === 'pegel') {
+                const up = change.deltaCm > 0;
+                return (
+                  <Text
+                    key="pegel"
+                    style={{
+                      fontSize: 14,
+                      fontFamily: 'SpaceGrotesk_500Medium',
+                      color: colors.foreground,
+                    }}
+                  >
+                    {up ? '📈' : '📉'}{' '}
+                    {'Pegel Speyer '}
+                    {up ? '+' : ''}
+                    {change.deltaCm}{' cm'}
+                    {'   '}
+                    <Text style={{ fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground, fontSize: 12 }}>
+                      {change.oldCm} → {change.newCm} cm
+                    </Text>
+                  </Text>
+                );
+              }
+              if (change.kind === 'mck') {
+                const lines: string[] = [];
+                if (
+                  change.oldPetrol !== null &&
+                  change.newPetrol !== null &&
+                  change.oldPetrol !== change.newPetrol
+                ) {
+                  lines.push(
+                    `Benzin ${change.oldPetrol.toFixed(2)} → ${change.newPetrol.toFixed(2)} €/l`,
+                  );
+                }
+                if (
+                  change.oldDiesel !== null &&
+                  change.newDiesel !== null &&
+                  change.oldDiesel !== change.newDiesel
+                ) {
+                  lines.push(
+                    `Diesel ${change.oldDiesel.toFixed(2)} → ${change.newDiesel.toFixed(2)} €/l`,
+                  );
+                }
+                if (lines.length === 0) return null;
+                return (
+                  <Text
+                    key="mck"
+                    style={{
+                      fontSize: 14,
+                      fontFamily: 'SpaceGrotesk_500Medium',
+                      color: colors.foreground,
+                    }}
+                  >
+                    {'⛽ '}
+                    {lines.join(' · ')}
+                  </Text>
+                );
+              }
+              return null;
+            })}
+          </View>
+        )}
 
         {/* ── Pegel Hero Card ── */}
         <View
