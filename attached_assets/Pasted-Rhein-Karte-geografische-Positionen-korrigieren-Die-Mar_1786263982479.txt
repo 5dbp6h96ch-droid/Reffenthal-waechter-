@@ -1,0 +1,154 @@
+Rhein-Karte – geografische Positionen korrigieren
+
+Die Marker auf der Rhein-Karte sind geografisch teilweise nicht korrekt positioniert.
+
+Bitte korrigiere ausschließlich die geografischen Koordinaten. Die bestehende Kartenfunktion, Popups und Filter dürfen nicht unnötig verändert werden.
+
+1. Grundregel
+
+Keine Koordinaten mehr schätzen.
+
+Keine frei erfundenen Koordinaten.
+
+Keine einfache Rhein-km → lat/lon-Interpolation verwenden, wenn dadurch ein Marker nicht am tatsächlichen Ort liegt.
+
+Jeder Marker soll geografisch möglichst genau am tatsächlichen Standort liegen.
+
+2. 🌊 Pegel Speyer
+
+Verifiziere die Koordinaten des amtlichen Pegels Speyer anhand einer zuverlässigen amtlichen Quelle.
+
+Der Marker muss auf der tatsächlichen Pegelstation liegen.
+
+Nicht nur auf die Stadt Speyer oder den ungefähren Rhein-km zeigen.
+
+3. ⛽ MCK Kurpfalz
+
+Verifiziere den tatsächlichen Standort der MCK-Tankstelle.
+
+Der Marker muss auf dem tatsächlichen Standort der Tankstelle bzw. der zugehörigen Anlage liegen.
+
+4. ⚓ Clubs
+
+Für jeden Club aus:
+
+clubsData.known_clubs
+
+prüfen, ob eine verlässliche geografische Position vorhanden ist.
+
+Nur wenn der Standort eindeutig verifiziert werden kann, einen Marker anzeigen.
+
+Wenn ein Club nicht zuverlässig geolokalisiert werden kann:
+
+Keinen Marker erzeugen.
+
+Keine ungefähre Stadtmitte verwenden.
+
+5. 🚧 NfB-Meldungen
+
+Hier ist besondere Sorgfalt erforderlich.
+
+Die bisherige Methode:
+
+Rhein-km → lineare lat/lon-Interpolation
+
+soll NICHT mehr verwendet werden, wenn dadurch falsche Positionen entstehen.
+
+Prüfe zuerst, ob die NfB-Daten bereits genaue geografische Informationen enthalten.
+
+Wenn keine exakten Koordinaten vorhanden sind:
+
+* Rhein-km als Position verwenden,
+* aber die Position anhand einer zuverlässigen Rhein-km-Geometrie bestimmen,
+* nicht einfach zwischen zwei weit auseinanderliegenden Stützpunkten linear interpolieren.
+
+Wenn eine genaue Position nicht zuverlässig bestimmt werden kann, soll die NfB lieber nicht auf der Karte erscheinen, statt an einer falschen Stelle angezeigt zu werden.
+
+6. Datenstruktur
+
+Bitte trenne klar:
+
+Datenquelle
+
+von
+
+Kartendarstellung / Koordinaten.
+
+Die vorhandenen Datenquellen sollen weiterhin verwendet werden.
+
+Keine neuen parallelen Datenbestände für Pegel, MCK, Clubs oder NfB anlegen, außer einer kleinen geprüften Koordinaten-Lookup-Tabelle, falls technisch notwendig.
+
+7. Koordinaten-Lookup
+
+Wenn statische Koordinaten benötigt werden, lege sie zentral und nachvollziehbar ab.
+
+Beispiel:
+
+const VERIFIED_LOCATIONS = {
+  speyer: {
+    lat: ...,
+    lon: ...,
+    source: '...'
+  },
+  ...
+};
+
+Die Quellen bzw. die Herkunft der Koordinaten im Code dokumentieren.
+
+8. Qualitätsprüfung
+
+Prüfe jeden Marker einzeln.
+
+Für jeden Marker dokumentieren:
+
+Marker	Koordinaten	Quelle	Genauigkeit
+Pegel Speyer	…	…	exakt
+MCK	…	…	exakt
+Club 1	…	…	exakt
+Club 2	…	…	exakt
+…	…	…	…
+
+9. NfB
+
+Bei NfB bitte zusätzlich prüfen:
+
+* Rhein-km von
+* Rhein-km bis
+* betroffener Rheinabschnitt
+* tatsächliche Position auf der Karte
+
+Wenn eine NfB beispielsweise km_von = 400 und km_bis = 405 enthält, darf der Marker nicht einfach irgendwo zwischen zwei groben Rheinpunkten landen.
+
+Besser einen Marker auf dem entsprechenden Rheinabschnitt positionieren.
+
+10. Wichtig
+
+Keine Änderungen an:
+
+* Popups
+* Filtern
+* Pegeldaten
+* MCK-Daten
+* Clubs-Daten
+* NfB-Daten
+* „Seit deinem letzten Besuch“
+* Service Worker
+* PWA
+
+Nur die geografische Positionierung korrigieren.
+
+Abschlussbericht
+
+Bitte nach der Änderung vollständig auflisten:
+
+1. Welche Marker korrigiert wurden.
+2. Alte Koordinaten.
+3. Neue Koordinaten.
+4. Quelle jeder neuen Koordinate.
+5. Welche NfB-Methode jetzt verwendet wird.
+6. Welche Marker bewusst entfernt wurden, weil keine zuverlässige Position vorhanden war.
+7. Geänderte Dateien.
+8. TypeScript-Status.
+9. Produktions-Build-Status.
+
+Wichtig: Erst als fertig melden, wenn die Positionen anhand zuverlässiger Quellen überprüft wurden.
