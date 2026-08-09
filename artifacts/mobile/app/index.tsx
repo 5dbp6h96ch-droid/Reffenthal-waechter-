@@ -580,6 +580,26 @@ export default function HomeScreen() {
       : colors.mutedForeground;
   const statusLabel = isAlarm ? 'ALARM' : isSafe ? 'SICHER' : null;
 
+  // ── TEST-HELPER (versteckt, 7× Logo tippen) ─────────────────────────────────
+  // Setzt rsv_pegel_cm auf 342 um die „Seit deinem letzten Besuch"-Logik zu testen.
+  // VOR dem Livegang vollständig entfernen.
+  const _testTapCount = useRef(0);
+  const _testTapTime  = useRef(0);
+  const [_testToast, _setTestToast] = useState<string | null>(null);
+  const _handleLogoTap = useCallback(() => {
+    const now = Date.now();
+    if (now - _testTapTime.current > 3000) _testTapCount.current = 0;
+    _testTapTime.current = now;
+    _testTapCount.current += 1;
+    if (_testTapCount.current >= 7) {
+      _testTapCount.current = 0;
+      AsyncStorage.setItem('rsv_pegel_cm', '342').catch(() => {});
+      _setTestToast('🧪 Test: rsv_pegel_cm = 342 gesetzt');
+      setTimeout(() => _setTestToast(null), 2500);
+    }
+  }, []);
+  // ────────────────────────────────────────────────────────────────────────────
+
   // ── Seit deinem letzten Besuch ──────────────────────────────────────────────
   const sinceLastVisitChanges = useSinceLastVisit(
     nfbData?.meldungen,
@@ -621,12 +641,14 @@ export default function HomeScreen() {
             marginBottom: 2,
           }}
         >
-          {/* Logo */}
-          <Image
-            source={require('../assets/images/icon.png')}
-            style={{ width: 64, height: 64, marginBottom: 6 }}
-            resizeMode="contain"
-          />
+          {/* Logo – 7× tippen aktiviert Test-Helper */}
+          <TouchableOpacity onPress={_handleLogoTap} activeOpacity={1} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Image
+              source={require('../assets/images/icon.png')}
+              style={{ width: 64, height: 64, marginBottom: 6 }}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
           {/* Titel – volle Breite */}
           <Text
             style={{
@@ -2496,6 +2518,28 @@ export default function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ── Test-Toast (nur sichtbar nach 7× Logo-Tipp) ── */}
+      {_testToast !== null && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            bottom: botPad + 24,
+            left: 24,
+            right: 24,
+            backgroundColor: '#1C1C1E',
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 10,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontFamily: 'SpaceGrotesk_500Medium', fontSize: 13 }}>
+            {_testToast}
+          </Text>
+        </View>
+      )}
 
     </View>
   );
