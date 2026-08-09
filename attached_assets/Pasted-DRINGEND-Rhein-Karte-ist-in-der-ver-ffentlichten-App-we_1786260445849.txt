@@ -1,0 +1,145 @@
+DRINGEND: Rhein-Karte ist in der veröffentlichten App weiterhin nicht sichtbar
+
+Die veröffentlichte App ist erreichbar unter:
+
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/
+
+Auf dem iPhone ist keine Rhein-Karte sichtbar.
+
+Bitte prüfe den tatsächlich veröffentlichten GitHub-Pages-Build und behebe das Problem. Nicht nur die lokale Replit-Vorschau testen.
+
+1. Prüfe zuerst den gerenderten Code
+
+Stelle sicher, dass in artifacts/mobile/app/index.tsx die Rhein-Karte tatsächlich sichtbar erreichbar ist.
+
+Ich möchte eine sichtbare Sektion:
+
+🗺️ Rhein-Karte
+
+Wenn die Karte bisher nur über mapOpen eingeblendet wird, muss geprüft werden, ob überhaupt ein sichtbarer Button/Trigger vorhanden ist, der mapOpen auf true setzt.
+
+2. Wichtig: Prüfe mapOpen
+
+Suche exakt nach:
+
+mapOpen
+
+Prüfe:
+
+* Initialwert
+* Setter
+* Button/Pressable
+* JSX-Bedingung
+* ob der Nutzer die Karte tatsächlich öffnen kann
+
+Wenn mapOpen standardmäßig false ist, aber kein funktionierender Button existiert, ist das der Fehler.
+
+3. Prüfe Web-Import
+
+Für die GitHub-Pages-Web-App muss tatsächlich verwendet werden:
+
+RheinKarte.web.tsx
+
+und nicht:
+
+RheinKarte.tsx
+
+Der native Stub darf die Web-Version nicht ersetzen.
+
+4. Prüfe Build
+
+Führe einen vollständigen Produktions-Build aus.
+
+Prüfe insbesondere, ob RheinKarte.web.tsx tatsächlich im erzeugten JavaScript-Bundle enthalten ist.
+
+Wenn die Datei wegen Expo/Metro Tree-Shaking oder falschem Import nicht im Bundle landet, korrigiere den Import.
+
+5. Prüfe Leaflet
+
+Prüfe:
+
+* leaflet
+* react-leaflet
+* Browser-only Initialisierung
+* L.divIcon()
+* window
+* document
+
+Es darf beim statischen Expo-Export kein Leaflet-Code ausgeführt werden, der Browser-APIs benötigt.
+
+6. Prüfe Kartencontainer
+
+Der Kartencontainer muss eine echte Höhe besitzen.
+
+Zum Beispiel:
+
+height: 400px
+
+oder eine andere eindeutig definierte responsive Höhe.
+
+Kein height: 100%, wenn der Elterncontainer keine definierte Höhe besitzt.
+
+7. Prüfe Leaflet-CSS
+
+Die veröffentlichte Datei muss tatsächlich existieren unter:
+
+/Reffenthal-waechter-/leaflet.css
+
+Der HTML-Code muss den korrekten GitHub-Pages-Pfad verwenden.
+
+8. Prüfe Deployment
+
+Prüfe den letzten GitHub-Actions-Lauf.
+
+Stelle sicher:
+
+* Build erfolgreich
+* leaflet.css im dist
+* JavaScript-Bundle enthält RheinKarte
+* index.html enthält den Leaflet-CSS-Link
+* aktueller Commit wurde tatsächlich deployed
+
+9. Cache ausschließen
+
+Da die App einen Service Worker verwendet, erhöhe bei Bedarf die Cache-/Build-Version oder stelle sicher, dass der neue Build vom Service Worker ausgeliefert wird.
+
+Die bestehende Update-Logik darf dabei nicht kaputtgehen.
+
+10. Wichtig: Karte soll sichtbar sein
+
+Die Rhein-Karte soll nicht nur technisch vorhanden sein.
+
+Der Nutzer muss in der App eindeutig sehen können:
+
+🗺️ Rhein-Karte
+
+und durch Antippen die Karte öffnen können.
+
+Wenn bisher kein funktionierender sichtbarer Öffner existiert, füge einen passenden Button bzw. eine passende Sektion in die bestehende Navigation ein.
+
+11. Keine anderen Funktionen verändern
+
+Nicht verändern:
+
+* NfB
+* Pegel
+* MCK
+* Clubs
+* Wächter
+* „Seit deinem letzten Besuch“
+* Service Worker
+* PWA-Update
+* App-Design
+
+Abschluss
+
+Bitte gib mir nach der Reparatur:
+
+1. Die konkrete Ursache
+2. Die geänderten Dateien
+3. Den GitHub-Commit
+4. Bestätigung, dass die Karte im Produktions-Build enthalten ist
+5. Bestätigung, dass „🗺️ Rhein-Karte“ in der veröffentlichten App sichtbar ist
+6. Bestätigung, dass die Karte auf iPhone Safari funktioniert
+
+Bitte erst dann als fertig melden, wenn der Produktions-Build geprüft wurde.
