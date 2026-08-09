@@ -1,0 +1,132 @@
+DRINGEND: GitHub-Pages-Deployment reparieren – Build schlägt fehl
+
+Der letzte Commit 4ead2c6 wurde NICHT veröffentlicht.
+
+GitHub Actions zeigt:
+
+Web-Export bauen → FAILED
+
+Auf GitHub Pages veröffentlichen → SKIPPED
+
+Die Webseite läuft deshalb weiterhin mit dem vorherigen Build.
+
+Wichtig
+
+Bitte jetzt NICHT weiter die Rhein-Karte funktional verändern.
+
+Ziel ist ausschließlich:
+
+Web-Export muss wieder erfolgreich durchlaufen → GitHub Pages muss anschließend deployen.
+
+1. GitHub-Actions-Fehler untersuchen
+
+Öffne den fehlgeschlagenen Job:
+
+Reffenthal Mobile → GitHub Pages / Web-Export bauen
+
+und ermittle die exakte Fehlermeldung aus dem Log.
+
+Bitte nicht raten.
+
+2. Wahrscheinlicher Bereich
+
+Prüfe insbesondere die zuletzt geänderte Datei:
+
+.github/workflows/deploy-pages.yml
+
+Insbesondere den neu hinzugefügten sed- bzw. INJECT-Block.
+
+Prüfe, ob:
+
+* YAML-Syntax korrekt ist
+* Shell-Syntax korrekt ist
+* Variablen korrekt escaped sind
+* sed unter Ubuntu korrekt funktioniert
+* Anführungszeichen korrekt geschlossen sind
+* $DIST/index.html tatsächlich existiert
+* der Inject-Schritt erst NACH dem Expo-Export ausgeführt wird
+
+3. Wichtig: Build und HTML-Injection trennen
+
+Der eigentliche Expo-Web-Export darf durch den CSS-Injection-Schritt nicht beschädigt werden.
+
+Die Reihenfolge soll sein:
+
+1. Dependencies installieren
+2. Expo Web Export ausführen
+3. prüfen, dass dist/index.html existiert
+4. leaflet.css nach dist/ kopieren
+5. CSS-Link in die bereits erzeugte dist/index.html einfügen
+6. weitere bestehende PWA-Dateien kopieren
+7. Deployment durchführen
+
+4. Keine Änderungen an bestehenden Funktionen
+
+Nicht verändern:
+
+* NfB
+* Pegel
+* MCK
+* Clubs
+* Wächter
+* „Seit deinem letzten Besuch“
+* Service Worker
+* PWA-Update
+* Rhein-Kartenlogik
+
+Nur den fehlerhaften Build/Deployment-Schritt reparieren.
+
+5. Produktions-Build lokal prüfen
+
+Führe nach der Korrektur den gleichen Web-Export aus wie in GitHub Actions.
+
+Danach muss gelten:
+
+dist/index.html existiert.
+
+Zusätzlich prüfen:
+
+dist/leaflet.css existiert.
+
+Und:
+
+dist/index.html
+
+enthält:
+
+/Reffenthal-waechter-/leaflet.css
+
+6. GitHub Actions
+
+Nach der Korrektur committen und pushen.
+
+Warte auf den vollständigen GitHub-Actions-Lauf.
+
+Erwartetes Ergebnis:
+
+Web-Export bauen → SUCCESS
+
+danach:
+
+Auf GitHub Pages veröffentlichen → SUCCESS
+
+7. Erst wenn beide Jobs erfolgreich sind
+
+Dann bitte die tatsächlich veröffentlichte URL prüfen:
+
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/
+
+Abschlussbericht
+
+Bitte gib mir:
+
+1. Die exakte ursprüngliche Build-Fehlermeldung.
+2. Die Ursache.
+3. Welche Datei geändert wurde.
+4. Was geändert wurde.
+5. Git-Commit.
+6. Ergebnis Web-Export.
+7. Ergebnis GitHub-Pages-Deployment.
+8. Bestätigung, dass dist/index.html den Leaflet-CSS-Link enthält.
+
+Keine weiteren Kartenänderungen vornehmen. Erst den Build wieder grün bekommen.
