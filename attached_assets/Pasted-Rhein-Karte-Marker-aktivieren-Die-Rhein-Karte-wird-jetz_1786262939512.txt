@@ -1,0 +1,169 @@
+Rhein-Karte: Marker aktivieren
+
+Die Rhein-Karte wird jetzt korrekt angezeigt. Aktuell gibt es jedoch noch keine sichtbaren bzw. antippbaren Marker.
+
+Bitte implementiere jetzt die Marker auf der bestehenden Leaflet-Karte.
+
+1. 🌊 Pegel
+
+Verwende die bereits vorhandenen Pegeldaten der App.
+
+Zunächst:
+
+Pegel Speyer
+
+Beim Antippen des Markers soll ein Popup erscheinen:
+
+🌊 Pegel Speyer
+
+* aktueller Pegelstand
+* vorhandene Pegeltendenz
+* vorhandener Vorhersagewert, falls vorhanden
+* Zeitpunkt der letzten Aktualisierung
+
+Keine neue Pegel-Datenquelle verwenden.
+
+⸻
+
+2. ⛽ MCK
+
+Verwende die bereits vorhandenen mckData.
+
+Setze den vorhandenen MCK-Standort als Marker.
+
+Popup:
+
+⛽ MCK Kurpfalz
+
+* Benzinpreis
+* Dieselpreis
+* vorhandene weitere Informationen
+
+Keine neuen Daten abrufen.
+
+⸻
+
+3. ⚓ Clubs
+
+Verwende:
+
+clubsData.known_clubs
+
+Alle vorhandenen Clubs, für die eine zuverlässige Position vorhanden ist, sollen einen Marker erhalten.
+
+Popup mit:
+
+* Clubname
+* vorhandene Adresse
+* vorhandene Kontaktdaten
+* vorhandene Website
+
+Keine Koordinaten erfinden.
+
+⸻
+
+4. 🚧 NfB
+
+Danach die vorhandenen NfB-Daten verwenden:
+
+nfbData.meldungen
+
+Nur NfBs mit zuverlässig vorhandenen:
+
+* km_von
+* km_bis
+
+anzeigen.
+
+Die bereits vorhandene Rhein-km-Interpolation verwenden.
+
+Abgelaufene NfBs nicht anzeigen.
+
+Popup:
+
+🚧 NfB
+
+* Titel
+* kurze Beschreibung
+* Rhein-km
+* Gültigkeit
+* vorhandene weiteren Informationen
+
+Keine erfundenen Koordinaten.
+
+⸻
+
+5. Marker-Filter
+
+Die bereits vorhandenen Filter müssen funktionieren:
+
+Alle | 🌊 Pegel | ⛽ Tankstelle | ⚓ Clubs | 🚧 Meldungen
+
+Wenn „Pegel“ ausgewählt wird, dürfen nur Pegelmarker sichtbar sein.
+
+Entsprechend für die anderen Kategorien.
+
+Die Anzahl bei „Meldungen (N)“ soll weiterhin stimmen.
+
+⸻
+
+6. Marker sollen wirklich antippbar sein
+
+Auf iPhone Safari muss:
+
+* Marker sichtbar sein
+* Marker antippbar sein
+* Popup erscheinen
+* Popup wieder geschlossen werden können
+
+Die Marker dürfen nicht von anderen Karten-Layern verdeckt werden.
+
+⸻
+
+7. Performance
+
+Keine zusätzlichen API-Aufrufe.
+
+Die vorhandenen React-Query-Hooks weiterverwenden.
+
+Marker erst erzeugen, wenn die Karte gemountet ist.
+
+⸻
+
+8. Bestehende Funktionen schützen
+
+Nicht verändern:
+
+* NfB-Sektion
+* Pegel-Sektion
+* MCK
+* Clubs
+* Wächter
+* „Seit deinem letzten Besuch“
+* PWA
+* Service Worker
+* Update-System
+
+9. Test
+
+Nach der Implementierung bitte testen:
+
+* Pegelmarker sichtbar
+* MCK-Marker sichtbar
+* Clubmarker sichtbar
+* NfB-Marker sichtbar, sofern Daten mit Rhein-km vorhanden
+* alle Marker antippbar
+* Popup funktioniert
+* Filter funktionieren
+* iPhone Safari
+* Android Chrome
+
+Bitte anschließend genau auflisten:
+
+* Anzahl Pegelmarker
+* Anzahl MCK-Marker
+* Anzahl Clubmarker
+* Anzahl NfB-Marker
+* welche Dateien geändert wurden
+
+Noch keine Routenplanung oder Navigation hinzufügen.
