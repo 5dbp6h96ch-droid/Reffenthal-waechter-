@@ -1,0 +1,101 @@
+Der GitHub-Actions-Deploy der Testumgebung schlägt nicht wegen des
+Builds fehl.
+
+Die konkrete Fehlermeldung lautet:
+
+Branch "test" is not allowed to deploy to github-pages due to
+environment protection rules.
+
+Der Web-Export funktioniert bereits.
+
+Bitte behebe ausschließlich die Deployment-Konfiguration.
+
+ZIEL:
+
+Wir brauchen eine echte getrennte Testumgebung.
+
+PRODUKTION:
+main → bestehende github-pages Umgebung → /
+
+TEST:
+test → eigene Test-Deployment-Umgebung → /test/
+
+WICHTIG:
+
+1. Die bestehende Produktionsumgebung "github-pages" NICHT lockern.
+2. Keine Produktionsschutzregel entfernen.
+3. main NICHT verändern.
+4. index.tsx NICHT verändern.
+5. Keine App-Funktionalität verändern.
+6. Nur Deployment-/Workflow-Konfiguration ändern.
+
+Erstelle für den test-Branch eine eigene GitHub-Environment-Konfiguration,
+z.B.:
+
+github-pages-test
+
+Der Test-Workflow soll diese Umgebung verwenden.
+
+Prüfe dabei, dass die Umgebung "github-pages-test" den Branch "test"
+deployen darf.
+
+Der bestehende Produktionsworkflow muss weiterhin ausschließlich
+main deployen.
+
+Die Test-Ausgabe soll weiterhin unter:
+
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/
+
+erreichbar sein.
+
+WICHTIG:
+GitHub Pages verwendet normalerweise die Umgebung "github-pages".
+Prüfe deshalb die vorhandene deploy-pages.yml und die aktuelle Pages-
+Konfiguration genau.
+
+Falls GitHub Pages technisch nur eine einzige Pages-Deployment-Umgebung
+für diese Site zulässt, darf NICHT versucht werden, zwei konkurrierende
+Pages-Deployments derselben Site zu erzwingen.
+
+In diesem Fall bitte stattdessen die Testwelt als Unterpfad innerhalb
+des EINEN Pages-Deployments erzeugen:
+
+/
+→ Produktion aus main
+
+/test/
+→ Testversion aus test
+
+Dabei muss der Workflow so gebaut werden, dass:
+- main weiterhin die Produktion enthält
+- test die Testdateien unter dist/test/ erzeugt
+- der Test-Branch nicht versucht, das github-pages Environment separat
+  zu deployen
+- kein Deployment-Konflikt entsteht
+
+Bevor du Änderungen machst:
+
+1. Aktuelle deploy-pages.yml analysieren.
+2. Aktuelle GitHub-Pages-Konfiguration analysieren.
+3. Ursache des Environment-Konflikts bestätigen.
+4. Die sicherste Architektur auswählen.
+
+Dann minimal ändern.
+
+Nach der Änderung testen:
+
+[ ] Web-Export erfolgreich
+[ ] Test-Deploy erfolgreich
+[ ] /test/ erreichbar
+[ ] Produktions-URL weiterhin erreichbar
+[ ] main unverändert
+[ ] index.tsx unverändert
+[ ] Produktions-Environment weiterhin geschützt
+
+Erstelle danach einen Abschlussbericht mit:
+- Ursache
+- gewählter Lösung
+- geänderten Dateien
+- Produktionsstatus
+- Test-URL
+- Ergebnis des Deployments
