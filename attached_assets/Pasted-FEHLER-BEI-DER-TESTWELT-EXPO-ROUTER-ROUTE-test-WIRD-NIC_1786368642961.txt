@@ -1,0 +1,234 @@
+FEHLER BEI DER TESTWELT – EXPO ROUTER ROUTE /test/ WIRD NICHT GEFUNDEN
+
+Die GitHub-Pages-Testseite ist jetzt erreichbar, aber beim Aufruf
+
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/
+
+zeigt die App:
+
+"Oops!
+This screen doesn't exist.
+Go to home screen!"
+
+Damit ist bestätigt:
+
+- GitHub Pages Deployment funktioniert.
+- Das /test/-Artefakt wird ausgeliefert.
+- Der Expo-Webexport funktioniert.
+- ABER Expo Router löst die URL /test/ nicht auf die Test-Route auf.
+
+Bitte behebe ausschließlich dieses Routingproblem.
+
+==================================================
+WICHTIG
+==================================================
+
+NICHT verändern:
+
+- artifacts/mobile/app/index.tsx
+- Produktionslogik
+- Pegel-Logik
+- Pegelchart
+- 7T / 30T / 3M
+- Vorhersage
+- GIF
+- Rhein-Karte
+- NfB
+- News
+- Clubs
+- MCK
+- Wächter
+- bestehende API-Aufrufe
+
+main darf nicht verändert werden.
+
+Die aktuelle Produktionsversion bleibt die Referenz.
+
+==================================================
+AKTUELLE TESTSTRUKTUR
+==================================================
+
+test-Branch enthält:
+
+artifacts/mobile/app/test.tsx
+
+Diese Datei soll die Produktionsversion als Testumgebung darstellen.
+
+Der aktuelle Ansatz:
+
+test.tsx
+→ importiert HomeScreen aus index.tsx
+→ zeigt zusätzlich das TEST-Banner.
+
+==================================================
+PROBLEM ANALYSIEREN
+==================================================
+
+Prüfe zuerst die tatsächliche Expo-Router-Dateistruktur und insbesondere:
+
+- artifacts/mobile/app/_layout.tsx
+- artifacts/mobile/app/index.tsx
+- artifacts/mobile/app/test.tsx
+- app.json / app.config.*
+- Expo Router Konfiguration
+- web export configuration
+- baseUrl
+- assetPrefix
+- GitHub-Pages-Unterpfad
+- static export configuration
+
+Prüfe insbesondere, ob die Route
+
+/test
+
+im Expo Router tatsächlich registriert wird.
+
+Es reicht NICHT, lediglich dist/test/index.html zu kopieren.
+
+Der Router muss innerhalb des erzeugten JavaScript-Bundles die Route
+/test kennen.
+
+==================================================
+ZIEL
+==================================================
+
+Folgende URLs müssen funktionieren:
+
+Produktion:
+
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/
+
+Test:
+
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/
+
+Produktion soll weiterhin die normale index.tsx rendern.
+
+Test soll test.tsx rendern.
+
+==================================================
+WICHTIGER ARCHITEKTURPUNKT
+==================================================
+
+Die GitHub-Pages-Struktur ist:
+
+dist/
+  index.html
+  test/
+    index.html
+  _expo/
+    ...
+
+Das allein erzeugt noch keine Expo-Router-Route.
+
+Prüfe deshalb, ob für die Testversion tatsächlich eine Router-Route
+vorhanden ist.
+
+Wenn erforderlich, muss die Testroute beispielsweise sauber über:
+
+app/test.tsx
+
+und:
+
+<Stack.Screen name="test" />
+
+bzw. die bestehende Expo-Router-Struktur registriert werden.
+
+Verwende dabei die bestehende Architektur des Projekts und ändere
+nicht unnötig _layout.tsx.
+
+==================================================
+GITHUB PAGES UNTERPFAD
+==================================================
+
+Besonders wichtig:
+
+Die URL enthält:
+
+/Reffenthal-waechter-/test/
+
+Prüfe deshalb, ob Expo Router die Kombination aus:
+
+base path:
+/Reffenthal-waechter-/
+
+und Route:
+/test
+
+korrekt verarbeitet.
+
+Die Route darf nicht versehentlich als:
+
+/Reffenthal-waechter-/test/test
+
+oder als:
+
+/test
+
+ohne Repository-Basis interpretiert werden.
+
+==================================================
+STATIC EXPORT
+==================================================
+
+Der Export muss so funktionieren, dass:
+
+dist/index.html
+→ Produktionsroute
+
+dist/test/index.html
+→ Testroute
+
+Die Testseite darf dabei nicht nur eine Kopie der Produktions-index.html
+sein, wenn dadurch der Router beim initialen Laden die Route nicht erkennt.
+
+Falls Expo Router für Static Export eine andere Struktur benötigt,
+verwende die von Expo Router vorgesehene Lösung.
+
+==================================================
+PRODUKTION SCHÜTZEN
+==================================================
+
+Keine Änderung an main.
+
+Keine Änderung an der Produktionsfunktionalität.
+
+Nur:
+
+- test-Branch
+- Routing
+- Test-Deployment
+- ggf. Workflow
+
+==================================================
+NACH DER ÄNDERUNG TESTEN
+==================================================
+
+1. Build erfolgreich?
+2. Produktionsroute weiterhin erreichbar?
+3. /test/ erreichbar?
+4. /test/ rendert tatsächlich test.tsx?
+5. TEST-Banner sichtbar?
+6. Produktionsoberfläche weiterhin unverändert?
+7. Keine 404-Route von Expo Router?
+
+==================================================
+ABSCHLUSSBERICHT
+==================================================
+
+Berichte:
+
+- genaue Ursache
+- welche Router-Konfiguration falsch war
+- welche Dateien geändert wurden
+- ob main unverändert blieb
+- Produktions-URL
+- Test-URL
+- Ergebnis des Web-Exports
+- Ergebnis des GitHub-Pages-Deployments
+- Ergebnis des Aufrufs /test/
+
+WICHTIG:
+Nicht einfach behaupten, dass es funktioniert.
+
+Die URL /test/ muss tatsächlich geprüft werden.
