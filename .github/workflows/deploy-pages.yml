@@ -104,6 +104,35 @@ jobs:
           echo "=== Eingefügte Tags ==="
           grep -o '<link[^>]*>\|<meta[^>]*>' "$DIST/index.html" | head -20
 
+      # SPA-Routing für GitHub Pages:
+      # Expo exportiert eine einzige index.html (SPA-Modus, keine separaten HTML-Dateien
+      # pro Route). Alle Asset-Pfade sind absolut (/Reffenthal-waechter-/_expo/...) und
+      # funktionieren daher korrekt aus jedem Unterverzeichnis.
+      #
+      # /redesign/index.html  → GitHub Pages serviert diese Datei für /redesign/
+      # 404.html              → GitHub Pages-Fallback für alle anderen unbekannten Routen
+      #
+      # In beiden Fällen lädt das JS-Bundle, liest die aktuelle URL und rendert
+      # die korrekte Route via Expo Router (SPA client-side navigation).
+      - name: SPA-Routen für GitHub Pages erstellen
+        run: |
+          DIST=artifacts/mobile/dist
+
+          # /redesign/ → index.html kopieren (Test-Designversion)
+          mkdir -p "$DIST/redesign"
+          cp "$DIST/index.html" "$DIST/redesign/index.html"
+          echo "✓ redesign/index.html erstellt"
+
+          # 404.html → GitHub-Pages-Fallback für alle unbekannten Pfade
+          cp "$DIST/index.html" "$DIST/404.html"
+          echo "✓ 404.html erstellt"
+
+          # Inhalt prüfen
+          echo "=== dist/ Wurzel ==="
+          ls "$DIST/"
+          echo "=== dist/redesign/ ==="
+          ls "$DIST/redesign/"
+
       - name: GitHub Pages konfigurieren
         uses: actions/configure-pages@v5
 
