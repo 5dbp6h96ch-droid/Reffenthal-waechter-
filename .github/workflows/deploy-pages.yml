@@ -9,13 +9,13 @@ on:
       - "lib/api-client-react/**"
       - ".github/workflows/deploy-pages.yml"
 
-  # Manuell auslösbar
+  # Manuell auslösbar (für beide Branches)
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write       # Für test-artifacts Branch-Commits (test-Branch)
+  pages: write          # Für GitHub Pages Deployment (main-Branch)
+  id-token: write       # Für OIDC Token (Pages)
 
 # Nur ein Deploy gleichzeitig
 concurrency:
@@ -105,20 +105,19 @@ jobs:
           grep -o '<link[^>]*>\|<meta[^>]*>' "$DIST/index.html" | head -20
 
       # SPA-Routing für GitHub Pages:
-      # Expo exportiert eine einzige index.html (SPA-Modus, keine separaten HTML-Dateien
-      # pro Route). Alle Asset-Pfade sind absolut (/Reffenthal-waechter-/_expo/...) und
-      # funktionieren daher korrekt aus jedem Unterverzeichnis.
+      # Expo exportiert eine einzige index.html (SPA-Modus). Alle Asset-Pfade sind
+      # absolut (/Reffenthal-waechter-/_expo/...) → funktionieren aus jedem
+      # Unterverzeichnis korrekt. Das JS-Bundle liest die URL und rendert die
+      # korrekte Route via Expo Router.
       #
-      # /redesign/index.html  → GitHub Pages serviert diese Datei für /redesign/
-      # 404.html              → GitHub Pages-Fallback für alle anderen unbekannten Routen
-      #
-      # In beiden Fällen lädt das JS-Bundle, liest die aktuelle URL und rendert
-      # die korrekte Route via Expo Router (SPA client-side navigation).
+      # /test/index.html      → Testumgebung (1:1-Kopie der Produktion + TEST-Banner)
+      # /redesign/index.html  → Früherer Design-Versuch
+      # 404.html              → GitHub-Pages-Fallback für alle unbekannten Routen
       - name: SPA-Routen für GitHub Pages erstellen
         run: |
           DIST=artifacts/mobile/dist
 
-          # /redesign/ → index.html kopieren (Test-Designversion)
+          # /redesign/ → früherer Design-Versuch
           mkdir -p "$DIST/redesign"
           cp "$DIST/index.html" "$DIST/redesign/index.html"
           echo "✓ redesign/index.html erstellt"
@@ -127,16 +126,107 @@ jobs:
           cp "$DIST/index.html" "$DIST/404.html"
           echo "✓ 404.html erstellt"
 
-          # Inhalt prüfen
-          echo "=== dist/ Wurzel ==="
-          ls "$DIST/"
-          echo "=== dist/redesign/ ==="
-          ls "$DIST/redesign/"
+      # ── NUR AUF DEM test-Branch: Testversion als Branch-Artefakt speichern ──
+      # Der test-Branch darf NICHT direkt in die 'github-pages'-Umgebung deployen
+      # (Environment-Schutzregel: nur main ist erlaubt).
+      #
+      # Stattdessen:
+      #   1. dist/test/index.html → test-artifacts Branch committen
+      #   2. main-Workflow auslösen → deployt Produktion + /test/ gemeinsam
+      #
+      # GitHub Pages erlaubt nur EIN aktives Deployment pro Site.
+      # Lösung: EIN Deployment aus main, das /test/ als Unterpfad enthält.
+      - name: "[test-Branch] Test-Artefakt in test-artifacts Branch speichern"
+        if: github.ref == 'refs/heads/test'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DIST=artifacts/mobile/dist
+
+          # test/index.html erstellen (Testroute = dieselbe SPA wie Produktion,
+          # Expo Router rendert die /test/-Route mit dem TEST-Banner)
+          mkdir -p "$DIST/test"
+          cp "$DIST/index.html" "$DIST/test/index.html"
+          echo "✓ test/index.html erstellt"
+
+          # Git-Identität für den Commit setzen
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+          # test-artifacts Branch auschecken (oder neu anlegen)
+          if git ls-remote --heads origin test-artifacts | grep -q test-artifacts; then
+            git fetch origin test-artifacts
+            git worktree add /tmp/test-artifacts-wd origin/test-artifacts
+          else
+            echo "Lege test-artifacts Branch neu an..."
+            git worktree add --orphan /tmp/test-artifacts-wd test-artifacts
+          fi
+
+          # Nur test/index.html in den Branch schreiben
+          mkdir -p /tmp/test-artifacts-wd/test
+          cp "$DIST/test/index.html" /tmp/test-artifacts-wd/test/index.html
+
+          # README für Klarheit (wird nie deployed, nur Dokumentation)
+          cat > /tmp/test-artifacts-wd/README.md << 'EOF'
+          # test-artifacts
+
+          Dieser Branch enthält ausschließlich die vorbereitete `test/index.html`,
+          die vom test-Branch-Workflow gebaut wird.
+
+          **Nicht manuell bearbeiten.** Wird automatisch vom test-Branch-Workflow aktualisiert.
+
+          Der main-Branch-Workflow liest diesen Branch und bettet `/test/` in das
+          GitHub-Pages-Deployment ein.
+          EOF
+
+          cd /tmp/test-artifacts-wd
+          git add test/index.html README.md
+          git commit -m "build(test): test/index.html aktualisiert [skip ci]" \
+            || echo "ℹ Keine Änderungen – nichts zu committen"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" \
+            HEAD:test-artifacts
+          echo "✓ test-artifacts Branch aktualisiert"
+
+      - name: "[test-Branch] Produktions-Workflow auf main auslösen"
+        if: github.ref == 'refs/heads/test'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Löse deploy-pages.yml auf main aus..."
+          curl -f -s -X POST \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy-pages.yml/dispatches" \
+            -d '{"ref":"main"}' \
+            && echo "✓ main-Workflow ausgelöst" \
+            || echo "⚠ Dispatch fehlgeschlagen (Workflow läuft möglicherweise bereits)"
+
+      # ── NUR AUF DEM main-Branch: Test-Artefakt einbinden ─────────────────
+      # Der main-Workflow liest test/index.html aus dem test-artifacts Branch
+      # und bettet ihn in das Pages-Deployment ein.
+      # Wenn test-artifacts nicht existiert, wird /test/ einfach weggelassen.
+      - name: "[main-Branch] Test-Artefakt aus test-artifacts einbinden"
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DIST=artifacts/mobile/dist
+          if git ls-remote --heads "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" test-artifacts | grep -q test-artifacts; then
+            git fetch "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" test-artifacts
+            mkdir -p "$DIST/test"
+            git show FETCH_HEAD:test/index.html > "$DIST/test/index.html" 2>/dev/null \
+              && echo "✓ test/index.html aus test-artifacts eingebunden" \
+              || echo "⚠ test/index.html im test-artifacts Branch nicht gefunden"
+          else
+            echo "ℹ test-artifacts Branch nicht vorhanden – /test/ wird nicht eingebunden"
+          fi
 
       - name: GitHub Pages konfigurieren
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: actions/configure-pages@v5
 
       - name: Artefakt hochladen
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-pages-artifact@v3
         with:
           path: artifacts/mobile/dist
@@ -145,6 +235,8 @@ jobs:
     name: Auf GitHub Pages veröffentlichen
     runs-on: ubuntu-latest
     needs: build
+    # Nur vom main-Branch deployen – github-pages Environment ist auf main geschützt
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
 
     environment:
       name: github-pages
