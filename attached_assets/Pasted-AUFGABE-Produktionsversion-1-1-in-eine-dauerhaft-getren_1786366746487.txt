@@ -1,0 +1,387 @@
+AUFGABE: Produktionsversion 1:1 in eine dauerhaft getrennte TESTWELT kopieren
+
+Projekt:
+R(h)einschiffer
+
+ZIEL:
+Wir benötigen ab sofort zwei klar getrennte Umgebungen:
+
+1. PRODUKTION
+2. TESTWELT
+
+Die aktuelle aktive Produktivversion ist die einzige Referenz für die
+erste Testwelt.
+
+Die Testwelt soll zunächst eine FUNKTIONSGLEICHE 1:1-KOPIE der aktuell
+aktiven Produktivversion werden.
+
+ERST DANACH werden neue Funktionen und Designänderungen ausschließlich
+in der Testwelt entwickelt und getestet.
+
+==================================================
+WICHTIGSTE REGEL
+==================================================
+
+NIEMALS die Produktivversion direkt verändern, wenn an einer neuen
+Funktion gearbeitet wird.
+
+Produktionscode, Produktionsroute und produktive Datenquellen dürfen
+durch die Erstellung der Testwelt nicht beschädigt oder verändert werden.
+
+Vor jeder Änderung zuerst feststellen:
+- Was ist aktuell die tatsächlich aktive Produktionsversion?
+- Welche Dateien bilden diese Version?
+- Welche Route ist die Produktionsroute?
+- Welche API-/Datenquellen werden verwendet?
+- Welche Build-/Deploy-Konfiguration veröffentlicht die Produktion?
+
+==================================================
+SCHRITT 1 – PRODUKTION ANALYSIEREN
+==================================================
+
+Analysiere das komplette bestehende Projekt.
+
+Identifiziere insbesondere:
+
+- aktuelle Produktions-Startdatei
+- Expo Router Struktur
+- _layout.tsx
+- index.tsx
+- Komponenten
+- Hooks
+- API-Client
+- Pegeldaten
+- Pegelverlauf
+- 7 Tage / 30 Tage / 3 Monate
+- Pegelvorhersage
+- vorhandenes Vorhersage-GIF
+- Rhein-Karte
+- Kartenmarker
+- Kartenfilter
+- Popups
+- WSV/NfB
+- News
+- Clubs
+- MCK Tankstelle
+- Wächter
+- Benachrichtigungen
+- Persistenz
+- alle relevanten Build- und Deployment-Dateien
+
+NICHT anhand einer alten Testversion rekonstruieren.
+
+Die aktuell laufende PRODUKTIVVERSION ist die einzige Referenz.
+
+==================================================
+SCHRITT 2 – TESTWELT ERSTELLEN
+==================================================
+
+Erstelle eine dauerhaft getrennte Testumgebung.
+
+Bevorzugt:
+
+PRODUKTION
+main
+→ produktive App
+
+TESTWELT
+separater Branch, z.B.
+test
+oder
+staging
+
+→ Test-App
+
+Die Testwelt muss technisch getrennt von main sein.
+
+Empfohlene Struktur:
+
+main
+  ↓
+aktuelle Produktion
+
+test / staging
+  ↓
+Kopie der Produktion
+  ↓
+zukünftige Tests
+
+==================================================
+SCHRITT 3 – 1:1-KOPIE
+==================================================
+
+Kopiere die AKTUELL AKTIVE PRODUKTIONSVERSION vollständig in die
+Testwelt.
+
+Dabei müssen erhalten bleiben:
+
+- UI
+- Layout
+- Funktionen
+- Datenquellen
+- API-Aufrufe
+- Pegeldaten
+- Pegelverlauf
+- 7T / 30T / 3M
+- Vorhersage
+- GIF
+- Rhein-Karte
+- Marker
+- Filter
+- Popups
+- WSV/NfB
+- News
+- Clubs
+- Tankstelle
+- Wächter
+- Benachrichtigungen
+- vorhandene Hooks
+- bestehende Komponenten
+- bestehende Fehlerbehandlung
+- bestehende Ladezustände
+- bestehende Aktualisierungslogik
+
+NICHT modernisieren.
+NICHT refactoren.
+NICHT optimieren.
+
+Die erste Testwelt muss funktional der Produktion entsprechen.
+
+==================================================
+SCHRITT 4 – TESTWELT IDENTIFIZIERBAR MACHEN
+==================================================
+
+Die Testwelt muss klar als TEST gekennzeichnet sein.
+
+Zum Beispiel:
+
+R(h)einschiffer
+TESTUMGEBUNG
+
+oder ein dezentes:
+
+TEST
+
+im Header.
+
+Wichtig:
+Diese Kennzeichnung darf nur die Testwelt betreffen.
+
+Die Produktionsoberfläche darf NICHT verändert werden.
+
+==================================================
+SCHRITT 5 – PRODUKTIONS-DATEN SCHÜTZEN
+==================================================
+
+Prüfe, ob Test und Produktion dieselben externen Datenquellen verwenden.
+
+Grundsätzlich dürfen die bestehenden öffentlichen Datenquellen weiterhin
+gelesen werden.
+
+Aber:
+Die Testwelt darf niemals produktive Daten verändern oder löschen.
+
+Insbesondere schützen:
+
+- Pegeldaten
+- gespeicherte Zustände
+- Wächterzustände
+- Benachrichtigungszustände
+- Persistenz
+- Produktionsdatenbanken
+- Produktionsdateien
+
+Wenn eine Funktion Daten schreibt, muss geprüft werden, ob Test und
+Produktion getrennt werden müssen.
+
+==================================================
+SCHRITT 6 – SEPARATER DEPLOY
+==================================================
+
+Die Testwelt soll separat erreichbar sein.
+
+Beispielsweise:
+
+PRODUKTION:
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/
+
+TEST:
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/
+
+oder eine technisch gleichwertige stabile Test-URL.
+
+Die genaue URL darfst du anhand der vorhandenen GitHub-Pages-/Expo-
+Konfiguration bestimmen.
+
+Wichtig:
+Die Produktions-URL darf durch den Test-Deploy nicht verändert werden.
+
+==================================================
+SCHRITT 7 – TEST-WORKFLOW
+==================================================
+
+Ab jetzt soll der Entwicklungsprozess so funktionieren:
+
+NEUE IDEE
+↓
+TESTWELT
+↓
+Implementierung
+↓
+Test auf iPhone
+↓
+Funktionstest
+↓
+Freigabe durch mich
+↓
+Pull Request / kontrollierter Merge
+↓
+PRODUKTION
+
+NIEMALS:
+
+Änderung
+↓
+direkt main
+↓
+Produktion
+
+==================================================
+SCHRITT 8 – TESTWELT ALS DAUERHAFTE ENTWICKLUNGSUMGEBUNG
+==================================================
+
+Die Testwelt darf nach der Einrichtung nicht bei jedem Test neu erstellt
+werden.
+
+Sie soll dauerhaft bestehen bleiben.
+
+Alle zukünftigen Design- und Funktionsänderungen werden zunächst dort
+implementiert.
+
+Beispiele:
+
+- neue R(h)einschiffer-Oberfläche
+- aufklappbare Kacheln
+- NfB-Kilometerfilter
+- News-Kilometerfilter
+- neue Kartenfunktionen
+- weitere UI-Verbesserungen
+- neue Wächterfunktionen
+
+Erst nach meiner ausdrücklichen Freigabe dürfen Änderungen nach
+PRODUKTION übernommen werden.
+
+==================================================
+SCHRITT 9 – KEINE ALTEN TESTDATEIEN ALS BASIS
+==================================================
+
+Es existieren bereits Dateien wie:
+
+index.design-test.tsx
+redesign.tsx
+und eventuell weitere frühere Testdateien.
+
+Diese dürfen NICHT automatisch als Basis verwendet werden.
+
+Die neue Testwelt muss aus der aktuell aktiven Produktionsversion
+aufgebaut werden.
+
+Alte Testdateien zunächst nur analysieren.
+
+Nicht löschen, bevor geprüft wurde, ob sie noch benötigt werden.
+
+==================================================
+SCHRITT 10 – FUNKTIONSTEST
+==================================================
+
+Nach Erstellung der Testwelt vollständig prüfen:
+
+[ ] Test-App startet
+[ ] Produktion startet weiterhin
+[ ] Produktions-URL funktioniert
+[ ] Test-URL funktioniert
+[ ] Test ist eindeutig als TEST gekennzeichnet
+
+[ ] Pegelstand funktioniert
+[ ] 7 Tage funktioniert
+[ ] 30 Tage funktioniert
+[ ] 3 Monate funktioniert
+[ ] Pegelchart funktioniert
+[ ] Vorhersage funktioniert
+[ ] Vorhersage-GIF funktioniert
+[ ] LUBW-Link funktioniert
+
+[ ] Rhein-Karte funktioniert
+[ ] Zoom funktioniert
+[ ] Marker funktionieren
+[ ] Popups funktionieren
+[ ] Kartenfilter funktionieren
+
+[ ] WSV funktioniert
+[ ] NfB funktioniert
+[ ] News funktionieren
+[ ] Clubs funktionieren
+[ ] MCK funktioniert
+[ ] Wächter funktioniert
+[ ] Benachrichtigungen funktionieren
+
+[ ] keine Produktionsfunktion wurde verändert
+
+==================================================
+SCHRITT 11 – VERIFIZIERUNG
+==================================================
+
+Vergleiche anschließend Testwelt und Produktion.
+
+Erstelle eine Liste:
+
+DATEI | PRODUKTION | TEST | UNTERSCHIED
+
+Die Testwelt darf sich funktional zunächst nur durch die
+TEST-Kennzeichnung unterscheiden.
+
+Wenn es technische Unterschiede gibt, erkläre jeden einzelnen.
+
+==================================================
+SCHRITT 12 – GIT / DEPLOYMENT
+==================================================
+
+Keine Änderungen direkt auf main.
+
+Erstelle bzw. verwende einen separaten Test-/Staging-Branch.
+
+Produktions-Workflow und Test-Workflow sauber trennen.
+
+Ein Test-Deploy darf niemals automatisch die Produktionsversion
+überschreiben.
+
+Ein Produktions-Deploy darf ausschließlich nach einem kontrollierten
+Merge/Freigabe erfolgen.
+
+==================================================
+ABSCHLUSSBERICHT
+==================================================
+
+Gib nach Abschluss einen Bericht aus mit:
+
+1. Welche Produktionsversion wurde als Referenz verwendet?
+2. Welcher Branch ist die Testwelt?
+3. Welche URL hat die Testwelt?
+4. Welche URL hat die Produktion?
+5. Welche Dateien wurden für die Testwelt erstellt?
+6. Welche Dateien wurden geändert?
+7. Wurde main verändert? → MUSS NEIN sein.
+8. Welche Funktionen wurden getestet?
+9. Gibt es Unterschiede zwischen Produktion und Test?
+10. Wie wird künftig eine Änderung von TEST nach PRODUKTION übernommen?
+
+WICHTIG:
+
+Wenn du feststellst, dass eine saubere Trennung von Test und Produktion
+mit der bestehenden GitHub-Pages-/Expo-Konfiguration nicht möglich ist,
+NICHT improvisieren.
+
+Dann zuerst die bestehende Deployment-Struktur erklären und einen
+sicheren Lösungsvorschlag machen.
+
+Keine Produktionsänderung ohne meine ausdrückliche Freigabe.
