@@ -624,25 +624,34 @@ export default function HomeScreen() {
             marginBottom: 2,
           }}
         >
-          {/* Logo */}
-          <Image
-            source={require('../assets/images/icon.png')}
-            style={{ width: 64, height: 64, marginBottom: 6 }}
-            resizeMode="contain"
-          />
-          {/* Titel – volle Breite */}
-          <Text
-            style={{
-              fontSize: 32,
-              fontFamily: 'SpaceGrotesk_700Bold',
-              color: colors.primary,
-              width: '100%',
-              textAlign: 'center',
-            }}
-            numberOfLines={1}
-          >
-            R(h)einschiffer
-          </Text>
+          {/* Logo links neben Titel + Untertitel */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <Image
+              source={require('../assets/images/icon.png')}
+              style={{ width: 68, height: 68, borderRadius: 18 }}
+              resizeMode="contain"
+            />
+            <View style={{ gap: 3 }}>
+              <Text
+                style={{
+                  fontSize: 30,
+                  fontFamily: 'SpaceGrotesk_700Bold',
+                  color: colors.primary,
+                }}
+              >
+                R(h)einschiffer
+              </Text>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.mutedForeground,
+                }}
+              >
+                Pegelvorhersage und News
+              </Text>
+            </View>
+          </View>
 
           {/* Refresh + Uhrzeit – absolut rechts, damit Titel wirklich mittig bleibt */}
           <View
@@ -867,7 +876,7 @@ export default function HomeScreen() {
             gap: 14,
           }}
         >
-          {/* Row: label + status badge */}
+          {/* Row: RHEINKILOMETER · Datum · Uhrzeit + ALARM-Badge */}
           <View
             style={{
               flexDirection: 'row',
@@ -877,15 +886,17 @@ export default function HomeScreen() {
           >
             <Text
               style={{
-                fontSize: 10,
-                fontFamily: 'SpaceGrotesk_500Medium',
+                fontSize: 11,
+                fontFamily: 'SpaceGrotesk_600SemiBold',
                 color: colors.primaryForeground,
-                opacity: 0.55,
-                letterSpacing: 2,
-                textTransform: 'uppercase',
+                opacity: 0.75,
+                letterSpacing: 0.5,
+                flex: 1,
+                flexShrink: 1,
               }}
+              numberOfLines={1}
             >
-              Pegel Speyer
+              {`RHEINKILOMETER 400,4${state?.last_pegel_time ? ` · ${formatDateTime(state.last_pegel_time)}` : ''}`}
             </Text>
             {statusLabel && (
               <View
@@ -963,37 +974,17 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* Footer row: timestamp + threshold */}
-          <View
+          {/* Schwelle */}
+          <Text
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
+              fontSize: 12,
+              fontFamily: 'SpaceGrotesk_500Medium',
+              color: colors.primaryForeground,
+              opacity: 0.55,
             }}
           >
-            <Text
-              style={{
-                fontSize: 12,
-                fontFamily: 'SpaceGrotesk_400Regular',
-                color: colors.primaryForeground,
-                opacity: 0.5,
-              }}
-            >
-              {state?.last_pegel_time
-                ? formatDateTime(state.last_pegel_time)
-                : 'Kein Messwert'}
-            </Text>
-            <Text
-              style={{
-                fontSize: 12,
-                fontFamily: 'SpaceGrotesk_500Medium',
-                color: colors.primaryForeground,
-                opacity: 0.5,
-              }}
-            >
-              Schwelle: {threshold} cm
-            </Text>
-          </View>
+            Schwelle: {threshold} cm
+          </Text>
         </View>
 
         {/* ── Chart Card ── */}
@@ -1216,7 +1207,7 @@ export default function HomeScreen() {
               {nfbNewCount > 0 && (
                 <View
                   style={{
-                    backgroundColor: colors.accent,
+                    backgroundColor: colors.primary,
                     paddingHorizontal: 8,
                     paddingVertical: 2,
                     borderRadius: 99,
@@ -1722,7 +1713,7 @@ export default function HomeScreen() {
                 textTransform: 'uppercase',
               }}
             >
-              ⛽ MCK Tankstelle
+              Tankstelle
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               {!mckOpen && mckData?.petrol != null && mckData?.diesel != null && (
