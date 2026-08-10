@@ -153,8 +153,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2293",
       "expired": false,
       "first_seen": "2026-08-10T10:02:50.558384+00:00"
+    },
+    {
+      "nfb_id": "2026/2300",
+      "titel": "Nachricht wegen Einengung des Fahrwassers: verfügbare Tiefe",
+      "km_von": 861.8,
+      "km_bis": 862.2,
+      "gueltig_ab": "10. Aug. 2026 00:00\n                                Uhr",
+      "gueltig_bis": "30. Jun. 2027 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2300",
+      "expired": false,
+      "first_seen": "2026-08-10T12:16:22.204106+00:00"
     }
   ],
-  "count": 14,
-  "updated_at": "2026-08-10T10:02:57.917023+00:00"
+  "count": 15,
+  "updated_at": "2026-08-10T12:16:28.973784+00:00"
 }
