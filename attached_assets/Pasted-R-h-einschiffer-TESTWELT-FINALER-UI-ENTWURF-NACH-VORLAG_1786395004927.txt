@@ -1,0 +1,456 @@
+R(h)einschiffer – TESTWELT
+FINALER UI-ENTWURF NACH VORLAGE UMSETZEN
+
+Diese Änderung erfolgt AUSSCHLIESSLICH auf dem test-Branch.
+
+Die Testwelt soll optisch und strukturell möglichst genau dem
+vorgegebenen UI-Entwurf entsprechen.
+
+WICHTIG:
+Die bestehende Funktionalität ist wichtiger als die Optik.
+
+Keine Datenquellen, APIs, Hooks oder bestehende Funktionen ersetzen.
+Nur die Darstellung und Anordnung ändern.
+
+==================================================
+1. KOPFBEREICH
+==================================================
+
+Ganz oben unterhalb des roten TEST-Banners:
+
+[ vorhandenes R(h)einschiffer-Logo ]
+
+R(h)einschiffer
+Pegelvorhersage und News
+
+Das bereits im Projekt vorhandene Logo verwenden.
+
+KEIN neues Logo erstellen.
+KEIN Ersatzsymbol verwenden.
+
+Logo und Titel sollen zentriert und sauber auf dem iPhone dargestellt
+werden.
+
+Der Titel:
+
+R(h)einschiffer
+
+darunter kleiner:
+
+Pegelvorhersage und News
+
+==================================================
+2. AKTUELLER PEGELSTAND
+==================================================
+
+Direkt unter dem Kopfbereich die bestehende Pegelstand-Kachel.
+
+Große blaue Kachel mit:
+
+RHEINKILOMETER [bestehender Wert]
+
+[Datum] · [Uhrzeit]
+
+[aktueller Pegelwert] cm
+
+Schwelle: [bestehender Schwellenwert]
+
+Aktueller Pegelstand
+
+Die vorhandenen echten Daten verwenden.
+
+NICHT statisch eintragen.
+
+Bestehende Pegel-API und Aktualisierung unverändert verwenden.
+
+==================================================
+3. VERLAUF
+==================================================
+
+Direkt unter dem Pegelstand:
+
+VERLAUF
+
+Darunter die bestehende Grafik.
+
+Zeitraumauswahl:
+
+[ 7 T ] [ 30 T ] [ 3 M ]
+
+Alle drei Funktionen müssen exakt erhalten bleiben.
+
+Die vorhandene Chart-Logik, Datenabfrage und Berechnung NICHT ersetzen.
+
+==================================================
+4. MENÜ
+==================================================
+
+Unterhalb des Verlaufs:
+
+MENÜ
+
+Die folgenden Bereiche werden als kompakte, horizontale
+App-Menüzeilen dargestellt.
+
+Nicht als große, vertikal ausladende Karten.
+
+Reihenfolge exakt:
+
+1. Vorhersage
+2. WSV – Nachrichten für die Binnenschifffahrt
+3. Tankstelle
+4. Clubs
+5. Rhein-Karte
+6. News
+7. Wächter Status
+
+Jede Zeile:
+
+[Icon]   Bezeichnung                         [Info/Badge] >
+
+==================================================
+5. VORHERSAGE
+==================================================
+
+Zeile:
+
+Vorhersage                              LUBW ↗    >
+
+Beim Öffnen:
+
+- bestehende Vorhersage
+- bestehendes HVZ-GIF
+- bestehender LUBW-Link
+
+vollständig erhalten.
+
+Die Vorhersage NICHT entfernen.
+
+Keine neue Datenquelle.
+
+==================================================
+6. WSV
+==================================================
+
+Bezeichnung:
+
+WSV – Nachrichten für die Binnenschifffahrt
+
+Bestehenden NEU-Zähler verwenden.
+
+Beispiel:
+
+2 NEU
+
+WICHTIG:
+
+Der Badge muss BLAU sein.
+
+Nicht orange.
+
+Bestehende NfB-Funktionalität vollständig erhalten:
+
+- Daten
+- Nachrichten
+- Öffnen
+- Kilometerfilter
+- bestehende Filterlogik
+- Benachrichtigungen
+
+==================================================
+7. TANKSTELLE
+==================================================
+
+Sichtbare Bezeichnung ausschließlich:
+
+Tankstelle
+
+NICHT:
+
+MCK Tankstelle
+
+NICHT:
+
+⛽ MCK Tankstelle
+
+Die bestehende MCK-Datenquelle bleibt unverändert.
+
+Benzin und Diesel weiterhin anzeigen.
+
+Beispiel:
+
+Tankstelle                         B 2,370 | D 2,040    >
+
+==================================================
+8. CLUBS
+==================================================
+
+Bezeichnung:
+
+Clubs
+
+Bestehende Anzahl anzeigen.
+
+Beispiel:
+
+Clubs                                      2    >
+
+Bestehende Club-Funktion vollständig erhalten.
+
+==================================================
+9. RHEIN-KARTE
+==================================================
+
+Bezeichnung:
+
+Rhein-Karte
+
+Bestehende Karte vollständig erhalten:
+
+- Leaflet
+- OpenStreetMap
+- OpenSeaMap
+- Marker
+- Filter
+- Popups
+- Zoom
+- Interaktionen
+- Datenquellen
+
+Nur über die Menüzeile öffnen.
+
+==================================================
+10. NEWS
+==================================================
+
+Bezeichnung:
+
+News
+
+Bestehenden News-Zähler anzeigen.
+
+Beispiel:
+
+News                                       7    >
+
+Bestehende News-Funktion und Kilometerfilter erhalten.
+
+==================================================
+11. WÄCHTER
+==================================================
+
+Bezeichnung:
+
+Wächter Status
+
+Dezent darstellen.
+
+Beim Öffnen die bestehende Wächter-Information anzeigen.
+
+Bestehende Wächter-Daten, Status, Fehleranzeige und Logik nicht ändern.
+
+==================================================
+12. DESIGN
+==================================================
+
+Optik möglichst genau nach dem vorgegebenen Entwurf:
+
+- sehr helle Oberfläche
+- hellblauer Hintergrund
+- weiße Karten
+- abgerundete Ecken
+- dünne blaue Rahmen
+- blaue Primärfarbe
+- dezente graue Sekundärtexte
+- großzügige Abstände
+- klare Typografie
+- iPhone-optimiert
+- keine unnötigen Farben
+
+Der WSV-NEU-Badge:
+
+BLAU
+
+Nicht orange.
+
+Die Gestaltung soll modern, ruhig und übersichtlich wirken.
+
+==================================================
+13. STARTSEITE – HIERARCHIE
+==================================================
+
+Die endgültige sichtbare Struktur:
+
+⚠ TESTUMGEBUNG – NICHT PRODUKTIV
+
+[ R(h)einschiffer-Logo ]
+
+R(h)einschiffer
+Pegelvorhersage und News
+
+[ AKTUELLER PEGELSTAND ]
+
+[ VERLAUF ]
+[ 7 T | 30 T | 3 M ]
+
+MENÜ
+
+[ Vorhersage                         LUBW > ]
+[ WSV – Nachrichten ...              2 NEU > ]
+[ Tankstelle                    B ... D ... > ]
+[ Clubs                                  2 > ]
+[ Rhein-Karte                            > ]
+[ News                                   7 > ]
+[ Wächter Status                         > ]
+
+==================================================
+14. FUNKTIONEN NICHT VERÄNDERN
+==================================================
+
+NICHT verändern:
+
+- Pegel-API
+- Pegelabfrage
+- Pegelaktualisierung
+- 7T
+- 30T
+- 3M
+- Pegelchart
+- Vorhersage
+- HVZ-GIF
+- LUBW
+- WSV/NfB
+- NfB-Kilometerfilter
+- NfB-Benachrichtigungen
+- News
+- News-Kilometerfilter
+- MCK-Datenquelle
+- Benzin/Diesel
+- Clubs
+- Rhein-Karte
+- Leaflet
+- Marker
+- Filter
+- Popups
+- Wächter
+- Wächterstatus
+- bestehende Hooks
+- bestehende API-Clients
+- bestehende Datenquellen
+
+Keine neuen Datenquellen.
+
+==================================================
+15. AUFKLAPPEN
+==================================================
+
+Die bereits funktionierenden Aufklapp-/Collapse-Funktionen bleiben
+erhalten.
+
+Menüzeilen dürfen beim Antippen ihren bestehenden Inhalt öffnen.
+
+Keine bestehende Funktion durch reine UI-Änderung verlieren.
+
+==================================================
+16. TESTBANNER
+==================================================
+
+Das rote Banner bleibt ausschließlich in der Testwelt:
+
+⚠ TESTUMGEBUNG – NICHT PRODUKTIV
+
+Es darf nicht in die Produktionsoberfläche gelangen.
+
+==================================================
+17. PRODUKTION SCHÜTZEN
+==================================================
+
+Ausschließlich test-Branch bearbeiten.
+
+NICHT:
+
+- Produktionslogik ändern
+- index.tsx verändern, wenn es nicht zwingend erforderlich ist
+- main verändern
+- Produktionsworkflow verändern
+- Produktionsdaten verändern
+
+Die Produktionsversion bleibt unangetastet.
+
+==================================================
+18. RESPONSIVE / IPHONE
+==================================================
+
+Die Oberfläche muss auf dem iPhone sauber funktionieren.
+
+Keine horizontale Scrollbarkeit.
+
+Keine abgeschnittenen Texte.
+
+Das Logo darf nicht zu groß werden.
+
+Die Menüzeilen müssen bequem mit dem Finger antippbar sein.
+
+Safe-Area berücksichtigen.
+
+==================================================
+19. ABSCHLUSSTEST
+==================================================
+
+Vor Abschluss prüfen:
+
+[ ] Logo sichtbar
+[ ] R(h)einschiffer sichtbar
+[ ] Pegelvorhersage und News sichtbar
+[ ] aktueller Pegelstand funktioniert
+[ ] Verlauf funktioniert
+[ ] 7T funktioniert
+[ ] 30T funktioniert
+[ ] 3M funktioniert
+
+[ ] Vorhersage öffnet
+[ ] HVZ-GIF funktioniert
+[ ] LUBW-Link funktioniert
+
+[ ] WSV öffnet
+[ ] NEU-Badge ist blau
+[ ] NfB-Kilometerfilter funktioniert
+
+[ ] Tankstelle heißt nur "Tankstelle"
+[ ] Benzin funktioniert
+[ ] Diesel funktioniert
+
+[ ] Clubs funktionieren
+[ ] Rhein-Karte funktioniert
+[ ] Marker funktionieren
+[ ] Filter funktionieren
+[ ] Popups funktionieren
+[ ] News funktionieren
+[ ] News-Kilometerfilter funktioniert
+[ ] Wächter funktioniert
+
+[ ] keine bestehende Funktion verloren
+[ ] TypeScript 0 Fehler
+[ ] Web-Export erfolgreich
+[ ] Test-URL funktioniert
+
+==================================================
+20. ABSCHLUSSBERICHT
+==================================================
+
+Berichte:
+
+1. geänderte Dateien
+2. aktueller test-Commit
+3. Bestätigung, dass main nicht verändert wurde
+4. Bestätigung, dass index.tsx unverändert blieb
+5. UI-Änderungen
+6. Funktionstest
+7. TypeScript-Ergebnis
+8. Web-Export-Ergebnis
+9. Test-URL
+10. eventuelle Abweichungen vom Entwurf
+
+NICHT einfach behaupten, dass alles funktioniert.
+
+Die Test-URL muss tatsächlich geprüft werden.
