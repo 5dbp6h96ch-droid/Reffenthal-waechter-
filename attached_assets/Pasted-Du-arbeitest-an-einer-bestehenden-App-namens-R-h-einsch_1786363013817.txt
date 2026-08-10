@@ -1,0 +1,208 @@
+Du arbeitest an einer bestehenden App namens „R(h)einschiffer“.
+
+WICHTIG:
+Dies ist ausschließlich eine TESTUMGEBUNG.
+Die bestehende Originalversion darf NICHT überschrieben, gelöscht oder funktional verändert werden.
+
+ZIEL:
+Erstelle eine moderne, mobile Oberfläche für „R(h)einschiffer“, basierend auf der vorhandenen App und deren bestehender Funktionalität.
+
+DAS DESIGN:
+- App-Name: R(h)einschiffer
+- vorhandenes Logo beibehalten
+- Untertitel direkt unter dem Namen:
+  „Pegelvorhersage und News“
+- modernes, klares und hochwertiges Mobile-Design
+- optimiert für iPhone und kleine Displays
+- großzügige, abgerundete Karten
+- dezente Farben und klare Typografie
+- Wächterstatus deutlich dezenter darstellen und möglichst weit unten platzieren
+- keine unnötigen zusätzlichen Informationen
+- KEINE Umweltdaten hinzufügen
+
+WICHTIGSTE REGEL:
+Die vorhandene Funktionalität muss erhalten bleiben.
+
+INSBESONDERE:
+1. PEGELSTAND
+Die bestehende Pegelstand-Funktion verwenden.
+Keine neue Pegelberechnung erfinden.
+
+2. PEGELVERLAUF
+Die bestehende Pegelverlaufslogik vollständig übernehmen.
+
+Die vorhandenen Zeiträume müssen weiterhin funktionieren:
+- 7 Tage
+- 30 Tage
+- 3 Monate / 90 Tage
+
+Die vorhandenen Datenquellen und Filter dürfen nicht ersetzt werden.
+
+3. PEGELVORHERSAGE
+Die vorhandene Vorhersage verwenden.
+
+Wichtig:
+Die ursprüngliche Vorhersage basiert auf dem vorhandenen GIF, weil keine geeigneten Rohdaten von der Internetseite verfügbar waren.
+
+Daher:
+- vorhandenes GIF weiterverwenden
+- keine künstlichen Rohdaten erzeugen
+- keine neue Vorhersageberechnung erfinden
+- vorhandene Aktualisierungs-/Cache-Logik erhalten
+
+4. RHEIN-KARTE
+Die vorhandene Rhein-Karte vollständig übernehmen.
+
+Die vorhandene Kartenfunktionalität muss erhalten bleiben:
+- Karte
+- Zoom
+- Marker
+- Popups
+- Filter
+- Pegel
+- Tankstellen
+- Clubs
+- Meldungen/NfB
+- vorhandene Karten-Daten
+- vorhandene Interaktion
+
+KEINE vereinfachte statische Karten-Demo als Ersatz verwenden.
+
+5. WEITERE BEREICHE
+Bestehende Funktionen für:
+- WSV/Nachrichten
+- News
+- Clubs
+- Tankstelle
+- NfB/Meldungen
+- Wächter
+
+müssen erhalten bleiben.
+
+6. WÄCHTER
+Der Wächter soll funktional unverändert bleiben.
+
+Nur optisch:
+- kleiner
+- dezenter
+- weniger dominant
+- möglichst am Ende der Startansicht
+
+7. NAVIGATION
+Die vorhandene Navigation und ihre Funktionen nicht entfernen.
+
+MOBILE STARTSEITE:
+
+Oben:
+
+[R(h)einschiffer-Logo]
+
+R(h)einschiffer
+Pegelvorhersage und News
+
+Danach:
+
+PEGELSTAND
+aktueller Pegelstand
+Pegelverlauf
+[ 7 Tage ] [ 30 Tage ] [ 3 Monate ]
+
+Danach:
+
+PEGELVORHERSAGE: REFFENTHAL
+vorhandenes Vorhersage-GIF
+
+Danach die bestehenden weiteren Bereiche:
+
+WSV / News
+Clubs
+Tankstelle
+Rhein-Karte
+
+Danach:
+
+Aktuelle Warnungen / Meldungen
+
+Ganz unten:
+
+WÄCHTER
+dezent dargestellt
+
+TECHNISCHE VORGABEN:
+
+- Zuerst das vorhandene Projekt vollständig analysieren.
+- Suche insbesondere nach:
+  package.json
+  src
+  app
+  components
+  index
+  CSS/Styles
+  Pegel-Komponenten
+  Karten-Komponenten
+  Vorhersage/GIF
+  API-Aufrufen
+  Datenquellen
+- Verwende vorhandene Komponenten und Funktionen wieder.
+- Nicht unnötig neu programmieren.
+- Keine Datenquellen austauschen.
+- Keine Mock-Daten verwenden, wenn echte bestehende Daten vorhanden sind.
+- Keine bestehende Funktion löschen.
+- Keine bestehende API ändern.
+- Keine bestehenden Berechnungen ändern.
+- Keine bestehende Kartenlogik ersetzen.
+
+TESTSICHERHEIT:
+
+Erstelle zunächst eine separate Testversion bzw. einen separaten Branch.
+
+Die Originalversion muss jederzeit unverändert weiter funktionieren.
+
+Vor jeder Änderung:
+1. bestehende Struktur analysieren
+2. Abhängigkeiten prüfen
+3. vorhandene Komponenten identifizieren
+4. vorhandene Funktionen wiederverwenden
+
+Nach der Umsetzung prüfen:
+
+[ ] App startet
+[ ] R(h)einschiffer wird angezeigt
+[ ] Logo wird angezeigt
+[ ] Pegelstand funktioniert
+[ ] 7 Tage funktioniert
+[ ] 30 Tage funktioniert
+[ ] 3 Monate funktioniert
+[ ] Vorhersage-GIF funktioniert
+[ ] Rhein-Karte funktioniert
+[ ] Karte kann gezoomt werden
+[ ] Marker funktionieren
+[ ] Kartenfilter funktionieren
+[ ] News funktionieren
+[ ] Clubs funktionieren
+[ ] Tankstelle funktioniert
+[ ] Meldungen funktionieren
+[ ] Wächter funktioniert
+[ ] Mobile Darstellung funktioniert
+[ ] Keine Funktion der Originalversion wurde entfernt
+
+WENN DU EIN PROBLEM FINDEST:
+Nicht einfach die Funktion ersetzen oder mit Mock-Daten umgehen.
+
+Stattdessen:
+- Ursache identifizieren
+- bestehende Implementierung nachvollziehen
+- minimale Änderung durchführen
+- anschließend erneut testen.
+
+AM ENDE:
+Zeige mir:
+1. welche Dateien geändert wurden
+2. welche Dateien neu erstellt wurden
+3. welche bestehenden Komponenten wiederverwendet wurden
+4. welche Funktionen getestet wurden
+5. ob die Originalfunktionalität unverändert geblieben ist.
+
+WICHTIG:
+Noch KEINEN Merge in die Produktionsversion durchführen.
+Dies bleibt zunächst eine reine Testversion.
