@@ -298,7 +298,9 @@ const queryClient = new QueryClient({
 function RootLayoutNav() {
   return (
     <Stack>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="index"    options={{ headerShown: false }} />
+      {/* Testversion des neuen Designs – kein Merge in Produktion */}
+      <Stack.Screen name="redesign" options={{ headerShown: false }} />
     </Stack>
   );
 }
