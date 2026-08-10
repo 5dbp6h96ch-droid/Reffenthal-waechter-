@@ -31,6 +31,7 @@ import {
   ActivityIndicator,
   Animated,
   Switch,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -243,12 +244,20 @@ export default function TestEnvironment() {
 
   // ── Expand/Collapse-Zustand ──────────────────────────────────────────────
   const [chartRange, setChartRange] = useState<TimeRange>(30);
+  const [hvzOpen, setHvzOpen] = useState(false);
   const [nfbOpen, setNfbOpen] = useState(false);
   const [mckOpen, setMckOpen] = useState(false);
   const [vereineOpen, setVereineOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
   const [waechterOpen, setWaechterOpen] = useState(false);
+
+  // HVZ-Vorhersage: Cache-Busting-Timestamp, alle 5 Min aktualisiert (= HVZ-Takt)
+  const [hvzTs, setHvzTs] = useState(() => Math.floor(Date.now() / 300_000));
+  useEffect(() => {
+    const timer = setInterval(() => setHvzTs(Math.floor(Date.now() / 300_000)), 300_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // ── NfB km-Bereich ───────────────────────────────────────────────────────
   const [nfbKmVon, setNfbKmVon] = useState(NFB_KM_DEFAULT_VON);
@@ -599,6 +608,46 @@ export default function TestEnvironment() {
           borderColor: colors.border,
           overflow: 'hidden',
         }}>
+
+          {/* ── Vorhersage (HVZ/LUBW) ── */}
+          {(() => {
+            const imgW = SCREEN_W - CARD_PADDING * 2 - 32;
+            const imgH = Math.round(imgW * (600 / 800));
+            return (
+              <>
+                <TouchableOpacity onPress={() => setHvzOpen(o => !o)} activeOpacity={0.7} style={menuRow}>
+                  <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>
+                    Vorhersage
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TouchableOpacity
+                      onPress={() => void Linking.openURL('https://www.hvz.baden-wuerttemberg.de/pegel.html?id=09017')}
+                      activeOpacity={0.7}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                    >
+                      <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                        LUBW
+                      </Text>
+                      <Feather name="external-link" size={11} color={colors.mutedForeground} />
+                    </TouchableOpacity>
+                    <Feather name={hvzOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.mutedForeground} />
+                  </View>
+                </TouchableOpacity>
+
+                {hvzOpen && (
+                  <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+                    <Image
+                      source={{ uri: `https://www.hvz.baden-wuerttemberg.de/gifs/09017-2001.GIF?t=${hvzTs}` }}
+                      style={{ width: imgW, height: imgH, borderRadius: 6, alignSelf: 'center' }}
+                      resizeMode="contain"
+                    />
+                  </View>
+                )}
+              </>
+            );
+          })()}
+
+          <View style={menuDivider} />
 
           {/* ── WSV – Nachrichten für die Binnenschifffahrt ── */}
           <View ref={nfbCardRef}>
