@@ -554,31 +554,31 @@ export default function TestEnvironment() {
         }
       >
 
-        {/* ── Logo + Titel (zentriert) ──────────────────────────────────────── */}
-        <View style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 4, gap: 8 }}>
-          <Image
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            source={require('../assets/images/icon.png')}
-            style={{ width: 64, height: 64, borderRadius: 16 }}
-            resizeMode="contain"
-          />
-          <View style={{ alignItems: 'center', gap: 2 }}>
-            <Text style={{
-              fontSize: 24,
-              fontFamily: 'SpaceGrotesk_700Bold',
-              color: colors.foreground,
-              textAlign: 'center',
-            }}>
-              R(h)einschiffer
-            </Text>
-            <Text style={{
-              fontSize: 13,
-              fontFamily: 'SpaceGrotesk_400Regular',
-              color: colors.mutedForeground,
-              textAlign: 'center',
-            }}>
-              Pegelvorhersage und News
-            </Text>
+        {/* ── Logo + Titel (Logo links neben Titel) ────────────────────────── */}
+        <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <Image
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              source={require('../assets/images/icon.png')}
+              style={{ width: 68, height: 68, borderRadius: 18 }}
+              resizeMode="contain"
+            />
+            <View style={{ gap: 3 }}>
+              <Text style={{
+                fontSize: 30,
+                fontFamily: 'SpaceGrotesk_700Bold',
+                color: colors.foreground,
+              }}>
+                R(h)einschiffer
+              </Text>
+              <Text style={{
+                fontSize: 13,
+                fontFamily: 'SpaceGrotesk_400Regular',
+                color: colors.mutedForeground,
+              }}>
+                Pegelvorhersage und News
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -590,36 +590,32 @@ export default function TestEnvironment() {
           gap: 10,
         }}>
 
-          {/* Zeile 1: Rheinkilometer + Status-Badge */}
+          {/* Zeile 1: Rheinkilometer · Datum · Uhrzeit + ALARM-Badge rechts */}
           <View style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexWrap: 'nowrap',
           }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={{
-                fontSize: 10,
-                fontFamily: 'SpaceGrotesk_500Medium',
-                color: colors.primaryForeground,
-                opacity: 0.55,
-                letterSpacing: 1.5,
-                textTransform: 'uppercase',
-              }}>
-                Rheinkilometer
-              </Text>
-              <Text style={{
-                fontSize: 11,
-                fontFamily: 'SpaceGrotesk_700Bold',
-                color: colors.primaryForeground,
-                opacity: 0.8,
-              }}>
-                {SPEYER_RHEINKILOMETER}
-              </Text>
-            </View>
+            <Text style={{
+              fontSize: 11,
+              fontFamily: 'SpaceGrotesk_600SemiBold',
+              color: colors.primaryForeground,
+              opacity: 0.75,
+              letterSpacing: 0.5,
+              flex: 1,
+              flexShrink: 1,
+            }} numberOfLines={1}>
+              {`RHEINKILOMETER ${SPEYER_RHEINKILOMETER}`}
+              {state?.last_pegel_time
+                ? ` · ${formatDate(state.last_pegel_time)} · ${formatTime(state.last_pegel_time)}`
+                : ''}
+            </Text>
             {statusLabel && (
               <View style={{
                 paddingHorizontal: 10, paddingVertical: 4,
                 borderRadius: 99, backgroundColor: statusColor,
+                marginLeft: 8, flexShrink: 0,
               }}>
                 <Text style={{
                   fontSize: 10, fontFamily: 'SpaceGrotesk_700Bold',
@@ -630,18 +626,6 @@ export default function TestEnvironment() {
               </View>
             )}
           </View>
-
-          {/* Zeile 2: Datum · Uhrzeit */}
-          <Text style={{
-            fontSize: 13,
-            fontFamily: 'SpaceGrotesk_400Regular',
-            color: colors.primaryForeground,
-            opacity: 0.6,
-          }}>
-            {state?.last_pegel_time
-              ? `${formatDate(state.last_pegel_time)} · ${formatTime(state.last_pegel_time)}`
-              : 'Kein Messwert'}
-          </Text>
 
           {/* Zeile 3: Großer cm-Wert */}
           {stateLoading ? (
@@ -690,17 +674,6 @@ export default function TestEnvironment() {
             Schwelle: {threshold} cm
           </Text>
 
-          {/* Zeile 5: Label */}
-          <Text style={{
-            fontSize: 10,
-            fontFamily: 'SpaceGrotesk_600SemiBold',
-            color: colors.primaryForeground,
-            opacity: 0.4,
-            letterSpacing: 2,
-            textTransform: 'uppercase',
-          }}>
-            Aktueller Pegelstand
-          </Text>
 
         </View>
 
