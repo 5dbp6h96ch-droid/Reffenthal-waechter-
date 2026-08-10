@@ -142,8 +142,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2291",
       "expired": false,
       "first_seen": "2026-08-08T16:24:45.079340+00:00"
+    },
+    {
+      "nfb_id": "2026/2293",
+      "titel": "Nachricht wegen Einengung des Fahrwassers: Begegnungsverbot, Überholverbot, Durchfahrtsbreite",
+      "km_von": 362.1,
+      "km_bis": 362.1,
+      "gueltig_ab": "10. Aug. 2026 09:00\n                                Uhr",
+      "gueltig_bis": "21. Aug. 2026 19:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2293",
+      "expired": false,
+      "first_seen": "2026-08-10T10:02:50.558384+00:00"
     }
   ],
-  "count": 13,
-  "updated_at": "2026-08-10T05:12:32.206368+00:00"
+  "count": 14,
+  "updated_at": "2026-08-10T10:02:57.917023+00:00"
 }
