@@ -298,8 +298,11 @@ const queryClient = new QueryClient({
 function RootLayoutNav() {
   return (
     <Stack>
+      {/* Produktion – niemals direkt für Feature-Entwicklung ändern */}
       <Stack.Screen name="index"    options={{ headerShown: false }} />
-      {/* Testversion des neuen Designs – kein Merge in Produktion */}
+      {/* Testumgebung – 1:1-Kopie + TEST-Banner, URL: /test/ */}
+      <Stack.Screen name="test"     options={{ headerShown: false }} />
+      {/* Früherer Design-Versuch */}
       <Stack.Screen name="redesign" options={{ headerShown: false }} />
     </Stack>
   );

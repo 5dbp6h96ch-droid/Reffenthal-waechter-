@@ -117,6 +117,12 @@ jobs:
         run: |
           DIST=artifacts/mobile/dist
 
+          # /test/ → Testumgebung (1:1-Kopie der Produktion + TEST-Banner via Expo Router)
+          # Das JS-Bundle enthält test.tsx und routet /test/ korrekt auf TestEnvironment.
+          mkdir -p "$DIST/test"
+          cp "$DIST/index.html" "$DIST/test/index.html"
+          echo "✓ test/index.html erstellt"
+
           # /redesign/ → früherer Design-Versuch
           mkdir -p "$DIST/redesign"
           cp "$DIST/index.html" "$DIST/redesign/index.html"
