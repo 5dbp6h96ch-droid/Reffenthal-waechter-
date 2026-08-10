@@ -1,0 +1,402 @@
+R(h)einschiffer – TESTWELT: STARTBILDSCHIRM NEU STRUKTURIEREN
+
+WICHTIG:
+Diese Änderung erfolgt AUSSCHLIESSLICH auf dem test-Branch.
+
+NICHT direkt in Produktion arbeiten.
+main / die Produktionsversion darf durch diese Änderung nicht verändert
+werden.
+
+Die aktuelle Produktionsversion ist weiterhin die funktionale Referenz.
+
+==================================================
+ZIEL
+==================================================
+
+Der Startbildschirm der TESTVERSION soll übersichtlicher und stärker
+wie eine normale mobile App aufgebaut werden.
+
+Auf dem eigentlichen Startbereich sollen zunächst nur sichtbar sein:
+
+1. aktueller Pegelstand
+2. Verlauf
+
+Alle weiteren Funktionen sollen darunter als kompakte, gut erreichbare
+Menü-/Button-Kacheln angeordnet werden.
+
+Die bestehenden Funktionen bleiben vollständig erhalten.
+
+==================================================
+STARTBEREICH
+==================================================
+
+OBEN:
+
+R(h)einschiffer
+Pegelvorhersage und News
+
+Danach:
+
+AKTUELLER PEGELSTAND
+
+Die bestehende Pegelstand-Kachel unverändert funktional übernehmen.
+
+Beibehalten:
+
+- aktueller Pegelwert
+- Rheinkilometer
+- Zeit
+- Schwellenwert
+- Status
+- bestehende Datenquelle
+- bestehende Aktualisierung
+- bestehende Farben/Statuslogik
+
+Danach unmittelbar:
+
+VERLAUF
+
+Die bestehende Verlaufskachel unverändert funktional übernehmen.
+
+WICHTIG:
+
+Die drei Zeiträume müssen weiterhin funktionieren:
+
+- 7 T
+- 30 T
+- 3 M
+
+Die bestehende Chart-Logik und Datenabfrage darf NICHT ersetzt werden.
+
+==================================================
+ALLES DARUNTER ALS MENÜ
+==================================================
+
+Unterhalb des Verlaufs soll ein klarer Bereich
+
+MENÜ
+
+erscheinen.
+
+Die bisherigen großen Karten/Kacheln werden dort zu kompakteren
+horizontalen Buttons bzw. Menüzeilen.
+
+Reihenfolge:
+
+1. WSV – Nachrichten für die Binnenschifffahrt
+2. Tankstelle
+3. Clubs
+4. Rhein-Karte
+5. News
+6. Wächter Status
+
+==================================================
+WSV
+==================================================
+
+Bezeichnung:
+
+WSV – Nachrichten für die Binnenschifffahrt
+
+Der bestehende "NEU"-Zähler bleibt erhalten.
+
+WICHTIG:
+Der Badge soll NICHT orange sein.
+
+Verwende stattdessen einen passenden Blauton, der zum bestehenden
+R(h)einschiffer-Design passt.
+
+Beispiel:
+
+"2 NEU"
+
+in einem blauen Badge.
+
+Die bestehende NfB-Funktionalität bleibt vollständig erhalten.
+
+Insbesondere:
+
+- Nachrichten laden
+- Öffnen
+- bestehender Kilometerfilter
+- Kilometerbereich
+- bestehende Datenquelle
+
+nicht verändern.
+
+==================================================
+TANKSTELLE
+==================================================
+
+Die bisherige Bezeichnung:
+
+"MCK TANKSTELLE"
+
+wird in der Oberfläche zu:
+
+"TANKSTELLE"
+
+verkürzt.
+
+WICHTIG:
+
+Nur die sichtbare Bezeichnung ändern.
+
+Die dahinterliegende MCK-Datenquelle und Funktionalität NICHT ändern.
+
+Benzin-/Dieselpreise bleiben erhalten.
+
+==================================================
+CLUBS
+==================================================
+
+Bezeichnung:
+
+CLUBS
+
+Bestehende Club-Anzahl und Funktionalität erhalten.
+
+==================================================
+RHEIN-KARTE
+==================================================
+
+Bezeichnung:
+
+Rhein-Karte
+
+Die bestehende vollständige Kartenfunktion MUSS erhalten bleiben.
+
+Nicht verändern:
+
+- Leaflet
+- OpenStreetMap
+- OpenSeaMap
+- Marker
+- Filter
+- Popups
+- Zoom
+- Interaktionen
+- vorhandene Datenquellen
+
+Die Karte soll lediglich über den Menübutton erreichbar sein.
+
+==================================================
+NEWS
+==================================================
+
+Bezeichnung:
+
+NEWS
+
+Bestehende News-Funktionalität vollständig erhalten.
+
+Der vorhandene News-Zähler bleibt erhalten.
+
+Der bestehende Kilometerfilter bleibt erhalten.
+
+==================================================
+WÄCHTER
+==================================================
+
+Bezeichnung:
+
+Wächter Status
+
+Der Wächterstatus soll weiterhin bewusst dezent dargestellt werden.
+
+Er soll nicht den Startbildschirm dominieren.
+
+==================================================
+AUFKLAPPBARE BEREICHE
+==================================================
+
+Die bereits funktionierende Aufklapp-/Collapse-Funktion NICHT entfernen.
+
+Falls einzelne Menüeinträge bereits aufklappbar sind:
+
+- Funktion beibehalten
+- Animation beibehalten
+- Inhalte beibehalten
+
+Nicht neu implementieren, wenn die bestehende Funktion bereits korrekt
+arbeitet.
+
+==================================================
+FARBEN
+==================================================
+
+Die Oberfläche soll weiterhin dem bestehenden R(h)einschiffer-Design
+entsprechen.
+
+Insbesondere:
+
+- helle Oberfläche
+- blaue Hauptfarbe
+- blaue Badges
+- dezente graue Texte
+- abgerundete Karten
+- keine unnötigen neuen Farben
+
+WICHTIG:
+
+Der "2 NEU"-Badge bei WSV muss BLAU sein, nicht orange.
+
+==================================================
+STARTBILDSCHIRM – SICHTBARE HIERARCHIE
+==================================================
+
+Die gewünschte Hierarchie ist:
+
+R(h)einschiffer
+Pegelvorhersage und News
+
+↓
+AKTUELLER PEGELSTAND
+
+↓
+VERLAUF
+[7 T] [30 T] [3 M]
+
+↓
+MENÜ
+
+[ WSV – Nachrichten ...      2 NEU  > ]
+
+[ Tankstelle                 B ... D ... > ]
+
+[ Clubs                         2      > ]
+
+[ Rhein-Karte                          > ]
+
+[ News                           7     > ]
+
+[ Wächter Status                       > ]
+
+==================================================
+WICHTIG: KEINE FUNKTIONSVERLUSTE
+==================================================
+
+Diese Änderung ist ausschließlich eine UI-/Layoutänderung.
+
+NICHT verändern:
+
+- Pegel-API
+- Pegelabfrage
+- Pegelverlauf
+- 7T/30T/3M
+- Vorhersage
+- Vorhersage-GIF
+- LUBW/HVZ-Link
+- NfB-Datenquelle
+- NfB-Kilometerfilter
+- News-Datenquelle
+- News-Kilometerfilter
+- MCK-Datenquelle
+- Clubs
+- Rhein-Karte
+- Kartenmarker
+- Kartenfilter
+- Popups
+- Wächter
+- Benachrichtigungen
+- bestehende Hooks
+- bestehende API-Clients
+
+Keine neue Datenquelle einführen.
+
+==================================================
+TEST-BANNER
+==================================================
+
+Das vorhandene rote Banner
+
+"⚠ TESTUMGEBUNG – NICHT PRODUKTIV"
+
+muss in der Testwelt erhalten bleiben.
+
+Es darf nicht in die Produktionsversion gelangen.
+
+==================================================
+PRODUKTION SCHÜTZEN
+==================================================
+
+Nur test-Branch ändern.
+
+Nicht:
+
+- main ändern
+- Produktionsdateien direkt verändern
+- Produktionsworkflow verändern
+- Produktionsdaten verändern
+
+Wenn Änderungen an gemeinsam verwendeten Dateien notwendig sind,
+prüfe zuerst, ob sie ausschließlich für die Testwelt erforderlich sind.
+
+==================================================
+ABSCHLUSSTEST
+==================================================
+
+Nach der Implementierung prüfen:
+
+[ ] Startseite lädt
+[ ] TEST-Banner sichtbar
+[ ] aktueller Pegelstand sichtbar
+[ ] Pegelwert korrekt
+[ ] Verlauf sichtbar
+[ ] 7T funktioniert
+[ ] 30T funktioniert
+[ ] 3M funktioniert
+
+[ ] WSV öffnet
+[ ] "2 NEU" bzw. aktueller Zähler ist BLAU
+[ ] NfB-Kilometerfilter funktioniert
+
+[ ] Tankstelle öffnet
+[ ] sichtbarer Name lautet nur "Tankstelle"
+[ ] Benzin/Diesel funktionieren
+
+[ ] Clubs funktionieren
+
+[ ] Rhein-Karte öffnet
+[ ] Marker funktionieren
+[ ] Filter funktionieren
+[ ] Popups funktionieren
+
+[ ] News funktionieren
+[ ] News-Kilometerfilter funktioniert
+
+[ ] Wächter funktioniert
+
+[ ] keine bestehende Funktion verloren
+
+==================================================
+BUILD
+==================================================
+
+TypeScript ohne Fehler.
+
+Web-Export erfolgreich.
+
+Test-URL funktioniert:
+
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/
+
+Produktion darf nicht verändert werden.
+
+==================================================
+ABSCHLUSSBERICHT
+==================================================
+
+Berichte:
+
+1. Welche Dateien wurden geändert?
+2. Wurde main verändert? MUSS NEIN sein.
+3. Welche UI-Änderungen wurden vorgenommen?
+4. Welche bestehenden Funktionen wurden bewusst unverändert gelassen?
+5. Build erfolgreich?
+6. Test-URL erfolgreich?
+7. Gibt es irgendwelche Abweichungen von der Produktionsfunktionalität?
+
+WICHTIG:
+Nicht refactoren und keine zusätzlichen Designänderungen vornehmen,
+die nicht in diesem Prompt genannt sind.
