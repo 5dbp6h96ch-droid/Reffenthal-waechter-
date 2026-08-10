@@ -1,18 +1,17 @@
 /**
  * test.tsx – TESTUMGEBUNG R(h)einschiffer
  *
- * Neue Startbildschirm-Struktur (nur Testwelt, nicht Produktion):
+ * Struktur (nur Testwelt, nicht Produktion):
  *   1. TEST-Banner
- *   2. App-Header: R(h)einschiffer · Pegelvorhersage und News
- *   3. Aktueller Pegelstand (identische Logik wie Produktion)
- *   4. Verlauf / Chart (identische Logik + 7T/30T/3M wie Produktion)
+ *   2. Logo + Titel (zentriert)
+ *   3. Pegelstand-Kachel (Rheinkilometer / Datum·Uhrzeit / cm / Schwelle)
+ *   4. Verlauf-Chart (7T / 30T / 3M)
  *   5. MENÜ – kompakte aufklappbare Zeilen:
- *        WSV · Tankstelle · Clubs · Rhein-Karte · News · Wächter Status
+ *        Vorhersage / WSV / Tankstelle / Clubs / Rhein-Karte / News / Wächter
  *
  * WICHTIG:
- *   - Nur auf dem test-Branch.
- *   - Kein Merge nach main ohne Freigabe.
- *   - index.tsx (Produktion) bleibt unverändert.
+ *   - Nur auf dem test-Branch und main (für JS-Bundle).
+ *   - index.tsx (Produktion) bleibt vollständig unverändert.
  *   - Alle Datenquellen, Hooks und API-Clients identisch zur Produktion.
  */
 
@@ -100,6 +99,9 @@ const CHART_W = SCREEN_W - CARD_PADDING * 2 - 32;
 const CHART_H = 140;
 const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
 
+// Speyer Rheinkilometer (geografische Konstante, ändert sich nicht)
+const SPEYER_RHEINKILOMETER = '400,4';
+
 // ─── Hilfsfunktionen (identisch mit index.tsx) ───────────────────────────────
 
 function filterHistory(
@@ -108,6 +110,20 @@ function filterHistory(
 ): { cm: number; ts: string }[] {
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
   return history.filter((h) => new Date(h.ts).getTime() >= cutoff);
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('de-DE', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
+}
+
+function formatTime(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString('de-DE', {
+    hour: '2-digit', minute: '2-digit',
+  });
 }
 
 function formatDateTime(iso: string | null): string {
@@ -155,8 +171,10 @@ function PegelChart({ history, threshold }: PegelChartProps) {
   const colors = useColors();
   if (history.length < 2) {
     return (
-      <View style={{ height: 80, alignItems: 'center', justifyContent: 'center', gap: 8,
-        borderWidth: 1, borderStyle: 'dashed', borderRadius: 8, borderColor: colors.border }}>
+      <View style={{
+        height: 80, alignItems: 'center', justifyContent: 'center', gap: 8,
+        borderWidth: 1, borderStyle: 'dashed', borderRadius: 8, borderColor: colors.border,
+      }}>
         <Feather name="bar-chart-2" size={22} color={colors.mutedForeground} />
         <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
           Keine Verlaufsdaten
@@ -179,14 +197,20 @@ function PegelChart({ history, threshold }: PegelChartProps) {
   const n = data.length - 1;
   const toX = (i: number): number => PAD.left + (i / (n || 1)) * plotW;
   const toY = (cm: number): number => PAD.top + plotH - ((cm - minCm) / range) * plotH;
-  const linePath = data.map((d, i) => `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(d.cm).toFixed(1)}`).join(' ');
+  const linePath = data.map((d, i) =>
+    `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(d.cm).toFixed(1)}`
+  ).join(' ');
   const baseY = (PAD.top + plotH).toFixed(1);
   const areaPath = linePath + ` L${toX(n).toFixed(1)},${baseY} L${PAD.left.toFixed(1)},${baseY} Z`;
   const threshY = toY(threshold);
   const lastCm = data[data.length - 1].cm;
   const isAlarm = lastCm < threshold;
   const lineColor = isAlarm ? colors.alarm : colors.safe;
-  const yTicks = [Math.round(maxCm - padding), Math.round((minCm + maxCm) / 2), Math.round(minCm + padding)];
+  const yTicks = [
+    Math.round(maxCm - padding),
+    Math.round((minCm + maxCm) / 2),
+    Math.round(minCm + padding),
+  ];
   const startMs = new Date(data[0].ts).getTime();
   const endMs = new Date(data[data.length - 1].ts).getTime();
   const totalMs = endMs - startMs || 1;
@@ -196,12 +220,9 @@ function PegelChart({ history, threshold }: PegelChartProps) {
     const ms = startMs + frac * totalMs;
     const x = PAD.left + frac * plotW;
     const d = new Date(ms);
-    let label: string;
-    if (totalDays <= 35) {
-      label = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-    } else {
-      label = d.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
-    }
+    const label = totalDays <= 35
+      ? d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+      : d.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
     return { x, label, anchor: i === 0 ? 'start' : i === 4 ? 'end' : 'middle' };
   });
   return (
@@ -213,22 +234,22 @@ function PegelChart({ history, threshold }: PegelChartProps) {
         </SvgGradient>
       </Defs>
       {yTicks.map((cm) => (
-        <SvgText key={cm} x={PAD.left - 6} y={toY(cm) + 4} fontSize={9} fill={colors.mutedForeground} textAnchor="end">{cm}</SvgText>
+        <SvgText key={cm} x={PAD.left - 6} y={toY(cm) + 4} fontSize={9}
+          fill={colors.mutedForeground} textAnchor="end">{cm}</SvgText>
       ))}
       <SvgLine x1={PAD.left} y1={threshY} x2={CHART_W - PAD.right} y2={threshY}
         stroke={colors.accent} strokeWidth={1} strokeDasharray="5,3" strokeOpacity={0.85} />
-      <SvgText x={CHART_W - PAD.right - 2} y={threshY - 3} fontSize={8} fill={colors.accent} textAnchor="end" opacity={0.85}>
-        {threshold} cm
-      </SvgText>
+      <SvgText x={CHART_W - PAD.right - 2} y={threshY - 3} fontSize={8}
+        fill={colors.accent} textAnchor="end" opacity={0.85}>{threshold} cm</SvgText>
       <Path d={areaPath} fill="url(#pegelGradTest)" />
-      <Path d={linePath} stroke={lineColor} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d={linePath} stroke={lineColor} strokeWidth={2} fill="none"
+        strokeLinecap="round" strokeLinejoin="round" />
       <Circle cx={toX(n)} cy={toY(lastCm)} r={4} fill={lineColor} />
       <Circle cx={toX(n)} cy={toY(lastCm)} r={7} fill={lineColor} fillOpacity={0.2} />
       {xTicks.map((tick, i) => (
-        <SvgText key={i} x={tick.x} y={CHART_H - 4} fontSize={8} fill={colors.mutedForeground}
-          textAnchor={tick.anchor as 'start' | 'middle' | 'end'} opacity={0.75}>
-          {tick.label}
-        </SvgText>
+        <SvgText key={i} x={tick.x} y={CHART_H - 4} fontSize={8}
+          fill={colors.mutedForeground} textAnchor={tick.anchor as 'start' | 'middle' | 'end'}
+          opacity={0.75}>{tick.label}</SvgText>
       ))}
     </Svg>
   );
@@ -307,22 +328,29 @@ export default function TestEnvironment() {
 
   // ── API-Hooks (identisch mit Produktion) ─────────────────────────────────
   const {
-    data: state, isLoading: stateLoading, isError: stateError, refetch: refetchState, isRefetching: stateRefetching,
+    data: state, isLoading: stateLoading, isError: stateError,
+    refetch: refetchState, isRefetching: stateRefetching,
   } = useGetWaechterState();
   const {
-    data: treffer, isLoading: trefferLoading, isError: trefferError, refetch: refetchTreffer, isRefetching: trefferRefetching,
+    data: treffer, isLoading: trefferLoading, isError: trefferError,
+    refetch: refetchTreffer, isRefetching: trefferRefetching,
   } = useGetWaechterTreffer();
   const {
-    data: waechterStatus, isLoading: statusLoading, refetch: refetchStatus, isRefetching: statusRefetching,
+    data: waechterStatus, isLoading: statusLoading,
+    refetch: refetchStatus, isRefetching: statusRefetching,
   } = useGetWaechterStatus();
   const {
-    data: clubsData, isLoading: clubsLoading, isError: clubsError, refetch: refetchClubs, isRefetching: clubsRefetching,
+    data: clubsData, isLoading: clubsLoading, isError: clubsError,
+    refetch: refetchClubs, isRefetching: clubsRefetching,
   } = useGetWaechterClubs();
 
-  const nfbApiBase = process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : '';
+  const nfbApiBase = process.env.EXPO_PUBLIC_DOMAIN
+    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : '';
+
   const {
-    data: nfbData, isLoading: nfbLoading, isError: nfbError, refetch: refetchNfb,
-    isRefetching: nfbRefetching, dataUpdatedAt: nfbDataUpdatedAt,
+    data: nfbData, isLoading: nfbLoading, isError: nfbError,
+    refetch: refetchNfb, isRefetching: nfbRefetching,
+    dataUpdatedAt: nfbDataUpdatedAt,
   } = useQuery<NfbList>({
     queryKey: ['nfb', nfbKmVon, nfbKmBis],
     queryFn: async ({ signal }) => {
@@ -331,11 +359,13 @@ export default function TestEnvironment() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json() as Promise<NfbList>;
     },
-    staleTime: 60_000, refetchInterval: 5 * 60_000, refetchIntervalInBackground: false, retry: 2,
+    staleTime: 60_000, refetchInterval: 5 * 60_000,
+    refetchIntervalInBackground: false, retry: 2,
   });
 
   const {
-    data: mckData, isLoading: mckLoading, isError: mckIsError, refetch: refetchMck, isRefetching: mckRefetching,
+    data: mckData, isLoading: mckLoading, isError: mckIsError,
+    refetch: refetchMck, isRefetching: mckRefetching,
   } = useQuery<MckData>({
     queryKey: ['mck'],
     queryFn: async () => {
@@ -343,11 +373,15 @@ export default function TestEnvironment() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json() as Promise<MckData>;
     },
-    staleTime: 60 * 60_000, refetchInterval: 60 * 60_000, refetchIntervalInBackground: false, retry: 2,
+    staleTime: 60 * 60_000, refetchInterval: 60 * 60_000,
+    refetchIntervalInBackground: false, retry: 2,
   });
 
-  const { notifEnabled: nfbNotifEnabled, osPermission: nfbOsPermission, toggleNotifEnabled: toggleNfbNotif } =
-    useNfbNotifications(nfbData?.meldungen, nfbKmVon, nfbKmBis);
+  const {
+    notifEnabled: nfbNotifEnabled,
+    osPermission: nfbOsPermission,
+    toggleNotifEnabled: toggleNfbNotif,
+  } = useNfbNotifications(nfbData?.meldungen, nfbKmVon, nfbKmBis);
 
   // Deep-link: NfB-Bereich öffnen bei Notification-Tap
   const scrollRef = useRef<ScrollView>(null);
@@ -376,22 +410,30 @@ export default function TestEnvironment() {
     return () => { sub?.remove(); };
   }, []);
 
-  // ── Abgeleitete Werte (identisch mit Produktion) ─────────────────────────
+  // ── Abgeleitete Werte ────────────────────────────────────────────────────
   const nfbNewCount = nfbData?.meldungen.filter(
     (m: NfbMeldung) => m.is_new &&
-      (m.km_von == null || m.km_bis == null || (m.km_von <= nfbKmBis && m.km_bis >= nfbKmVon)),
+      (m.km_von == null || m.km_bis == null ||
+        (m.km_von <= nfbKmBis && m.km_bis >= nfbKmVon)),
   ).length ?? 0;
 
-  const isRefreshing = stateRefetching || trefferRefetching || statusRefetching || clubsRefetching || nfbRefetching || mckRefetching;
+  const isRefreshing =
+    stateRefetching || trefferRefetching || statusRefetching ||
+    clubsRefetching || nfbRefetching || mckRefetching;
 
   const spinAnim = useRef(new Animated.Value(0)).current;
   const spinLoop = useRef<Animated.CompositeAnimation | null>(null);
   useEffect(() => {
     if (isRefreshing) {
       spinAnim.setValue(0);
-      spinLoop.current = Animated.loop(Animated.timing(spinAnim, { toValue: 1, duration: 700, useNativeDriver: true }));
+      spinLoop.current = Animated.loop(
+        Animated.timing(spinAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      );
       spinLoop.current.start();
-    } else { spinLoop.current?.stop(); spinAnim.setValue(0); }
+    } else {
+      spinLoop.current?.stop();
+      spinAnim.setValue(0);
+    }
   }, [isRefreshing, spinAnim]);
 
   const onRefresh = useCallback(() => {
@@ -420,31 +462,68 @@ export default function TestEnvironment() {
     mckData, !mckLoading && !mckIsError && mckData !== undefined,
   );
 
-  // ── Hilfsstil für Menüzeilen ─────────────────────────────────────────────
-  const menuRow = {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
+  // ── Stil-Helfer für Menüzeilen ────────────────────────────────────────────
+  const menuRow: object = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
+    minHeight: 52,
   };
-  const menuDivider = { height: 1, backgroundColor: colors.border, marginHorizontal: 0 };
-  const menuContent = { paddingHorizontal: 16, paddingBottom: 16, paddingTop: 4, gap: 12 as number };
+  const menuDivider = { height: 1, backgroundColor: colors.border };
+  const menuContent: object = {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 4,
+    gap: 12,
+  };
 
-  // ─── JSX ────────────────────────────────────────────────────────────────────
+  // Linke Seite einer Menüzeile: Icon + Text
+  const MenuRowLeft = ({
+    icon, label, color,
+  }: { icon: React.ComponentProps<typeof Feather>['name']; label: string; color?: string }) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+      <View style={{
+        width: 32, height: 32, borderRadius: 8,
+        backgroundColor: (color ?? colors.primary) + '18',
+        alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Feather name={icon} size={15} color={color ?? colors.primary} />
+      </View>
+      <Text style={{
+        fontSize: 14, fontFamily: 'SpaceGrotesk_500Medium',
+        color: colors.foreground, flex: 1,
+      }} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+
+  // Trefferzähler-Badge (neutral / grau)
+  const CountBadge = ({ count }: { count: number }) => (
+    <View style={{
+      backgroundColor: colors.muted, paddingHorizontal: 8,
+      paddingVertical: 2, borderRadius: 99, marginRight: 4,
+    }}>
+      <Text style={{
+        fontSize: 12, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.primary,
+      }}>{count}</Text>
+    </View>
+  );
+
+  // ─── JSX ─────────────────────────────────────────────────────────────────────
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
 
-      {/* ── TEST-Banner ──────────────────────────────────────────────────────── */}
+      {/* ── TEST-Banner ─────────────────────────────────────────────────────── */}
       <View style={{
         backgroundColor: '#CC0000',
         paddingTop: topPad + 6,
         paddingBottom: 6,
         paddingHorizontal: 16,
-        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
       }}>
         <Text style={{
           fontSize: 11,
@@ -457,72 +536,143 @@ export default function TestEnvironment() {
         </Text>
       </View>
 
-      {/* ── ScrollView ───────────────────────────────────────────────────────── */}
+      {/* ── ScrollView ──────────────────────────────────────────────────────── */}
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 16, paddingBottom: botPad + 24, gap: 12 }}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        contentContainerStyle={{
+          padding: CARD_PADDING,
+          paddingBottom: botPad + 32,
+          gap: 12,
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
       >
 
-        {/* ── App-Header ─────────────────────────────────────────────────────── */}
-        <View style={{ gap: 2, paddingBottom: 4 }}>
-          <Text style={{
-            fontSize: 22,
-            fontFamily: 'SpaceGrotesk_700Bold',
-            color: colors.foreground,
-          }}>
-            R(h)einschiffer
-          </Text>
-          <Text style={{
-            fontSize: 13,
-            fontFamily: 'SpaceGrotesk_400Regular',
-            color: colors.mutedForeground,
-          }}>
-            Pegelvorhersage und News
-          </Text>
+        {/* ── Logo + Titel (zentriert) ──────────────────────────────────────── */}
+        <View style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 4, gap: 8 }}>
+          <Image
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            source={require('../assets/images/icon.png')}
+            style={{ width: 64, height: 64, borderRadius: 16 }}
+            resizeMode="contain"
+          />
+          <View style={{ alignItems: 'center', gap: 2 }}>
+            <Text style={{
+              fontSize: 24,
+              fontFamily: 'SpaceGrotesk_700Bold',
+              color: colors.foreground,
+              textAlign: 'center',
+            }}>
+              R(h)einschiffer
+            </Text>
+            <Text style={{
+              fontSize: 13,
+              fontFamily: 'SpaceGrotesk_400Regular',
+              color: colors.mutedForeground,
+              textAlign: 'center',
+            }}>
+              Pegelvorhersage und News
+            </Text>
+          </View>
         </View>
 
-        {/* ── Pegel Hero Card (identisch mit Produktion) ───────────────────── */}
+        {/* ── Pegelstand-Kachel (Spec-Hierarchie) ─────────────────────────── */}
         <View style={{
           backgroundColor: colors.primary,
-          borderRadius: colors.radius + 4,
+          borderRadius: (colors.radius as number) + 4,
           padding: 20,
-          gap: 14,
+          gap: 10,
         }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={{
-              fontSize: 10, fontFamily: 'SpaceGrotesk_500Medium',
-              color: colors.primaryForeground, opacity: 0.55,
-              letterSpacing: 2, textTransform: 'uppercase',
-            }}>
-              Pegel Speyer
-            </Text>
+
+          {/* Zeile 1: Rheinkilometer + Status-Badge */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{
+                fontSize: 10,
+                fontFamily: 'SpaceGrotesk_500Medium',
+                color: colors.primaryForeground,
+                opacity: 0.55,
+                letterSpacing: 1.5,
+                textTransform: 'uppercase',
+              }}>
+                Rheinkilometer
+              </Text>
+              <Text style={{
+                fontSize: 11,
+                fontFamily: 'SpaceGrotesk_700Bold',
+                color: colors.primaryForeground,
+                opacity: 0.8,
+              }}>
+                {SPEYER_RHEINKILOMETER}
+              </Text>
+            </View>
             {statusLabel && (
-              <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99, backgroundColor: statusColor }}>
-                <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_700Bold', color: '#FFFFFF', letterSpacing: 2 }}>
+              <View style={{
+                paddingHorizontal: 10, paddingVertical: 4,
+                borderRadius: 99, backgroundColor: statusColor,
+              }}>
+                <Text style={{
+                  fontSize: 10, fontFamily: 'SpaceGrotesk_700Bold',
+                  color: '#FFFFFF', letterSpacing: 2,
+                }}>
                   {statusLabel}
                 </Text>
               </View>
             )}
           </View>
 
+          {/* Zeile 2: Datum · Uhrzeit */}
+          <Text style={{
+            fontSize: 13,
+            fontFamily: 'SpaceGrotesk_400Regular',
+            color: colors.primaryForeground,
+            opacity: 0.6,
+          }}>
+            {state?.last_pegel_time
+              ? `${formatDate(state.last_pegel_time)} · ${formatTime(state.last_pegel_time)}`
+              : 'Kein Messwert'}
+          </Text>
+
+          {/* Zeile 3: Großer cm-Wert */}
           {stateLoading ? (
-            <ActivityIndicator size="large" color={colors.primaryForeground} style={{ marginVertical: 8 }} />
+            <ActivityIndicator
+              size="large"
+              color={colors.primaryForeground}
+              style={{ marginVertical: 4 }}
+            />
           ) : stateError ? (
-            <Text style={{ fontSize: 48, fontFamily: 'SpaceGrotesk_400Regular', color: colors.primaryForeground, opacity: 0.3 }}>—</Text>
+            <Text style={{
+              fontSize: 52, fontFamily: 'SpaceGrotesk_400Regular',
+              color: colors.primaryForeground, opacity: 0.3,
+            }}>—</Text>
           ) : (
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
               <Text style={{
-                fontSize: 56, fontFamily: 'SpaceGrotesk_700Bold',
-                color: colors.primaryForeground, lineHeight: 62, includeFontPadding: false,
+                fontSize: 60,
+                fontFamily: 'SpaceGrotesk_700Bold',
+                color: colors.primaryForeground,
+                lineHeight: 66,
+                includeFontPadding: false,
               }}>
                 {currentCm ?? '—'}
               </Text>
               {currentCm !== null && (
                 <Text style={{
-                  fontSize: 22, fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.primaryForeground, opacity: 0.55, marginBottom: 6,
+                  fontSize: 22,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.primaryForeground,
+                  opacity: 0.55,
+                  marginBottom: 6,
                 }}>
                   cm
                 </Text>
@@ -530,39 +680,76 @@ export default function TestEnvironment() {
             </View>
           )}
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular', color: colors.primaryForeground, opacity: 0.5 }}>
-              {state?.last_pegel_time ? formatDateTime(state.last_pegel_time) : 'Kein Messwert'}
-            </Text>
-            <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium', color: colors.primaryForeground, opacity: 0.5 }}>
-              Schwelle: {threshold} cm
-            </Text>
-          </View>
+          {/* Zeile 4: Schwelle */}
+          <Text style={{
+            fontSize: 12,
+            fontFamily: 'SpaceGrotesk_500Medium',
+            color: colors.primaryForeground,
+            opacity: 0.55,
+          }}>
+            Schwelle: {threshold} cm
+          </Text>
+
+          {/* Zeile 5: Label */}
+          <Text style={{
+            fontSize: 10,
+            fontFamily: 'SpaceGrotesk_600SemiBold',
+            color: colors.primaryForeground,
+            opacity: 0.4,
+            letterSpacing: 2,
+            textTransform: 'uppercase',
+          }}>
+            Aktueller Pegelstand
+          </Text>
+
         </View>
 
-        {/* ── Chart Card (identisch mit Produktion) ────────────────────────── */}
+        {/* ── Verlauf-Chart ──────────────────────────────────────────────────── */}
         <View style={{
-          backgroundColor: colors.card, borderRadius: colors.radius,
-          padding: 16, borderWidth: 1, borderColor: colors.border, gap: 12,
+          backgroundColor: colors.card,
+          borderRadius: colors.radius,
+          padding: 16,
+          borderWidth: 1,
+          borderColor: colors.border,
+          gap: 12,
         }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
             <Text style={{
-              fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold',
-              color: colors.mutedForeground, letterSpacing: 2, textTransform: 'uppercase',
+              fontSize: 10,
+              fontFamily: 'SpaceGrotesk_600SemiBold',
+              color: colors.mutedForeground,
+              letterSpacing: 2,
+              textTransform: 'uppercase',
             }}>
               Verlauf
             </Text>
             <View style={{
-              flexDirection: 'row', backgroundColor: colors.muted,
-              borderRadius: 8, padding: 2, gap: 2,
+              flexDirection: 'row',
+              backgroundColor: colors.muted,
+              borderRadius: 8,
+              padding: 2,
+              gap: 2,
             }}>
               {TIME_RANGE_OPTIONS.map(({ label, value }) => {
                 const active = chartRange === value;
                 return (
-                  <TouchableOpacity key={value} onPress={() => handleRangeChange(value)} activeOpacity={0.7}
-                    style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: active ? colors.card : 'transparent' }}>
+                  <TouchableOpacity
+                    key={value}
+                    onPress={() => handleRangeChange(value)}
+                    activeOpacity={0.7}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 5,
+                      borderRadius: 6,
+                      backgroundColor: active ? colors.card : 'transparent',
+                    }}
+                  >
                     <Text style={{
-                      fontSize: 11,
+                      fontSize: 12,
                       fontFamily: active ? 'SpaceGrotesk_600SemiBold' : 'SpaceGrotesk_400Regular',
                       color: active ? colors.foreground : colors.mutedForeground,
                     }}>
@@ -579,28 +766,47 @@ export default function TestEnvironment() {
               <ActivityIndicator color={colors.primary} />
             </View>
           ) : stateError ? (
-            <TouchableOpacity style={{ alignItems: 'center', gap: 8, paddingVertical: 20 }} onPress={() => void refetchState()}>
+            <TouchableOpacity
+              style={{ alignItems: 'center', gap: 8, paddingVertical: 20 }}
+              onPress={() => void refetchState()}
+            >
               <Feather name="alert-circle" size={20} color={colors.destructive} />
-              <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>Fehler beim Laden</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.muted, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, marginTop: 4 }}>
+              <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>
+                Fehler beim Laden
+              </Text>
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+                backgroundColor: colors.muted, paddingHorizontal: 14,
+                paddingVertical: 7, borderRadius: 8, marginTop: 4,
+              }}>
                 <Feather name="refresh-cw" size={13} color={colors.foreground} />
-                <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>Erneut versuchen</Text>
+                <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>
+                  Erneut versuchen
+                </Text>
               </View>
             </TouchableOpacity>
           ) : (
-            <PegelChart history={filterHistory(state?.history ?? [], chartRange)} threshold={threshold} />
+            <PegelChart
+              history={filterHistory(state?.history ?? [], chartRange)}
+              threshold={threshold}
+            />
           )}
         </View>
 
-        {/* ── MENÜ ─────────────────────────────────────────────────────────── */}
+        {/* ── MENÜ-Label ─────────────────────────────────────────────────────── */}
         <Text style={{
-          fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold',
-          color: colors.mutedForeground, letterSpacing: 2,
-          textTransform: 'uppercase', paddingTop: 4,
+          fontSize: 11,
+          fontFamily: 'SpaceGrotesk_600SemiBold',
+          color: colors.mutedForeground,
+          letterSpacing: 2,
+          textTransform: 'uppercase',
+          paddingTop: 4,
+          paddingHorizontal: 2,
         }}>
           Menü
         </Text>
 
+        {/* ── Menü-Karte ─────────────────────────────────────────────────────── */}
         <View style={{
           backgroundColor: colors.card,
           borderRadius: colors.radius,
@@ -609,36 +815,51 @@ export default function TestEnvironment() {
           overflow: 'hidden',
         }}>
 
-          {/* ── Vorhersage (HVZ/LUBW) ── */}
+          {/* ── 1. Vorhersage ── */}
           {(() => {
             const imgW = SCREEN_W - CARD_PADDING * 2 - 32;
             const imgH = Math.round(imgW * (600 / 800));
             return (
               <>
-                <TouchableOpacity onPress={() => setHvzOpen(o => !o)} activeOpacity={0.7} style={menuRow}>
-                  <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>
-                    Vorhersage
-                  </Text>
+                <TouchableOpacity
+                  onPress={() => setHvzOpen(o => !o)}
+                  activeOpacity={0.7}
+                  style={menuRow}
+                >
+                  <MenuRowLeft icon="trending-up" label="Vorhersage" />
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <TouchableOpacity
-                      onPress={() => void Linking.openURL('https://www.hvz.baden-wuerttemberg.de/pegel.html?id=09017')}
+                      onPress={() => void Linking.openURL(
+                        'https://www.hvz.baden-wuerttemberg.de/pegel.html?id=09017',
+                      )}
                       activeOpacity={0.7}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}
                     >
-                      <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                      <Text style={{
+                        fontSize: 11,
+                        fontFamily: 'SpaceGrotesk_400Regular',
+                        color: colors.mutedForeground,
+                      }}>
                         LUBW
                       </Text>
                       <Feather name="external-link" size={11} color={colors.mutedForeground} />
                     </TouchableOpacity>
-                    <Feather name={hvzOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.mutedForeground} />
+                    <Feather
+                      name={hvzOpen ? 'chevron-up' : 'chevron-right'}
+                      size={16}
+                      color={colors.mutedForeground}
+                    />
                   </View>
                 </TouchableOpacity>
 
                 {hvzOpen && (
-                  <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+                  <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 8 }}>
                     <Image
-                      source={{ uri: `https://www.hvz.baden-wuerttemberg.de/gifs/09017-2001.GIF?t=${hvzTs}` }}
-                      style={{ width: imgW, height: imgH, borderRadius: 6, alignSelf: 'center' }}
+                      source={{
+                        uri: `https://www.hvz.baden-wuerttemberg.de/gifs/09017-2001.GIF?t=${hvzTs}`,
+                      }}
+                      style={{ width: imgW, height: imgH, borderRadius: 8, alignSelf: 'center' }}
                       resizeMode="contain"
                     />
                   </View>
@@ -649,46 +870,62 @@ export default function TestEnvironment() {
 
           <View style={menuDivider} />
 
-          {/* ── WSV – Nachrichten für die Binnenschifffahrt ── */}
+          {/* ── 2. WSV – Nachrichten für die Binnenschifffahrt ── */}
           <View ref={nfbCardRef}>
             <TouchableOpacity
               onPress={() => { if (!nfbKmEdit) setNfbOpen(o => !o); }}
               activeOpacity={0.7}
-              style={[menuRow, { borderColor: nfbNewCount > 0 ? colors.primary : 'transparent', borderLeftWidth: nfbNewCount > 0 ? 3 : 0 }]}
+              style={[
+                menuRow,
+                nfbNewCount > 0
+                  ? { borderLeftWidth: 3, borderLeftColor: colors.primary, paddingLeft: 13 }
+                  : {},
+              ]}
             >
-              <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground, flex: 1 }}>
-                WSV – Nachrichten für die Binnenschifffahrt
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                {/* Badge BLAU (nicht orange) */}
+              <MenuRowLeft icon="alert-circle" label="WSV – Nachrichten" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                {/* NEU-Badge BLAU */}
                 {nfbNewCount > 0 && (
-                  <View style={{ backgroundColor: colors.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 }}>
-                    <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_700Bold', color: colors.primaryForeground, letterSpacing: 1 }}>
+                  <View style={{
+                    backgroundColor: colors.primary,
+                    paddingHorizontal: 8, paddingVertical: 3,
+                    borderRadius: 99,
+                  }}>
+                    <Text style={{
+                      fontSize: 11, fontFamily: 'SpaceGrotesk_700Bold',
+                      color: colors.primaryForeground, letterSpacing: 1,
+                    }}>
                       {nfbNewCount} NEU
                     </Text>
                   </View>
                 )}
                 {nfbData != null && nfbData.count > 0 && nfbNewCount === 0 && (
-                  <View style={{ backgroundColor: colors.muted, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 }}>
-                    <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.primary }}>
-                      {nfbData.count}
-                    </Text>
-                  </View>
+                  <CountBadge count={nfbData.count} />
                 )}
-                <Feather name={nfbOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.mutedForeground} />
+                <Feather
+                  name={nfbOpen ? 'chevron-up' : 'chevron-right'}
+                  size={16}
+                  color={colors.mutedForeground}
+                />
               </View>
             </TouchableOpacity>
 
-            {/* NfB aufgeklappt */}
             {nfbOpen && (
               <View style={menuContent}>
                 {/* Aktualisierungshinweis */}
                 {nfbDataUpdatedAt > 0 && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    {nfbError && <Feather name="alert-circle" size={11} color="#E8620A" />}
-                    <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: nfbError ? '#E8620A' : colors.mutedForeground, opacity: nfbError ? 1 : 0.7 }}>
+                    {nfbError && (
+                      <Feather name="alert-circle" size={11} color="#E8620A" />
+                    )}
+                    <Text style={{
+                      fontSize: 10,
+                      fontFamily: 'SpaceGrotesk_400Regular',
+                      color: nfbError ? '#E8620A' : colors.mutedForeground,
+                      opacity: nfbError ? 1 : 0.7,
+                    }}>
                       {nfbError
-                        ? `Fehler beim Aktualisieren · Stand ${formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}`
+                        ? `Fehler · Stand ${formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}`
                         : `Aktualisiert ${formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}`}
                     </Text>
                   </View>
@@ -696,29 +933,64 @@ export default function TestEnvironment() {
 
                 {/* km-Bereich */}
                 {nfbKmEdit ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.muted, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}>
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 6,
+                    backgroundColor: colors.muted, borderRadius: 8,
+                    paddingHorizontal: 10, paddingVertical: 6,
+                  }}>
                     <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>km</Text>
                     <TextInput
-                      value={nfbKmInputVon} onChangeText={setNfbKmInputVon}
-                      keyboardType="number-pad" returnKeyType="next"
+                      value={nfbKmInputVon}
+                      onChangeText={setNfbKmInputVon}
+                      keyboardType="number-pad"
+                      returnKeyType="next"
                       onSubmitEditing={() => nfbKmBisRef.current?.focus()}
-                      style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.foreground, backgroundColor: colors.card, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, minWidth: 52, textAlign: 'center', borderWidth: 1, borderColor: colors.border }}
+                      style={{
+                        fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold',
+                        color: colors.foreground, backgroundColor: colors.card,
+                        borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4,
+                        minWidth: 52, textAlign: 'center',
+                        borderWidth: 1, borderColor: colors.border,
+                      }}
                       selectTextOnFocus
                     />
                     <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>–</Text>
                     <TextInput
-                      ref={nfbKmBisRef} value={nfbKmInputBis} onChangeText={setNfbKmInputBis}
-                      keyboardType="number-pad" returnKeyType="done" onSubmitEditing={applyNfbKm}
-                      style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.foreground, backgroundColor: colors.card, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, minWidth: 52, textAlign: 'center', borderWidth: 1, borderColor: colors.border }}
+                      ref={nfbKmBisRef}
+                      value={nfbKmInputBis}
+                      onChangeText={setNfbKmInputBis}
+                      keyboardType="number-pad"
+                      returnKeyType="done"
+                      onSubmitEditing={applyNfbKm}
+                      style={{
+                        fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold',
+                        color: colors.foreground, backgroundColor: colors.card,
+                        borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4,
+                        minWidth: 52, textAlign: 'center',
+                        borderWidth: 1, borderColor: colors.border,
+                      }}
                       selectTextOnFocus
                     />
-                    <TouchableOpacity onPress={applyNfbKm} style={{ marginLeft: 4, backgroundColor: colors.primary, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5 }}>
+                    <TouchableOpacity
+                      onPress={applyNfbKm}
+                      style={{
+                        marginLeft: 4, backgroundColor: colors.primary,
+                        borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5,
+                      }}
+                    >
                       <Feather name="check" size={14} color="#fff" />
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <TouchableOpacity onPress={() => setNfbKmEdit(true)} activeOpacity={0.7}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: colors.muted, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
+                  <TouchableOpacity
+                    onPress={() => setNfbKmEdit(true)}
+                    activeOpacity={0.7}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 6,
+                      alignSelf: 'flex-start', backgroundColor: colors.muted,
+                      borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
+                    }}
+                  >
                     <Feather name="map-pin" size={12} color={colors.mutedForeground} />
                     <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium', color: colors.mutedForeground }}>
                       km {nfbKmVon}–{nfbKmBis}
@@ -730,26 +1002,60 @@ export default function TestEnvironment() {
                 {/* Benachrichtigungs-Toggle */}
                 {Platform.OS !== 'web' && (
                   <View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.muted, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
+                    <View style={{
+                      flexDirection: 'row', alignItems: 'center',
+                      justifyContent: 'space-between', backgroundColor: colors.muted,
+                      borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
+                    }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                        <Feather name={nfbNotifEnabled ? 'bell' : 'bell-off'} size={13} color={nfbNotifEnabled ? colors.foreground : colors.mutedForeground} />
-                        <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>Benachrichtigungen</Text>
-                        <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold', color: nfbNotifEnabled && nfbOsPermission !== 'denied' ? colors.safe : colors.mutedForeground }}>
+                        <Feather
+                          name={nfbNotifEnabled ? 'bell' : 'bell-off'}
+                          size={13}
+                          color={nfbNotifEnabled ? colors.foreground : colors.mutedForeground}
+                        />
+                        <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>
+                          Benachrichtigungen
+                        </Text>
+                        <Text style={{
+                          fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold',
+                          color: nfbNotifEnabled && nfbOsPermission !== 'denied'
+                            ? colors.safe : colors.mutedForeground,
+                        }}>
                           {nfbNotifEnabled && nfbOsPermission !== 'denied' ? 'AN' : 'AUS'}
                         </Text>
                       </View>
-                      <Switch value={nfbNotifEnabled} onValueChange={toggleNfbNotif}
-                        trackColor={{ false: colors.border, true: colors.primary }} thumbColor="#ffffff" />
+                      <Switch
+                        value={nfbNotifEnabled}
+                        onValueChange={toggleNfbNotif}
+                        trackColor={{ false: colors.border, true: colors.primary }}
+                        thumbColor="#ffffff"
+                      />
                     </View>
                     {nfbOsPermission === 'denied' && nfbNotifEnabled && (
-                      <TouchableOpacity onPress={() => void Linking.openSettings()} activeOpacity={0.7}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, backgroundColor: colors.alarm + '18', borderRadius: 7, paddingHorizontal: 10, paddingVertical: 7 }}>
+                      <TouchableOpacity
+                        onPress={() => void Linking.openSettings()}
+                        activeOpacity={0.7}
+                        style={{
+                          flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6,
+                          backgroundColor: colors.alarm + '18', borderRadius: 7,
+                          paddingHorizontal: 10, paddingVertical: 7,
+                        }}
+                      >
                         <Feather name="alert-circle" size={13} color={colors.alarm} />
-                        <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular', color: colors.alarm, flex: 1 }}>
+                        <Text style={{
+                          fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                          color: colors.alarm, flex: 1,
+                        }}>
                           Benachrichtigungen sind in den Systemeinstellungen gesperrt.
                         </Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.alarm + '28', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 }}>
-                          <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.alarm }}>Einstellungen</Text>
+                        <View style={{
+                          flexDirection: 'row', alignItems: 'center', gap: 4,
+                          backgroundColor: colors.alarm + '28', borderRadius: 6,
+                          paddingHorizontal: 8, paddingVertical: 4,
+                        }}>
+                          <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.alarm }}>
+                            Einstellungen
+                          </Text>
                           <Feather name="external-link" size={11} color={colors.alarm} />
                         </View>
                       </TouchableOpacity>
@@ -763,60 +1069,107 @@ export default function TestEnvironment() {
                     <ActivityIndicator color={colors.primary} />
                   </View>
                 ) : nfbError ? (
-                  <TouchableOpacity style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }} onPress={() => void refetchNfb()}>
+                  <TouchableOpacity
+                    style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
+                    onPress={() => void refetchNfb()}
+                  >
                     <Feather name="alert-circle" size={20} color={colors.destructive} />
-                    <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>Fehler beim Laden</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.muted, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, marginTop: 4 }}>
+                    <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>
+                      Fehler beim Laden
+                    </Text>
+                    <View style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 6,
+                      backgroundColor: colors.muted, paddingHorizontal: 14,
+                      paddingVertical: 7, borderRadius: 8, marginTop: 4,
+                    }}>
                       <Feather name="refresh-cw" size={13} color={colors.foreground} />
-                      <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>Erneut versuchen</Text>
+                      <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>
+                        Erneut versuchen
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 ) : !nfbData?.meldungen.length ? (
                   <View style={{ alignItems: 'center', paddingVertical: 16, gap: 6 }}>
                     <Feather name="check-circle" size={20} color={colors.mutedForeground} />
-                    <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>Keine aktiven Meldungen</Text>
+                    <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                      Keine aktiven Meldungen
+                    </Text>
                   </View>
                 ) : (
-                  [...nfbData.meldungen].sort((a, b) => (a.km_von ?? 0) - (b.km_von ?? 0)).map((m: NfbMeldung, i: number) => {
-                    const isLast = i === nfbData.meldungen.length - 1;
-                    const kmRange = m.km_von != null && m.km_bis != null ? `km ${m.km_von}–${m.km_bis}` : m.km_von != null ? `km ${m.km_von}` : null;
-                    const validity = m.gueltig_ab || m.gueltig_bis ? [m.gueltig_ab, m.gueltig_bis].filter(Boolean).join(' – ') : null;
-                    return (
-                      <View key={m.nfb_id} style={{ paddingVertical: 10, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: colors.border, gap: 6 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium', color: colors.mutedForeground }}>{m.nfb_id}</Text>
-                          {m.is_new && (
-                            <View style={{ backgroundColor: colors.primary + '28', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 99 }}>
-                              <Text style={{ fontSize: 9, fontFamily: 'SpaceGrotesk_700Bold', color: colors.primary, letterSpacing: 1.5 }}>NEU</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.foreground, lineHeight: 18 }}>{m.titel}</Text>
-                        {(kmRange || validity) && (
-                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                            {kmRange && (
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                <Feather name="map-pin" size={11} color={colors.mutedForeground} />
-                                <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>{kmRange}</Text>
-                              </View>
-                            )}
-                            {validity && (
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                <Feather name="calendar" size={11} color={colors.mutedForeground} />
-                                <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>{validity}</Text>
+                  [...nfbData.meldungen]
+                    .sort((a, b) => (a.km_von ?? 0) - (b.km_von ?? 0))
+                    .map((m: NfbMeldung, i: number) => {
+                      const isLast = i === nfbData.meldungen.length - 1;
+                      const kmRange = m.km_von != null && m.km_bis != null
+                        ? `km ${m.km_von}–${m.km_bis}`
+                        : m.km_von != null ? `km ${m.km_von}` : null;
+                      const validity = m.gueltig_ab || m.gueltig_bis
+                        ? [m.gueltig_ab, m.gueltig_bis].filter(Boolean).join(' – ')
+                        : null;
+                      return (
+                        <View key={m.nfb_id} style={{
+                          paddingVertical: 10,
+                          borderBottomWidth: isLast ? 0 : 1,
+                          borderBottomColor: colors.border,
+                          gap: 6,
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium', color: colors.mutedForeground }}>
+                              {m.nfb_id}
+                            </Text>
+                            {m.is_new && (
+                              <View style={{
+                                backgroundColor: colors.primary + '28',
+                                paddingHorizontal: 7, paddingVertical: 2, borderRadius: 99,
+                              }}>
+                                <Text style={{
+                                  fontSize: 9, fontFamily: 'SpaceGrotesk_700Bold',
+                                  color: colors.primary, letterSpacing: 1.5,
+                                }}>NEU</Text>
                               </View>
                             )}
                           </View>
-                        )}
-                        {m.url && (
-                          <TouchableOpacity onPress={() => void Linking.openURL(m.url!)} activeOpacity={0.65} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                            <Feather name="external-link" size={11} color={colors.primary} />
-                            <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium', color: colors.primary }} numberOfLines={1}>ELWIS</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    );
-                  })
+                          <Text style={{
+                            fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold',
+                            color: colors.foreground, lineHeight: 18,
+                          }}>
+                            {m.titel}
+                          </Text>
+                          {(kmRange || validity) && (
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                              {kmRange && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                  <Feather name="map-pin" size={11} color={colors.mutedForeground} />
+                                  <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                                    {kmRange}
+                                  </Text>
+                                </View>
+                              )}
+                              {validity && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                  <Feather name="calendar" size={11} color={colors.mutedForeground} />
+                                  <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                                    {validity}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          )}
+                          {m.url && (
+                            <TouchableOpacity
+                              onPress={() => void Linking.openURL(m.url!)}
+                              activeOpacity={0.65}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}
+                            >
+                              <Feather name="external-link" size={11} color={colors.primary} />
+                              <Text style={{
+                                fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium', color: colors.primary,
+                              }} numberOfLines={1}>ELWIS</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      );
+                    })
                 )}
               </View>
             )}
@@ -824,22 +1177,28 @@ export default function TestEnvironment() {
 
           <View style={menuDivider} />
 
-          {/* ── Tankstelle (MCK) ── */}
+          {/* ── 3. Tankstelle ── */}
           <TouchableOpacity
             onPress={() => { if (!mckOpen) void refetchMck(); setMckOpen(o => !o); }}
             activeOpacity={0.7}
             style={menuRow}
           >
-            <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>
-              Tankstelle
-            </Text>
+            <MenuRowLeft icon="droplet" label="Tankstelle" />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               {!mckOpen && mckData?.petrol != null && mckData?.diesel != null && (
-                <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.mutedForeground,
+                }}>
                   B {mckData.petrol.toFixed(3).replace('.', ',')} | D {mckData.diesel.toFixed(3).replace('.', ',')}
                 </Text>
               )}
-              <Feather name={mckOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.mutedForeground} />
+              <Feather
+                name={mckOpen ? 'chevron-up' : 'chevron-right'}
+                size={16}
+                color={colors.mutedForeground}
+              />
             </View>
           </TouchableOpacity>
 
@@ -849,29 +1208,70 @@ export default function TestEnvironment() {
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (mckIsError || (mckData && mckData.petrol == null && mckData.diesel == null)) ? (
                 <View style={{ gap: 8 }}>
-                  <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>⚠️ Tankstellenpreise momentan nicht abrufbar</Text>
+                  <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                    ⚠️ Tankstellenpreise momentan nicht abrufbar
+                  </Text>
                   <TouchableOpacity onPress={() => void Linking.openURL('https://www.mck-mannheim.de/')} activeOpacity={0.7}>
-                    <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.primary }}>Quelle: MCK Kurpfalz Mannheim ↗</Text>
+                    <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.primary }}>
+                      Quelle: MCK Kurpfalz Mannheim ↗
+                    </Text>
                   </TouchableOpacity>
                 </View>
               ) : mckData ? (
                 <View style={{ gap: 12 }}>
                   <View style={{ flexDirection: 'row', gap: 10 }}>
-                    {([['Benzin', mckData.petrol], ['Diesel', mckData.diesel]] as [string, number | null][]).map(([label, price]) => (
-                      <View key={label} style={{ flex: 1, backgroundColor: colors.background, borderRadius: (colors.radius as number) - 2, padding: 12, alignItems: 'center', gap: 2 }}>
-                        <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.mutedForeground, textTransform: 'uppercase', letterSpacing: 1.5 }}>{label}</Text>
-                        <Text style={{ fontSize: 22, fontFamily: 'SpaceGrotesk_700Bold', color: colors.foreground }}>{price != null ? price.toFixed(3).replace('.', ',') : '–'}</Text>
-                        <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>€/l</Text>
-                      </View>
-                    ))}
+                    {([['Benzin', mckData.petrol], ['Diesel', mckData.diesel]] as [string, number | null][]).map(
+                      ([label, price]) => (
+                        <View key={label} style={{
+                          flex: 1, backgroundColor: colors.background,
+                          borderRadius: (colors.radius as number) - 2,
+                          padding: 12, alignItems: 'center', gap: 2,
+                        }}>
+                          <Text style={{
+                            fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold',
+                            color: colors.mutedForeground,
+                            textTransform: 'uppercase', letterSpacing: 1.5,
+                          }}>{label}</Text>
+                          <Text style={{
+                            fontSize: 22, fontFamily: 'SpaceGrotesk_700Bold',
+                            color: colors.foreground,
+                          }}>
+                            {price != null ? price.toFixed(3).replace('.', ',') : '–'}
+                          </Text>
+                          <Text style={{
+                            fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular',
+                            color: colors.mutedForeground,
+                          }}>€/l</Text>
+                        </View>
+                      ),
+                    )}
                   </View>
                   <View style={{ gap: 3, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium', color: colors.mutedForeground }}>24/7 SB-Automaten-Tankstelle</Text>
-                    {mckData.sourceDate && <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>Stand: {mckData.sourceDate}</Text>}
-                    {mckData.checkedAt && <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>Zuletzt geprüft: {new Date(mckData.checkedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} Uhr</Text>}
+                    <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium', color: colors.mutedForeground }}>
+                      24/7 SB-Automaten-Tankstelle
+                    </Text>
+                    {mckData.sourceDate && (
+                      <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                        Stand: {mckData.sourceDate}
+                      </Text>
+                    )}
+                    {mckData.checkedAt && (
+                      <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                        Zuletzt geprüft: {new Date(mckData.checkedAt).toLocaleString('de-DE', {
+                          day: '2-digit', month: '2-digit',
+                          hour: '2-digit', minute: '2-digit',
+                        })} Uhr
+                      </Text>
+                    )}
                   </View>
-                  <TouchableOpacity onPress={() => void Linking.openURL('https://www.mck-mannheim.de/')} activeOpacity={0.7} style={{ alignItems: 'center' }}>
-                    <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.primary }}>Quelle: MCK Kurpfalz Mannheim ↗</Text>
+                  <TouchableOpacity
+                    onPress={() => void Linking.openURL('https://www.mck-mannheim.de/')}
+                    activeOpacity={0.7}
+                    style={{ alignItems: 'center' }}
+                  >
+                    <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.primary }}>
+                      Quelle: MCK Kurpfalz Mannheim ↗
+                    </Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -880,16 +1280,18 @@ export default function TestEnvironment() {
 
           <View style={menuDivider} />
 
-          {/* ── Clubs ── */}
+          {/* ── 4. Clubs ── */}
           <TouchableOpacity onPress={() => setVereineOpen(o => !o)} activeOpacity={0.7} style={menuRow}>
-            <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>Clubs</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <MenuRowLeft icon="users" label="Clubs" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {clubsData != null && clubsData.count > 0 && (
-                <View style={{ backgroundColor: colors.muted, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 }}>
-                  <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.primary }}>{clubsData.count}</Text>
-                </View>
+                <CountBadge count={clubsData.count} />
               )}
-              <Feather name={vereineOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.mutedForeground} />
+              <Feather
+                name={vereineOpen ? 'chevron-up' : 'chevron-right'}
+                size={16}
+                color={colors.mutedForeground}
+              />
             </View>
           </TouchableOpacity>
 
@@ -900,30 +1302,64 @@ export default function TestEnvironment() {
                   <ActivityIndicator color={colors.primary} />
                 </View>
               ) : clubsError ? (
-                <TouchableOpacity style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }} onPress={() => void refetchClubs()}>
+                <TouchableOpacity
+                  style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
+                  onPress={() => void refetchClubs()}
+                >
                   <Feather name="alert-circle" size={20} color={colors.destructive} />
-                  <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>Fehler beim Laden</Text>
+                  <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>
+                    Fehler beim Laden
+                  </Text>
                 </TouchableOpacity>
               ) : (
                 (() => {
                   const knownClubs = clubsData?.known_clubs ?? [];
                   const findings = clubsData?.clubs ?? [];
-                  const domainOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
+                  const domainOf = (u: string) => {
+                    try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; }
+                  };
                   const latestByDomain = new Map<string, typeof findings[0]>();
                   for (const f of findings) latestByDomain.set(domainOf(f.url), f);
                   type RowItem = { name: string; icon: string; url: string };
-                  const rows: RowItem[] = knownClubs.length > 0 ? knownClubs : findings.slice().reverse().slice(0, 10).map((f: WaechterClubHit) => ({ name: f.name, icon: f.icon, url: f.url }));
+                  const rows: RowItem[] = knownClubs.length > 0
+                    ? knownClubs
+                    : findings.slice().reverse().slice(0, 10).map((f: WaechterClubHit) => ({
+                        name: f.name, icon: f.icon, url: f.url,
+                      }));
                   return rows.map((club: RowItem, i: number) => {
                     const finding = latestByDomain.get(domainOf(club.url));
                     const isLast = i === rows.length - 1;
                     return (
-                      <TouchableOpacity key={club.url} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 10, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: colors.border }} onPress={() => void Linking.openURL(club.url)} activeOpacity={0.65}>
-                        <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: finding ? colors.primary + '22' : colors.muted, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <TouchableOpacity
+                        key={club.url}
+                        style={{
+                          flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+                          paddingVertical: 10,
+                          borderBottomWidth: isLast ? 0 : 1,
+                          borderBottomColor: colors.border,
+                        }}
+                        onPress={() => void Linking.openURL(club.url)}
+                        activeOpacity={0.65}
+                      >
+                        <View style={{
+                          width: 32, height: 32, borderRadius: 8,
+                          backgroundColor: finding ? colors.primary + '22' : colors.muted,
+                          alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        }}>
                           <Text style={{ fontSize: 16 }}>{club.icon}</Text>
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.foreground }} numberOfLines={1}>{club.name}</Text>
-                          <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: finding ? colors.mutedForeground : colors.mutedForeground + '88', marginTop: 2, lineHeight: 16 }} numberOfLines={2}>{finding ? finding.snippet : 'Keine aktuellen Meldungen'}</Text>
+                          <Text style={{
+                            fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold',
+                            color: colors.foreground,
+                          }} numberOfLines={1}>{club.name}</Text>
+                          <Text style={{
+                            fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular',
+                            color: finding ? colors.mutedForeground : colors.mutedForeground + '88',
+                            marginTop: 2, lineHeight: 16,
+                          }} numberOfLines={2}>
+                            {finding ? finding.snippet : 'Keine aktuellen Meldungen'}
+                          </Text>
                         </View>
                         <Feather name="external-link" size={14} color={colors.mutedForeground} style={{ marginTop: 2 }} />
                       </TouchableOpacity>
@@ -936,14 +1372,18 @@ export default function TestEnvironment() {
 
           <View style={menuDivider} />
 
-          {/* ── Rhein-Karte ── */}
+          {/* ── 5. Rhein-Karte ── */}
           <TouchableOpacity onPress={() => setMapOpen(o => !o)} activeOpacity={0.7} style={menuRow}>
-            <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>🗺️ Rhein-Karte</Text>
-            <Feather name={mapOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.mutedForeground} />
+            <MenuRowLeft icon="map" label="Rhein-Karte" />
+            <Feather
+              name={mapOpen ? 'chevron-up' : 'chevron-right'}
+              size={16}
+              color={colors.mutedForeground}
+            />
           </TouchableOpacity>
 
           {mapOpen && (
-            <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+            <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 4 }}>
               <RheinKarte
                 pegelCm={state?.last_pegel_cm ?? null}
                 pegelTime={state?.last_pegel_time ?? null}
@@ -958,16 +1398,18 @@ export default function TestEnvironment() {
 
           <View style={menuDivider} />
 
-          {/* ── News ── */}
+          {/* ── 6. News ── */}
           <TouchableOpacity onPress={() => setNewsOpen(o => !o)} activeOpacity={0.7} style={menuRow}>
-            <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>News</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {treffer != null && (
-                <View style={{ backgroundColor: colors.muted, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 }}>
-                  <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.primary }}>{treffer.count}</Text>
-                </View>
+            <MenuRowLeft icon="rss" label="News" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {treffer != null && treffer.count > 0 && (
+                <CountBadge count={treffer.count} />
               )}
-              <Feather name={newsOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.mutedForeground} />
+              <Feather
+                name={newsOpen ? 'chevron-up' : 'chevron-right'}
+                size={16}
+                color={colors.mutedForeground}
+              />
             </View>
           </TouchableOpacity>
 
@@ -978,27 +1420,56 @@ export default function TestEnvironment() {
                   <ActivityIndicator color={colors.primary} />
                 </View>
               ) : trefferError ? (
-                <TouchableOpacity style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }} onPress={() => void refetchTreffer()}>
+                <TouchableOpacity
+                  style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
+                  onPress={() => void refetchTreffer()}
+                >
                   <Feather name="alert-circle" size={20} color={colors.destructive} />
-                  <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>Fehler beim Laden</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.muted, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, marginTop: 4 }}>
+                  <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>
+                    Fehler beim Laden
+                  </Text>
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 6,
+                    backgroundColor: colors.muted, paddingHorizontal: 14,
+                    paddingVertical: 7, borderRadius: 8, marginTop: 4,
+                  }}>
                     <Feather name="refresh-cw" size={13} color={colors.foreground} />
-                    <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>Erneut versuchen</Text>
+                    <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>
+                      Erneut versuchen
+                    </Text>
                   </View>
                 </TouchableOpacity>
               ) : !treffer?.urls.length ? (
                 <View style={{ alignItems: 'center', paddingVertical: 16, gap: 6 }}>
                   <Feather name="inbox" size={20} color={colors.mutedForeground} />
-                  <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>Noch keine News</Text>
+                  <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                    Noch keine News
+                  </Text>
                 </View>
               ) : (
                 treffer.urls.slice().reverse().slice(0, 10).map((url: string, i: number, arr: string[]) => {
                   const isLast = i === arr.length - 1;
                   return (
-                    <TouchableOpacity key={`${url}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: colors.border }} onPress={() => void Linking.openURL(url)} activeOpacity={0.65}>
+                    <TouchableOpacity
+                      key={`${url}-${i}`}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 10,
+                        paddingVertical: 10,
+                        borderBottomWidth: isLast ? 0 : 1,
+                        borderBottomColor: colors.border,
+                      }}
+                      onPress={() => void Linking.openURL(url)}
+                      activeOpacity={0.65}
+                    >
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }} numberOfLines={1}>{getDomain(url)}</Text>
-                        <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground, marginTop: 1 }} numberOfLines={1}>{getPathAndQuery(url)}</Text>
+                        <Text style={{
+                          fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium',
+                          color: colors.foreground,
+                        }} numberOfLines={1}>{getDomain(url)}</Text>
+                        <Text style={{
+                          fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular',
+                          color: colors.mutedForeground, marginTop: 1,
+                        }} numberOfLines={1}>{getPathAndQuery(url)}</Text>
                       </View>
                       <Feather name="external-link" size={14} color={colors.mutedForeground} />
                     </TouchableOpacity>
@@ -1010,20 +1481,41 @@ export default function TestEnvironment() {
 
           <View style={menuDivider} />
 
-          {/* ── Wächter Status ── */}
-          <TouchableOpacity onPress={() => setWaechterOpen(o => !o)} activeOpacity={0.7}
-            style={[menuRow, { borderColor: (isStale || neverRan) ? colors.alarm : 'transparent', borderLeftWidth: (isStale || neverRan) ? 3 : 0 }]}>
-            <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: (isStale || neverRan) ? colors.alarm : colors.foreground }}>
-              Wächter Status
-            </Text>
+          {/* ── 7. Wächter Status ── */}
+          <TouchableOpacity
+            onPress={() => setWaechterOpen(o => !o)}
+            activeOpacity={0.7}
+            style={[
+              menuRow,
+              (isStale || neverRan)
+                ? { borderLeftWidth: 3, borderLeftColor: colors.alarm, paddingLeft: 13 }
+                : {},
+            ]}
+          >
+            <MenuRowLeft
+              icon="shield"
+              label="Wächter Status"
+              color={(isStale || neverRan) ? colors.alarm : undefined}
+            />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               {isStale && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.alarm + '22', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99 }}>
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 4,
+                  backgroundColor: colors.alarm + '22',
+                  paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99,
+                }}>
                   <Feather name="alert-triangle" size={11} color={colors.alarm} />
-                  <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.alarm, letterSpacing: 1 }}>INAKTIV</Text>
+                  <Text style={{
+                    fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold',
+                    color: colors.alarm, letterSpacing: 1,
+                  }}>INAKTIV</Text>
                 </View>
               )}
-              <Feather name={waechterOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.mutedForeground} />
+              <Feather
+                name={waechterOpen ? 'chevron-up' : 'chevron-right'}
+                size={16}
+                color={colors.mutedForeground}
+              />
             </View>
           </TouchableOpacity>
 
@@ -1034,42 +1526,75 @@ export default function TestEnvironment() {
               ) : (
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Feather name="clock" size={14} color={isStale || neverRan ? colors.alarm : colors.mutedForeground} />
-                    <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: isStale || neverRan ? colors.alarm : colors.foreground }}>
+                    <Feather
+                      name="clock"
+                      size={14}
+                      color={isStale || neverRan ? colors.alarm : colors.mutedForeground}
+                    />
+                    <Text style={{
+                      fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+                      color: isStale || neverRan ? colors.alarm : colors.foreground,
+                    }}>
                       Letzter Lauf:{' '}
-                      <Text style={{ fontFamily: 'SpaceGrotesk_600SemiBold', color: isStale || neverRan ? colors.alarm : colors.foreground }}>
+                      <Text style={{
+                        fontFamily: 'SpaceGrotesk_600SemiBold',
+                        color: isStale || neverRan ? colors.alarm : colors.foreground,
+                      }}>
                         {neverRan ? 'Nie' : formatRelativeTime(lastRunAt)}
                       </Text>
                     </Text>
                   </View>
                   {!neverRan && (
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>Neue Treffer</Text>
-                      <Text style={{ fontSize: 15, fontFamily: 'SpaceGrotesk_700Bold', color: rssNewCount > 0 ? colors.primary : colors.foreground }}>{rssNewCount}</Text>
+                      <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                        Neue Treffer
+                      </Text>
+                      <Text style={{
+                        fontSize: 15, fontFamily: 'SpaceGrotesk_700Bold',
+                        color: rssNewCount > 0 ? colors.primary : colors.foreground,
+                      }}>
+                        {rssNewCount}
+                      </Text>
                     </View>
                   )}
                 </View>
               )}
               {neverRan && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: colors.alarm + '18', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 }}>
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 7,
+                  backgroundColor: colors.alarm + '18', borderRadius: 8,
+                  paddingHorizontal: 10, paddingVertical: 8,
+                }}>
                   <Feather name="alert-triangle" size={13} color={colors.alarm} />
-                  <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular', color: colors.alarm }}>Wächter wurde noch nicht ausgeführt.</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular', color: colors.alarm }}>
+                    Wächter wurde noch nicht ausgeführt.
+                  </Text>
                 </View>
               )}
               {lastError && (
-                <View style={{ backgroundColor: colors.destructive + '18', borderRadius: 8, padding: 10, gap: 4 }}>
+                <View style={{
+                  backgroundColor: colors.destructive + '18',
+                  borderRadius: 8, padding: 10, gap: 4,
+                }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Feather name="x-circle" size={13} color={colors.destructive} />
-                    <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.destructive, letterSpacing: 1.5, textTransform: 'uppercase' }}>Letzter Fehler</Text>
+                    <Text style={{
+                      fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color: colors.destructive, letterSpacing: 1.5,
+                      textTransform: 'uppercase',
+                    }}>Letzter Fehler</Text>
                   </View>
-                  <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive, opacity: 0.85 }} numberOfLines={3}>{lastError}</Text>
+                  <Text style={{
+                    fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                    color: colors.destructive, opacity: 0.85,
+                  }} numberOfLines={3}>{lastError}</Text>
                 </View>
               )}
             </View>
           )}
 
         </View>
-        {/* Ende Menü-Card */}
+        {/* Ende Menü-Karte */}
 
       </ScrollView>
     </View>
