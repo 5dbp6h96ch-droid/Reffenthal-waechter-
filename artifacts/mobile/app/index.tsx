@@ -101,8 +101,15 @@ const CHART_W = SCREEN_W - CARD_PADDING * 2 - 32;
 const CHART_H = 140;
 const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
 
-// Speyer Rheinkilometer (geografische Konstante, ändert sich nicht)
+// Speyer Rheinkilometer (Fallback wenn kein Gauge ausgewählt)
 const SPEYER_RHEINKILOMETER = '400,4';
+
+// HVZ Baden-Württemberg Vorhersage-Bild-IDs pro PEGELONLINE-Stationsname.
+// Gauges außerhalb des HVZ-BW-Gebiets haben keinen Eintrag → Vorhersage ausgeblendet.
+const HVZ_BW_IDS: Record<string, string> = {
+  SPEYER: '09017',
+  MANNHEIM: '06268',
+};
 
 // ─── Hilfsfunktionen (identisch mit index.tsx) ───────────────────────────────
 
@@ -287,6 +294,29 @@ export default function HomeScreen() {
   const { gauges } = useGauges();
   const { getGaugeSetting, updateGaugeSetting } = useUserGaugeSettings(user?.id);
 
+  // ── Ausgewählter Pegelort: zentrale Quelle für Gäste und angemeldete Nutzer ──
+  const [guestGaugeId, setGuestGaugeId] = useState<string | null>(null);
+  // Einzige Quelle: Supabase-Einstellung (angemeldet) oder lokaler Gast-State
+  const selectedGaugeId = settings?.selected_gauge_id ?? guestGaugeId;
+  // Ausgewähltes Pegel-Objekt – erster aktiver Pegel als Fallback
+  const selectedGauge = gauges.find(g => g.id === selectedGaugeId) ?? gauges[0] ?? null;
+
+  // Für Gäste: ersten Pegel vorauswählen sobald Gauges geladen sind
+  useEffect(() => {
+    if (gauges.length > 0 && !user && guestGaugeId == null) {
+      setGuestGaugeId(gauges[0].id);
+    }
+  }, [gauges, user, guestGaugeId]);
+
+  // Einheitliche Auswahl-Funktion für Gäste und angemeldete Nutzer
+  const selectGauge = useCallback((id: string) => {
+    if (user) {
+      void updateSettings({ selected_gauge_id: id });
+    } else {
+      setGuestGaugeId(id);
+    }
+  }, [user, updateSettings]);
+
   // HVZ-Vorhersage: Cache-Busting-Timestamp, alle 5 Min aktualisiert (= HVZ-Takt)
   const [hvzTs, setHvzTs] = useState(() => Math.floor(Date.now() / 300_000));
   useEffect(() => {
@@ -391,6 +421,41 @@ export default function HomeScreen() {
     refetchIntervalInBackground: false, retry: 2,
   });
 
+  // ── PEGELONLINE: Live-Messwert + Verlauf für ausgewählten Pegel ───────────
+  // Öffentliche WSV-API, kein Auth erforderlich.
+  // Stationsname kommt aus Gauge.pegel_nr (z. B. 'SPEYER', 'MANNHEIM', 'WORMS').
+  const pegelStationId = selectedGauge?.pegel_nr ?? null;
+  const {
+    data: pegelLive,
+    isLoading: pegelLiveLoading,
+    isError: pegelLiveError,
+    isRefetching: pegelLiveRefetching,
+    refetch: refetchPegelLive,
+  } = useQuery({
+    queryKey: ['pegel-live', pegelStationId],
+    enabled: pegelStationId != null,
+    queryFn: async () => {
+      const stId = pegelStationId!;
+      const base = 'https://pegelonline.wsv.de/webservices/rest-api/v2/stations';
+      const [curRes, histRes] = await Promise.all([
+        fetch(`${base}/${stId}/W/currentmeasurement.json`),
+        fetch(`${base}/${stId}/W/measurements.json?start=P90D`),
+      ]);
+      if (!curRes.ok) throw new Error(`PEGELONLINE HTTP ${curRes.status}`);
+      const cur = await curRes.json() as { value: number; timestamp: string };
+      let history: { cm: number; ts: string }[] = [];
+      if (histRes.ok) {
+        const raw = await histRes.json() as { value: number; timestamp: string }[];
+        history = raw.map(m => ({ cm: Math.round(m.value), ts: m.timestamp }));
+      }
+      return { cm: Math.round(cur.value), ts: cur.timestamp, history };
+    },
+    staleTime: 5 * 60_000,
+    refetchInterval: 15 * 60_000,
+    refetchIntervalInBackground: false,
+    retry: 2,
+  });
+
   const {
     notifEnabled: nfbNotifEnabled,
     osPermission: nfbOsPermission,
@@ -432,7 +497,7 @@ export default function HomeScreen() {
   ).length ?? 0;
 
   const isRefreshing =
-    stateRefetching || trefferRefetching || statusRefetching ||
+    pegelLiveRefetching || stateRefetching || trefferRefetching || statusRefetching ||
     clubsRefetching || nfbRefetching || mckRefetching;
 
   const spinAnim = useRef(new Animated.Value(0)).current;
@@ -451,9 +516,9 @@ export default function HomeScreen() {
   }, [isRefreshing, spinAnim]);
 
   const onRefresh = useCallback(() => {
-    void refetchState(); void refetchTreffer(); void refetchStatus();
+    void refetchPegelLive(); void refetchState(); void refetchTreffer(); void refetchStatus();
     void refetchClubs(); void refetchNfb(); void refetchMck();
-  }, [refetchState, refetchTreffer, refetchStatus, refetchClubs, refetchNfb, refetchMck]);
+  }, [refetchPegelLive, refetchState, refetchTreffer, refetchStatus, refetchClubs, refetchNfb, refetchMck]);
 
   const lastRunAt = waechterStatus?.last_run_at ?? null;
   const lastRunMs = lastRunAt ? Date.now() - new Date(lastRunAt).getTime() : null;
@@ -462,7 +527,11 @@ export default function HomeScreen() {
   const neverRan = !statusLoading && !lastRunAt;
   const rssNewCount = waechterStatus?.rss_new_count ?? 0;
 
-  const currentCm = state?.last_pegel_cm ?? null;
+  // Pegelstand-Daten vom ausgewählten Pegel (PEGELONLINE), Fallback auf Wächter (nur Speyer)
+  const currentCm = pegelLive?.cm ?? state?.last_pegel_cm ?? null;
+  const currentTs = pegelLive?.ts ?? state?.last_pegel_time ?? null;
+  const currentHistory = pegelLive?.history ?? state?.history ?? [];
+  // Schwelle aus Wächter-Daten (Speyer); persönliche Schwelle wird pro Gauge separat verwaltet
   const threshold = state?.threshold_cm ?? 225;
   const isAlarm = currentCm !== null && currentCm < threshold;
   const isSafe = currentCm !== null && currentCm >= threshold;
@@ -472,7 +541,7 @@ export default function HomeScreen() {
   // useSinceLastVisit – Datenquelle aktiv halten (keine UI-Ausgabe in diesem Layout)
   useSinceLastVisit(
     nfbData?.meldungen, !nfbLoading && !nfbError && nfbData !== undefined,
-    currentCm, !stateLoading && !stateError && state !== undefined,
+    currentCm, !pegelLiveLoading && !pegelLiveError && pegelLive !== undefined,
     mckData, !mckLoading && !mckIsError && mckData !== undefined,
   );
 
@@ -577,6 +646,37 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* ── Pegelort-Auswahl (sichtbar für alle, inkl. Gäste) ────────────── */}
+        {gauges.length > 1 && (
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            {gauges.map(g => {
+              const active = selectedGauge?.id === g.id;
+              return (
+                <TouchableOpacity
+                  key={g.id}
+                  onPress={() => selectGauge(g.id)}
+                  activeOpacity={0.7}
+                  style={{
+                    paddingHorizontal: 14, paddingVertical: 7,
+                    borderRadius: 99,
+                    backgroundColor: active ? colors.primary : colors.muted,
+                    borderWidth: 1.5,
+                    borderColor: active ? colors.primary : colors.border,
+                  }}
+                >
+                  <Text style={{
+                    fontSize: 13,
+                    fontFamily: active ? 'SpaceGrotesk_700Bold' : 'SpaceGrotesk_400Regular',
+                    color: active ? colors.primaryForeground : colors.mutedForeground,
+                  }}>
+                    {g.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
         {/* ── Pegelstand-Kachel (Spec-Hierarchie) ─────────────────────────── */}
         <View style={{
           backgroundColor: colors.primary,
@@ -601,9 +701,9 @@ export default function HomeScreen() {
               flex: 1,
               flexShrink: 1,
             }} numberOfLines={1}>
-              {`RHEINKILOMETER ${SPEYER_RHEINKILOMETER}`}
-              {state?.last_pegel_time
-                ? ` · ${formatDate(state.last_pegel_time)} · ${formatTime(state.last_pegel_time)}`
+              {`RHEINKILOMETER ${selectedGauge?.river_km != null ? String(selectedGauge.river_km).replace('.', ',') : SPEYER_RHEINKILOMETER}`}
+              {currentTs
+                ? ` · ${formatDate(currentTs)} · ${formatTime(currentTs)}`
                 : ''}
             </Text>
             {statusLabel && (
@@ -729,14 +829,14 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {stateLoading ? (
+          {pegelLiveLoading ? (
             <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
               <ActivityIndicator color={colors.primary} />
             </View>
-          ) : stateError ? (
+          ) : pegelLiveError ? (
             <TouchableOpacity
               style={{ alignItems: 'center', gap: 8, paddingVertical: 20 }}
-              onPress={() => void refetchState()}
+              onPress={() => void refetchPegelLive()}
             >
               <Feather name="alert-circle" size={20} color={colors.destructive} />
               <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>
@@ -755,7 +855,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ) : (
             <PegelChart
-              history={filterHistory(state?.history ?? [], chartRange)}
+              history={filterHistory(currentHistory, chartRange)}
               threshold={threshold}
             />
           )}
@@ -797,9 +897,16 @@ export default function HomeScreen() {
                   <MenuRowLeft icon="trending-up" label="Vorhersage" />
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <TouchableOpacity
-                      onPress={() => void Linking.openURL(
-                        'https://www.hvz.baden-wuerttemberg.de/pegel.html?id=09017',
-                      )}
+                      onPress={() => {
+                        const hvzId = selectedGauge?.pegel_nr
+                          ? HVZ_BW_IDS[selectedGauge.pegel_nr.toUpperCase()]
+                          : HVZ_BW_IDS.SPEYER;
+                        void Linking.openURL(
+                          hvzId
+                            ? `https://www.hvz.baden-wuerttemberg.de/pegel.html?id=${hvzId}`
+                            : 'https://www.hvz.baden-wuerttemberg.de/',
+                        );
+                      }}
                       activeOpacity={0.7}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}
@@ -823,13 +930,33 @@ export default function HomeScreen() {
 
                 {hvzOpen && (
                   <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 8 }}>
-                    <Image
-                      source={{
-                        uri: `https://www.hvz.baden-wuerttemberg.de/gifs/09017-2001.GIF?t=${hvzTs}`,
-                      }}
-                      style={{ width: imgW, height: imgH, borderRadius: 8, alignSelf: 'center' }}
-                      resizeMode="contain"
-                    />
+                    {(() => {
+                      const hvzId = selectedGauge?.pegel_nr
+                        ? HVZ_BW_IDS[selectedGauge.pegel_nr.toUpperCase()]
+                        : HVZ_BW_IDS.SPEYER;
+                      if (!hvzId) {
+                        return (
+                          <View style={{ alignItems: 'center', paddingVertical: 24, gap: 8 }}>
+                            <Feather name="info" size={18} color={colors.mutedForeground} />
+                            <Text style={{
+                              fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+                              color: colors.mutedForeground, textAlign: 'center',
+                            }}>
+                              {'Vorhersage für ' + (selectedGauge?.name ?? 'diesen Pegel') + '\nnicht im HVZ-BW-Gebiet verfügbar.'}
+                            </Text>
+                          </View>
+                        );
+                      }
+                      return (
+                        <Image
+                          source={{
+                            uri: `https://www.hvz.baden-wuerttemberg.de/gifs/${hvzId}-2001.GIF?t=${hvzTs}`,
+                          }}
+                          style={{ width: imgW, height: imgH, borderRadius: 8, alignSelf: 'center' }}
+                          resizeMode="contain"
+                        />
+                      );
+                    })()}
                   </View>
                 )}
               </>
@@ -1795,12 +1922,12 @@ export default function HomeScreen() {
                     ) : (
                       <View style={{ gap: 6 }}>
                         {gauges.map(g => {
-                          const isSelected = settings?.selected_gauge_id === g.id;
+                          const isSelected = selectedGauge?.id === g.id;
                           return (
                             <TouchableOpacity
                               key={g.id}
                               activeOpacity={0.75}
-                              onPress={() => void updateSettings({ selected_gauge_id: g.id })}
+                              onPress={() => selectGauge(g.id)}
                               style={{
                                 flexDirection: 'row', alignItems: 'center',
                                 justifyContent: 'space-between',
