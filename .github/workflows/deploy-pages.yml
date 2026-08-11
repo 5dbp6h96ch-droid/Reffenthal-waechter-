@@ -240,31 +240,35 @@ jobs:
             && echo "✓ main-Workflow ausgelöst" \
             || echo "⚠ Dispatch fehlgeschlagen (Workflow läuft möglicherweise bereits)"
 
-      # ── NUR AUF DEM main-Branch: Test-Artefakt einbinden ─────────────────
-      # Der main-Workflow liest test/index.html aus dem test-artifacts Branch
-      # und bettet ihn in das Pages-Deployment ein.
-      # Wenn test-artifacts nicht existiert, wird /test/ einfach weggelassen.
-      - name: "[main-Branch] Test-Artefakt aus test-artifacts einbinden"
+      # ── NUR AUF DEM main-Branch: sw-diag.js in test/index.html einbetten ──
+      # dist/test/index.html wurde bereits im SPA-Routen-Schritt aus
+      # dist/index.html kopiert → enthält immer den aktuellen Bundle-Hash.
+      # Hier wird nur sw-diag.js injiziert (identisch zum test-Branch-Schritt).
+      - name: "[main-Branch] sw-diag.js in test/index.html einbetten"
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           DIST=artifacts/mobile/dist
-          if git ls-remote --heads "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" test-artifacts | grep -q test-artifacts; then
-            git fetch "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" test-artifacts
-            mkdir -p "$DIST/test"
-            git show FETCH_HEAD:test/index.html > "$DIST/test/index.html" 2>/dev/null \
-              && echo "✓ test/index.html aus test-artifacts eingebunden" \
-              || echo "⚠ test/index.html im test-artifacts Branch nicht gefunden"
+          VERSION=$(git rev-parse --short HEAD)
 
-            # Test-JS-Bundle aus test-artifacts in dist/_expo/ einmischen.
-            # Dateinamen sind build-hash-eindeutig → kein Überschreiben des Prod-Bundles.
-            git archive FETCH_HEAD _expo/ | tar -x -C "$DIST/" 2>/dev/null \
-              && echo "✓ test-_expo/ in dist/_expo eingemischt" \
-              || echo "⚠ kein _expo/ in test-artifacts – Test-Bundle fehlt"
-          else
-            echo "ℹ test-artifacts Branch nicht vorhanden – /test/ wird nicht eingebunden"
-          fi
+          python3 - << 'PYEOF'
+import os, sys
+dist = os.environ.get('DIST', 'artifacts/mobile/dist')
+path = f'{dist}/test/index.html'
+base = '/Reffenthal-waechter-'
+inject = f'<script src="{base}/sw-diag.js?v=__CACHE_VERSION__"></script>'
+html = open(path).read()
+if 'sw-diag.js' not in html:
+    html = html.replace('</body>', inject + '</body>', 1)
+    open(path, 'w').write(html)
+    print('✓ sw-diag.js in test/index.html eingebettet')
+else:
+    print('ℹ sw-diag.js bereits vorhanden')
+PYEOF
+
+          sed -i "s/__CACHE_VERSION__/${VERSION}/g" "$DIST/test/index.html"
+          echo "✓ sw-diag.js URL versioniert mit ${VERSION}"
+          echo "=== Bundle-URL in test/index.html ==="
+          grep -oP '_expo/static/js/web/index-[a-f0-9]+\.js' "$DIST/test/index.html"
 
       - name: GitHub Pages konfigurieren
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
