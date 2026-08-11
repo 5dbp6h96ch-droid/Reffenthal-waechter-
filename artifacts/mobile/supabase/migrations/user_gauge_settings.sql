@@ -15,7 +15,7 @@
 create table if not exists public.user_gauge_settings (
   id                 uuid        primary key default gen_random_uuid(),
   user_id            uuid        not null references auth.users(id) on delete cascade,
-  gauge_id           uuid        not null references public.gauges(id) on delete cascade,
+  gauge_id           text        not null references public.gauges(id) on delete cascade,
   alert_enabled      boolean     not null default false,
   alert_threshold_cm integer,
   created_at         timestamptz not null default now(),
