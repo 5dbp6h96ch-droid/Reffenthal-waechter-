@@ -1,0 +1,69 @@
+Bitte repariere jetzt ausschließlich die CI/CD-Kette zwischen test-artifacts
+und dem main-Deployment.
+
+Diagnose:
+Der aktuelle Test-Stand ce12280 wurde erfolgreich auf origin/test gebaut.
+CI Run #109 ist success.
+test-artifacts wurde aktualisiert und enthält den aktuellen Build.
+
+ABER:
+Seit main-Run #103 wurde kein neuer main-Workflow ausgeführt.
+Die letzten test-Runs #104–#109 melden beim Schritt
+„Produktions-Workflow auf main auslösen“ zwar success,
+aber tatsächlich entsteht kein neuer main-Run.
+
+Dadurch ist GitHub Pages auf dem alten Deployment #103 eingefroren.
+Die Live-/test/-Seite enthält deshalb NICHT den aktuellen Commit ce12280
+und die temporäre DEBUG-Anzeige ist dort nicht vorhanden.
+
+AUFGABE:
+
+1. Prüfe .github/workflows/deploy-pages.yml, insbesondere den
+   workflow_dispatch-Aufruf aus dem test-Branch.
+
+2. Stelle sicher, dass der Dispatch tatsächlich den gewünschten Workflow
+   auf Branch main startet.
+
+3. Der Dispatch muss HTTP-Fehler explizit erkennen und darf einen
+   scheinbaren Erfolg nicht als success melden.
+
+4. Prüfe insbesondere:
+   - korrekter Workflow-Dateiname
+   - korrekter Branch ref: main
+   - korrekter GitHub-API-Endpunkt
+   - korrekter Accept-Header
+   - korrekte Authorization
+   - HTTP-Status des API-Aufrufs
+   - Response-Body bei Fehlern
+   - ob der Workflow auf main workflow_dispatch überhaupt unterstützt
+
+5. WICHTIG:
+   Keine Änderungen an:
+   - public.gauges
+   - pegel_uuid
+   - PEGELONLINE-Fetch
+   - selectedGauge-Logik
+   - index.tsx außer dem Workflow selbst
+   - main App-Code
+
+6. Nach Reparatur den Dispatch einmal gezielt testen.
+
+7. Verifiziere ausdrücklich:
+   - neuer main-Workflow-Run entstanden
+   - main-Run erfolgreich
+   - Pages-Deployment erfolgreich
+   - /test/index.html referenziert das Bundle aus ce12280
+   - DEBUG-Text selectedGaugeId ist im Live-Bundle vorhanden
+
+8. Erst wenn das aktuelle ce12280-Bundle live ist, den Test nicht weiter
+   verändern.
+
+Bitte am Ende berichten:
+- Ursache des fehlerhaften Dispatches
+- geänderte Datei
+- neuer Commit
+- neuer test-Run
+- neuer main-Run
+- Pages-Deployment-ID
+- tatsächlich live gegangenes Bundle
+- Bestätigung, dass main App-Code unverändert blieb.
