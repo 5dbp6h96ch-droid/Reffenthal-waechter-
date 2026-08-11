@@ -1,0 +1,112 @@
+🚨 NEUER ENTSCHEIDENDER BEFUND AUS iOS-SCREENSHOT
+
+Der aktuelle Testlauf zeigt im Diagnose-Overlay eindeutig:
+
+controller: ⚠ NONE
+bundle: index-f959be1d449747042f20d17ef55aea02.js
+
+Gleichzeitig ist weiterhin das ALTE UI sichtbar:
+MENÜ
+Vorhersage
+WSV – Nachrichten
+Tankstelle
+Clubs
+Rhein-Karte
+News
+Wächter Status
+
+Bottom-Navigation Konto | Preferences | Help fehlt.
+
+Damit ist bewiesen:
+Die Seite ist aktuell NICHT von einem Service Worker kontrolliert.
+
+Bitte NICHT weiter am React-Code oder am Bundle ändern.
+
+JETZT AUSSCHLIESSLICH SERVICE-WORKER-REGISTRIERUNG / SCOPE / SAFARI prüfen.
+
+Zwingende Diagnose:
+
+1. Gib in sw-diag.js aus:
+   - navigator.serviceWorker.controller?.scriptURL
+   - registration.scope
+   - registration.active?.scriptURL
+   - registration.waiting?.scriptURL
+   - registration.installing?.scriptURL
+
+2. Prüfe, ob sw.js tatsächlich unter diesem Pfad liegt:
+   /Reffenthal-waechter-/sw.js
+
+3. Prüfe, mit welchem exakten Pfad die Seite den SW registriert.
+   Es muss für /test/ korrekt sein.
+
+4. Prüfe den tatsächlichen Scope.
+   Erwartet:
+   /Reffenthal-waechter-/
+   oder ein Scope, der /Reffenthal-waechter-/test/ kontrolliert.
+
+5. Prüfe insbesondere, ob der SW wegen falschem Pfad/SCOPE zwar installiert,
+   aber /test/ nicht kontrolliert.
+
+6. Prüfe, ob GitHub Pages /test/ und /sw.js unterschiedliche Origins oder
+   Pfade verwendet.
+
+7. Prüfe, ob die Registrierung eventuell so erfolgt, dass der Scope nur
+   `/test/` oder sogar ein falscher Pfad ist.
+
+8. WICHTIG:
+   `controller === null` bedeutet, dass `controllerchange` erst nach einer
+   erfolgreichen Übernahme eintreten kann.
+   Der aktuelle Reload-Mechanismus darf deshalb nicht als funktionierend
+   angenommen werden.
+
+9. Implementiere eine robuste Initialisierung:
+   - Service Worker registrieren
+   - registration.update()
+   - auf registration.ready warten
+   - prüfen, ob controller vorhanden ist
+   - falls active vorhanden aber controller NONE:
+     Ursache feststellen und beheben
+   - nicht einfach endlos reloaden
+
+10. Prüfe auch, ob Safari die Seite aus BFCache wiederherstellt.
+    `pageshow` mit `event.persisted` diagnostizieren.
+
+11. Die Diagnose muss sichtbar machen:
+    SW registration:
+    SW scope:
+    SW active:
+    SW waiting:
+    SW controller:
+    Bundle:
+    Cache:
+
+12. Erst wenn:
+    controller = /Reffenthal-waechter-/sw.js
+    und
+    active = /Reffenthal-waechter-/sw.js
+
+    darf der Fix als erfolgreich bezeichnet werden.
+
+AKZEPTANZTEST:
+
+Auf dem aktuell problematischen iPhone:
+
+Ein normaler Reload auf
+
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/
+
+muss anschließend zeigen:
+
+controller: sw.js
+active: sw.js
+Bundle: index-f959be1d...
+Caches: rheinschiffer-46eb571
+
+und im UI:
+
+Konto | Preferences | Help
+
+KEIN "MENÜ" mehr.
+
+Bitte zuerst die tatsächlichen Registration-/Scope-Werte ermitteln und
+ausgeben. Keine weitere kosmetische Änderung.
