@@ -1,1 +1,2 @@
 - [Task-merge import drops](task-merge-import-drops.md) — task agents drop hook imports from index.tsx → ReferenceError crash; run tsc and look for TS2552 after every merge.
+- [Supabase Integration](supabase-integration.md) — client/auth/settings/gauges hooks setup, upsert cast quirk, Metro _tmp_ crash fix, Auth UI location.
