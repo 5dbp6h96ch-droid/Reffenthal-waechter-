@@ -110,11 +110,11 @@
     var div = document.createElement('div');
     div.id = 'sw-diag';
     div.setAttribute('style',
-      'position:fixed;bottom:62px;left:0;right:0;' +
+      'position:fixed;top:0;left:0;right:0;' +
       'background:rgba(8,24,28,0.97);color:#c8eaf0;' +
       'font:9px/1.7 monospace;padding:5px 8px;' +
       'z-index:2147483647;pointer-events:none;' +
-      'word-break:break-all;border-top:2px solid #2a7a8a');
+      'word-break:break-all;border-bottom:2px solid #2a7a8a');
     div.innerHTML = lines.map(function(l){ return '🔧 '+l; }).join('<br>');
     if (document.body) document.body.appendChild(div);
   }
