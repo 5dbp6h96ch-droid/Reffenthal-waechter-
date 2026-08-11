@@ -29,11 +29,15 @@ self.addEventListener('install', (event) => {
 });
 
 // ── Activate ──────────────────────────────────────────────────────────────────
+// Reihenfolge:
+//   1. Alte Caches löschen (damit kein altes Bundle mehr ausgeliefert wird)
+//   2. clients.claim() – übernimmt sofort alle offenen Tabs
+//   3. Alle Fenster neu laden – damit sie die frische index.html + neues Bundle
+//      holen, nicht die alte gecachte HTML aus dem alten SW-Cache.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    Promise.all([
-      // Alte rheinschiffer-* Caches löschen
-      caches.keys().then((names) =>
+    caches.keys()
+      .then((names) =>
         Promise.all(
           names
             .filter((n) => n.startsWith('rheinschiffer-') && n !== CACHE_NAME)
@@ -42,10 +46,20 @@ self.addEventListener('activate', (event) => {
               return caches.delete(n);
             })
         )
-      ),
-      // Sofort alle Clients übernehmen
-      clients.claim(),
-    ])
+      )
+      .then(() => clients.claim())
+      .then(() =>
+        // Alle offenen Fenster neu laden, damit frische HTML + Bundle geladen wird.
+        // Ohne diesen Schritt bleibt die alte gecachte index.html aktiv,
+        // auch wenn der neue SW bereits Kontrolle hat.
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+          .then((windowClients) => {
+            console.log('[SW] Lade', windowClients.length, 'Fenster neu nach SW-Update.');
+            windowClients.forEach((client) => {
+              client.navigate(client.url);
+            });
+          })
+      )
   );
 });
 
