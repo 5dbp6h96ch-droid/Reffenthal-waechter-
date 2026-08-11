@@ -1,0 +1,119 @@
+STOP. Der aktuelle iPhone-Screenshot widerlegt, dass Run #142 die UI repariert hat.
+
+Service Worker ist nachweislich OK:
+- controller: /Reffenthal-waechter-/sw.js
+- ctrl === active: JA
+- ready: resolved
+- active: activated
+- cache: rheinschiffer-dd9232f
+
+Aber die tatsächlich gerenderte UI ist weiterhin ALT:
+- „MENÜ“ sichtbar
+- Vorhersage
+- WSV – Nachrichten
+- Tankstelle
+- Clubs
+- Rhein-Karte
+- News
+- Wächter Status
+- KEINE Bottom-Navigation Konto | Preferences | Help
+
+Das Diagnose-Overlay liegt jetzt oben und kann die Bottom-Nav NICHT mehr verdecken. Der Screenshot beweist daher, dass die Bottom-Nav tatsächlich nicht gerendert wird.
+
+WICHTIG:
+Service Worker NICHT weiter verändern.
+Safari/iOS controllerchange NICHT weiter untersuchen.
+Keinen weiteren Reload-/Cache-Fix bauen.
+
+Jetzt ausschließlich die React-/Expo-App untersuchen.
+
+Aktuell geladenes Bundle:
+index-f959be1d449747042f20d17ef55aea02.js
+
+Führe folgende Prüfung durch:
+
+1. Öffne exakt das LIVE-Bundle und suche nach den Strings:
+   MENÜ
+   Vorhersage
+   WSV – Nachrichten
+   Tankstelle
+   Clubs
+   Rhein-Karte
+   News
+   Wächter Status
+   Konto
+   Preferences
+   Help
+
+2. Wenn „MENÜ“/die alten Menüeinträge im Bundle vorhanden sind:
+   → Das Bundle f959be1d ist NICHT das neue UI-Bundle.
+   → Ermittle, warum der Build denselben Hash f959be1d verwendet bzw. warum dieses alte Bundle deployed wird.
+
+3. Wenn „MENÜ“ NICHT im Bundle vorhanden ist:
+   → Ermittle, welcher andere JavaScript-Code diese Texte rendert.
+   → Prüfe alle Script-Tags und dynamischen Imports.
+   → Prüfe React-Native-Web/Expo Routing und mögliche zweite Entry-Points.
+
+4. Prüfe den tatsächlichen Build-Input:
+   artifacts/mobile/app/+html.tsx
+   artifacts/mobile/app/index.tsx
+   beziehungsweise den tatsächlichen Expo-Web-Entry-Point.
+
+5. Suche im gesamten Repository nach:
+   „MENÜ“
+   „Vorhersage“
+   „Wächter Status“
+   und identifiziere exakt die Datei/Komponente, die diese alte Menüansicht rendert.
+
+6. Suche separat nach:
+   „Konto“
+   „Preferences“
+   „Help“
+   „Bottom“
+   und identifiziere die neue Navigation.
+
+7. Ermittle, warum die neue Navigation im Build nicht gerendert wird.
+   Mögliche Ursachen gezielt prüfen:
+   - falscher Entry-Point
+   - falsche Route
+   - alte Komponente weiterhin aktiv
+   - Feature-Flag
+   - Conditional Rendering
+   - Gastmodus/Preferences-Status
+   - Expo Router Route
+   - falsche Build-Konfiguration
+   - falsches Artefakt wird nach test/ kopiert
+
+8. Verifiziere nach dem Fix:
+   LIVE test/index.html
+   → tatsächliche Bundle-URL
+   → tatsächlicher Bundle-Inhalt
+   → SHA256 des Live-Bundles
+   → Build-Artefakt SHA256
+
+9. Ganz wichtig:
+   Ein neuer Cache-Hash oder Service-Worker-Hash ist KEIN Fix.
+   Der Fix muss dazu führen, dass das LIVE-Bundle tatsächlich die neue Bottom-Navigation rendert.
+
+Zielzustand auf dem iPhone:
+
+Konto | Preferences | Help
+
+und keinerlei:
+MENÜ
+Vorhersage
+WSV – Nachrichten
+Tankstelle
+Clubs
+Rhein-Karte
+News
+Wächter Status
+
+Bitte liefere diesmal einen konkreten Beweis:
+- Datei/Komponente, die das alte MENÜ rendert
+- Datei/Komponente, die die neue Bottom-Nav rendert
+- warum die alte Komponente bisher verwendet wurde
+- welche Codeänderung das behebt
+- neuer Commit SHA
+- tatsächlicher Live-Bundle-Hash
+- Nachweis, dass die alten MENÜ-Strings im ausgeführten Bundle nicht mehr vorhanden sind
