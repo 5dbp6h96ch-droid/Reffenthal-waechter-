@@ -1,0 +1,339 @@
+Bitte baue die TEST-Umgebung auf eine moderne App-Struktur mit
+Bottom-Navigation um.
+
+WICHTIG:
+Alle bisher funktionierenden Funktionen müssen erhalten bleiben:
+- PEGELONLINE über pegel_uuid
+- Speyer/Mannheim/Worms
+- Rheinkilometer
+- persönliche Schwellenwerte je Pegel
+- Pegelwarnungen
+- Vorname + Nutzername
+- Login/Registrierung
+- HVZ-Vorhersagen
+- Verlauf
+- WSV/NfB
+- News
+- Clubs
+- Rhein-Karte
+- Wächter
+
+KEINE Änderungen an main/Produktion.
+
+==================================================
+1. BOTTOM NAVIGATION
+==================================================
+
+Am unteren Bildschirmrand eine feste App-Navigation mit genau drei
+Bereichen:
+
+[Konto]     [Preferences]     [Help]
+
+Mit passenden Icons.
+
+Die Navigation soll modern und kompakt im Stil einer mobilen App sein.
+
+Die drei Bereiche sollen echte Screens/Ansichten innerhalb der App sein,
+keine aufklappbaren Menüzeilen mehr.
+
+==================================================
+2. GASTMODUS
+==================================================
+
+Wenn der Nutzer NICHT angemeldet ist:
+
+Die App soll im Hauptbereich bewusst reduziert sein.
+
+Oben bzw. im Hauptbereich wird ausschließlich der aktuelle Pegelstand
+des ausgewählten Pegels angezeigt.
+
+Anzuzeigen:
+- Pegelname
+- Rheinkilometer
+- aktueller Pegelstand
+- Messzeitpunkt
+
+Der Gast darf weiterhin zwischen den vorhandenen Pegelorten wechseln,
+aber es sollen KEINE persönlichen Einstellungen oder persönlichen
+Schwellenwerte angezeigt werden.
+
+Keine:
+- persönliche Pegelwarnungen
+- Profilinformationen
+- persönliche Einstellungen
+
+Der Nutzer soll aber die Möglichkeit haben, sich über „Konto“
+anzumelden bzw. zu registrieren.
+
+==================================================
+3. ANGEMELDETER BEREICH
+==================================================
+
+Nach erfolgreicher Anmeldung wird der vollständige App-Inhalt sichtbar.
+
+Der Hauptbereich darf weiterhin enthalten:
+- Pegelstand
+- Verlauf
+- Vorhersage
+- WSV/NfB
+- News
+- Clubs
+- Rhein-Karte
+- Wächter
+
+Diese Informationen müssen nicht alle in der Bottom-Navigation liegen.
+
+Die Bottom-Navigation dient ausschließlich der persönlichen
+Navigation:
+
+Konto | Preferences | Help
+
+==================================================
+4. KONTO
+==================================================
+
+Tab „Konto“:
+
+Wenn nicht angemeldet:
+- Anmelden
+- Registrieren
+- Registrierung mit:
+  - Vorname
+  - Nutzername
+  - E-Mail
+  - Passwort
+
+Die bestehende funktionierende Auth-Logik unverändert weiterverwenden.
+
+Wenn angemeldet:
+- Vorname prominent anzeigen
+- @Nutzername anzeigen
+- E-Mail anzeigen
+- Abmelden
+
+Die bestehende useProfile-Logik weiterverwenden.
+
+Keine neue Datenbankmigration erstellen.
+
+==================================================
+5. PREFERENCES
+==================================================
+
+Tab „Preferences“:
+
+Hierhin werden die bisherigen persönlichen Einstellungen verschoben.
+
+Abschnitt:
+
+MEIN PEGELORT
+
+- Speyer
+- Mannheim
+- Worms
+
+Auswahl des persönlichen Pegelorts.
+
+Die bestehende Speicherung über:
+selected_gauge_id
+
+weiterverwenden.
+
+Danach:
+
+MEINE PEGELWARNUNGEN
+
+Für jeden aktiven Pegel:
+- Pegelname
+- Warnung AN/AUS
+- persönliche Schwelle in cm
+
+Die bestehende:
+useUserGaugeSettings
+GaugeAlertRow
+
+weiterverwenden.
+
+WICHTIG:
+Die Schwelle muss weiterhin pro Nutzer UND pro Pegel gespeichert
+werden.
+
+Keine globale Schwelle verwenden.
+
+==================================================
+6. HAUPTSEITE
+==================================================
+
+Die bisherige Pegel-Auswahl oben auf der Startseite NICHT wieder
+einführen.
+
+Der aktuell ausgewählte Pegel wird ausschließlich über
+Preferences → Mein Pegelort geändert.
+
+Die Pegelstand-Kachel zeigt weiterhin dynamisch:
+
+PEGELNAME
+RHEINKILOMETER ... · Datum · Uhrzeit
+
+und den aktuellen Pegelstand.
+
+Die bisher funktionierende UUID-Zuordnung von PEGELONLINE darf
+NICHT verändert werden.
+
+==================================================
+7. HELP
+==================================================
+
+Tab „Help“ mit einer einfachen, übersichtlichen Hilfe-Seite.
+
+Inhalt mindestens:
+
+„Über R(h)einschiffer“
+
+Kurze Erklärung:
+- aktueller Pegelstand
+- Verlauf
+- Vorhersage
+- persönliche Pegelwarnungen
+
+Außerdem eine kurze Erklärung:
+
+„Was bedeutet die Schwelle?“
+Die persönliche Schwelle bestimmt, ab welchem Wasserstand die
+Pegelwarnung ausgelöst wird.
+
+Quellen:
+- PEGELONLINE / WSV
+- HVZ Baden-Württemberg
+
+Vorhandene offizielle Links weiterverwenden.
+
+==================================================
+8. GAST vs. ANGEMELDET
+==================================================
+
+Der wichtigste Punkt:
+
+Gast:
+- reduzierter Hauptbereich
+- aktueller Pegelstand
+- Pegelname
+- Rheinkilometer
+- Messzeit
+- keine persönlichen Einstellungen
+
+Angemeldet:
+- vollständiger Hauptbereich
+- persönliche Einstellungen
+- persönliche Warnschwellen
+- Profil
+- alle bisherigen Funktionen
+
+Der Wechsel von Gast → angemeldet muss automatisch den vollständigen
+Bereich freischalten.
+
+Beim Abmelden muss die App wieder in den Gastmodus wechseln.
+
+==================================================
+9. DESIGN
+==================================================
+
+Die App soll nicht wie eine Website mit langen aufklappbaren
+Menüzeilen wirken.
+
+Stattdessen:
+- moderne mobile App
+- feste Bottom-Navigation
+- klare Karten
+- große aktuelle Pegelanzeige
+- kompakte Preferences
+- klare Icons
+- ausreichend Abstand
+- keine unnötigen doppelten Navigationselemente
+
+Die bestehende visuelle Sprache mit SpaceGrotesk und useColors weiterverwenden.
+
+==================================================
+10. TECHNISCHE REGELN
+==================================================
+
+Keine neue Supabase-Migration.
+
+Keine Änderung an:
+- gauges
+- pegel_uuid
+- user_gauge_settings
+- profiles
+
+Keine Änderung an PEGELONLINE-UUIDs:
+
+Speyer:
+2cb8ae5b-c5c9-4fa8-bac0-bb724f2754f4
+
+Mannheim:
+57090802-c51a-4d09-8340-b4453cd0e1f5
+
+Worms:
+844a620f-f3b8-4b6b-8e3c-783ae2aa232a
+
+HVZ-Zuordnung ebenfalls unverändert:
+
+Speyer → 09017
+Mannheim → 09001
+Worms → 09018
+
+main/Produktion NICHT verändern.
+
+Nur TEST ändern.
+
+==================================================
+11. TESTS
+==================================================
+
+Nach dem Umbau zwingend testen:
+
+A) Gast
+- App öffnen
+- nur aktueller Pegelstand im Hauptbereich
+- keine persönlichen Einstellungen sichtbar
+- Konto/Preferences/Help unten sichtbar
+- Konto ermöglicht Anmeldung
+
+B) Login
+- anmelden
+- vollständiger Hauptbereich erscheint
+- Preferences verfügbar
+- Konto zeigt Vorname + Nutzername + E-Mail
+
+C) Preferences
+- Pegel auf Mannheim wechseln
+- Hauptseite zeigt Mannheim / 424,73
+- persönliche Mannheim-Schwelle wird verwendet
+
+D) Worms
+- Pegel auf Worms wechseln
+- Hauptseite zeigt Worms / 443,37
+- persönliche Worms-Schwelle wird verwendet
+
+E) Abmelden
+- vollständiger Bereich verschwindet
+- App kehrt in Gastmodus zurück
+
+F) Help
+- Help-Screen funktioniert
+
+G) Reload
+- Login-Zustand funktioniert wie bisher
+- ausgewählter Pegel bleibt erhalten
+
+Nach Abschluss berichten:
+- geänderte Dateien
+- Commit
+- Test-Deploy
+- GitHub-Actions-Run
+- Gastmodus getestet
+- Login getestet
+- Preferences getestet
+- Schwellenwerte getestet
+- Help getestet
+- Abmelden getestet
+- main unverändert
