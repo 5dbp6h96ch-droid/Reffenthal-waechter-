@@ -53,6 +53,9 @@ jobs:
           # Statischer Datenmodus: liest direkt aus den öffentlichen JSON-Dateien
           # auf GitHub statt von einem API-Server.
           EXPO_PUBLIC_STATIC_DATA: "true"
+          # Supabase-Konfiguration (Auth + Profil + Gauge-Einstellungen)
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_KEY }}
         run: |
           cd artifacts/mobile
           pnpm exec expo export --platform web --output-dir dist
