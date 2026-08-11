@@ -1,0 +1,136 @@
+🚨 PRIORITÄT: TEST-DEPLOYMENT PRÜFEN UND ENDGÜLTIG REPARIEREN
+
+Der aktuelle Test-Link ist:
+
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/
+
+Problem:
+Die Seite lädt zwar, aber sie liefert weiterhin den ALTEN UI-Stand aus.
+
+Aktueller Screenshot zeigt:
+- Testumgebung-Banner vorhanden
+- Pegel + Verlauf vorhanden
+- altes Menü vorhanden
+- KEINE Bottom-Navigation mit:
+  Konto | Preferences | Help
+
+Der aktuelle index.tsx-Code enthält dagegen bereits eindeutig:
+- ActiveTab = null | 'konto' | 'preferences' | 'help'
+- handleTabPress()
+- renderKonto()
+- renderPreferences()
+- renderHelp()
+- renderBottomNav()
+- feste Bottom-Navigation
+
+Daher ist sehr wahrscheinlich NICHT der React-Code das Problem, sondern das Deployment / Asset-Bundle / Service-Worker / GitHub-Pages-Pfad.
+
+BITTE NICHT einfach erneut behaupten, dass der Cache das Problem ist.
+Prüfe die tatsächlich ausgelieferte Version.
+
+AUFGABEN:
+
+1. Prüfe den GitHub-Pages-Testpfad:
+   /Reffenthal-waechter-/test/
+
+2. Prüfe, welche index.html dort tatsächlich ausgeliefert wird.
+
+3. Ermittle aus index.html den tatsächlich geladenen JS-Bundle-Namen.
+
+4. Prüfe dieses Bundle und suche darin nach eindeutigen Strings aus dem NEUEN Code:
+   - "Preferences"
+   - "Konto"
+   - "Help"
+   - "renderBottomNav"
+   - "Alle Funktionen freischalten"
+
+5. Wenn diese Strings im ausgelieferten Bundle fehlen:
+   → Das Deployment verwendet definitiv ein altes Bundle.
+   → Finde heraus, warum der neue Build nicht nach /test/ deployed wird.
+
+6. Prüfe insbesondere:
+   - GitHub Actions Workflow
+   - Build-Schritt
+   - Expo/Web-Build
+   - output directory
+   - GitHub Pages artifact
+   - base path / public path
+   - /test/ Unterverzeichnis
+   - ob test und main versehentlich unterschiedliche Build-Artefakte verwenden
+   - ob ein alter Build aus dem Cache übernommen wird
+
+7. Prüfe sw.js im TEST-Verzeichnis.
+   Erwartet:
+   CACHE_VERSION = '5721cb6'
+   self.skipWaiting()
+
+   Aber:
+   Verlasse dich NICHT nur auf diese Werte.
+   Entscheidend ist, welches JS-Bundle die index.html tatsächlich lädt.
+
+8. Prüfe außerdem, ob der Service Worker auf /test/ korrekt registriert wird.
+   Wichtig:
+   Ein Service Worker unter einem falschen Scope oder falschem Pfad kann /test/ nicht korrekt kontrollieren.
+
+9. Prüfe, ob der Cache-Key tatsächlich das neue Bundle enthält.
+   Der alte Cache:
+   rheinschiffer-a3ddb55
+
+   darf nicht mehr das alte JS ausliefern.
+
+10. Nach der Reparatur:
+    - neuen Build erzeugen
+    - Test-Deployment durchführen
+    - sicherstellen, dass /test/ das neue Bundle enthält
+    - Cache-Version auf den tatsächlichen neuen Build-SHA setzen
+    - self.skipWaiting() aktiv lassen
+    - activate-Handler mit clients.claim() prüfen/ergänzen, damit der neue SW sofort Kontrolle übernimmt
+    - alten Cache löschen
+
+11. WICHTIG:
+    Nicht nur sw.js ändern.
+    Der tatsächlich ausgelieferte JavaScript-Bundle muss den neuen index.tsx-Code enthalten.
+
+12. Prüfe danach den Test-Link erneut:
+    https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/
+
+ERWARTETES UI:
+Bottom-Navigation dauerhaft sichtbar:
+┌─────────────────────────────────────┐
+│     Konto | Preferences | Help      │
+└─────────────────────────────────────┘
+
+Zusätzlich muss die bestehende Funktionalität erhalten bleiben:
+- PEGELONLINE
+- persönliche Schwellenwerte
+- HVZ-Vorhersage
+- NfB
+- Tankstelle
+- Clubs
+- Rhein-Karte
+- News
+- Wächter
+- Login/Registrierung
+- Gastmodus
+
+WICHTIGSTE AKZEPTANZKRITERIEN:
+
+A) Das ausgelieferte Bundle enthält den neuen Code.
+B) /test/ lädt dieses Bundle.
+C) Service Worker kontrolliert /test/ korrekt.
+D) alter Cache wird entfernt.
+E) Bottom-Navigation "Konto / Preferences / Help" ist nach einem normalen Reload sichtbar.
+F) Keine Änderung am bestehenden Funktionsumfang.
+
+Bitte zuerst die Ursache feststellen und mit konkreten Dateien/Hashes belegen.
+Erst danach Änderungen durchführen.
+
+Am Ende berichten:
+- Ursache
+- welche Datei(en) geändert wurden
+- alter Bundle-Hash
+- neuer Bundle-Hash
+- SW-Version
+- verwendeter Deployment-Pfad
+- Ergebnis des Test-Deployments
+- Test-URL
