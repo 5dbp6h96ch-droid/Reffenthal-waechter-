@@ -47,11 +47,14 @@ self.addEventListener('activate', (event) => {
             })
         )
       )
-      .then(() => clients.claim())
+      // clients.claim() in try-catch: auf iOS Safari kann claim() werfen.
+      // Fehler darf activate-Handler nicht blockieren.
+      .then(() => clients.claim().catch((e) => console.warn('[SW] clients.claim() Fehler:', e)))
       .then(() =>
         // Alle offenen Fenster via postMessage informieren (SW_UPDATED).
-        // Die Seite lauscht in +html.tsx (controllerchange) und sw-diag.js (message)
-        // und ruft window.location.reload() auf.
+        // Die Seite lauscht in +html.tsx (controllerchange) und sw-diag.js (message).
+        // sw-diag.js fällt auf ready-no-controller-Reload zurück falls controllerchange
+        // auf iOS Safari nicht feuert.
         // KEIN client.navigate(): iOS Safari benötigt user-gesture-Kontext.
         self.clients.matchAll({ type: 'window', includeUncontrolled: true })
           .then((windowClients) => {
@@ -60,6 +63,7 @@ self.addEventListener('activate', (event) => {
               client.postMessage({ type: 'SW_UPDATED' });
             });
           })
+          .catch((e) => console.warn('[SW] postMessage-Loop Fehler:', e))
       )
   );
 });

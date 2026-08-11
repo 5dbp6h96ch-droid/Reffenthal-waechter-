@@ -1,185 +1,200 @@
 /**
- * sw-diag.js – Service-Worker-Volldiagnose + iOS-sicherer Reload-Mechanismus
+ * sw-diag.js – Service-Worker-Volldiagnose + iOS-sicherer Controller-Fix
  *
  * Wird vom CI ausschließlich in test/index.html eingebettet (nie in Produktion).
  *
- * Diagnose-Overlay zeigt:
- *   SW scope / scriptURL / registration state
- *   SW active / waiting / installing
- *   navigator.serviceWorker.controller
- *   pageshow.persisted (BFCache-Detektion)
- *   geladenes JS-Bundle
- *   alle Cache-Namen
+ * Root Cause iOS Safari:
+ *   clients.claim() triggert kein controllerchange Event für die aktive Seite.
+ *   Fix: nach SW.ready direkt controller prüfen und bei null sofort reload.
  *
- * Reload-Mechanismen (anti-loop via sessionStorage):
- *   1. controllerchange-Event  (primär, iOS-sicher)
- *   2. SW_UPDATED postMessage  (Fallback vom SW activate-Handler)
- *   3. BFCache pageshow reload (iOS Safari BFCache-Restore)
+ * Diagnose-Overlay zeigt:
+ *   registration / scope / scriptURL
+ *   active / waiting / installing / controller
+ *   controller === active
+ *   controllerchange fired
+ *   pageshow.persisted (BFCache)
+ *   location / ready
  */
 (function () {
   'use strict';
+
+  var LOG = '[SW-Diag]';
+
+  /* ── Diagnose-State ────────────────────────────────────────────────────── */
+  var state = {
+    controllerchangeFired: false,
+    pageshoePersisted:     false,
+    readyResolved:         false,
+    updateResult:         '–',
+    reloaded:             false,
+  };
+
+  /* ── BFCache-Tracking ──────────────────────────────────────────────────── */
+  window.addEventListener('pageshow', function (e) {
+    state.pageshoePersisted = e.persisted;
+    if (e.persisted) {
+      console.log(LOG, 'BFCache-Restore (pageshow.persisted=true) → Reload');
+      sessionStorage.removeItem('sw-diag-rl');
+      window.location.reload(true);
+    }
+  });
+
   if (!('serviceWorker' in navigator)) {
     renderStatic('serviceWorker API nicht verfügbar');
     return;
   }
   var SW = navigator.serviceWorker;
 
-  /* ── Anti-Loop ─────────────────────────────────────────────────────────── */
-  // sessionStorage wird beim Tab-Schließen gelöscht → beim nächsten Öffnen
-  // greift der Reload wieder falls ein weiteres SW-Update wartet.
-  var RELOAD_KEY = 'sw-diag-reloaded';
+  /* ── Anti-Reload-Loop ──────────────────────────────────────────────────── */
+  var RELOAD_KEY = 'sw-diag-rl';
+  state.reloaded = !!sessionStorage.getItem(RELOAD_KEY);
+
   function safeReload(reason) {
-    if (sessionStorage.getItem(RELOAD_KEY)) {
-      console.log('[SW-Diag] Reload bereits erfolgt, überspringe (' + reason + ')');
-      renderDiag();
+    if (state.reloaded) {
+      console.log(LOG, 'Reload bereits erfolgt – kein weiterer Reload (' + reason + ')');
+      renderDiag(null);
       return;
     }
-    console.log('[SW-Diag] Reload (' + reason + ')');
-    sessionStorage.setItem(RELOAD_KEY, '1');
+    console.log(LOG, 'Reload (' + reason + ')');
+    sessionStorage.setItem(RELOAD_KEY, reason);
+    state.reloaded = true;
     window.location.reload(true);
   }
 
-  /* ── BFCache-Detektion ─────────────────────────────────────────────────── */
-  // iOS Safari stellt Seiten aus dem BFCache wieder her ohne einen echten Load.
-  // In diesem Fall feuern weder load noch DOMContentLoaded, aber pageshow feuert.
-  window.addEventListener('pageshow', function (e) {
-    if (e.persisted) {
-      console.log('[SW-Diag] BFCache-Restore (pageshow.persisted=true) → Reload');
-      sessionStorage.removeItem(RELOAD_KEY); // reset: frischer Reload erlaubt
-      window.location.reload(true);
-    }
-  });
-
-  /* ── Reload-Mechanismen ────────────────────────────────────────────────── */
+  /* ── controllerchange ──────────────────────────────────────────────────── */
   SW.addEventListener('controllerchange', function () {
+    state.controllerchangeFired = true;
+    console.log(LOG, 'controllerchange → safeReload');
     safeReload('controllerchange');
   });
 
+  /* ── SW_UPDATED postMessage ────────────────────────────────────────────── */
   SW.addEventListener('message', function (e) {
     if (e && e.data && e.data.type === 'SW_UPDATED') {
-      safeReload('SW_UPDATED postMessage');
+      console.log(LOG, 'SW_UPDATED postMessage → safeReload');
+      safeReload('SW_UPDATED');
     }
   });
 
-  /* ── SW registrieren / update() ────────────────────────────────────────── */
-  // Falls noch kein SW registriert: jetzt registrieren.
-  // Falls bereits registriert: update() explizit prüfen ob neue Version verfügbar.
+  /* ── SW registrieren + update() ────────────────────────────────────────── */
   var SW_URL   = '/Reffenthal-waechter-/sw.js';
   var SW_SCOPE = '/Reffenthal-waechter-/';
 
   function ensureRegistration() {
     return SW.register(SW_URL, { scope: SW_SCOPE })
       .then(function (reg) {
-        // Explizit nach Update prüfen (unabhängig vom 24h-Browser-Intervall)
-        reg.update().catch(function () {});
+        reg.update()
+          .then(function ()  { state.updateResult = 'ok'; })
+          .catch(function (e){ state.updateResult = 'err: ' + e; });
         return reg;
       });
   }
 
-  /* ── Diagnose-Overlay ──────────────────────────────────────────────────── */
-  var BUNDLE_TAG = '–';
-  var scripts = document.querySelectorAll('script[src]');
-  for (var i = 0; i < scripts.length; i++) {
-    if (scripts[i].src.indexOf('_expo') !== -1) {
-      BUNDLE_TAG = scripts[i].src.split('/').pop();
-      break;
+  /* ── Bundle-Name aus DOM ───────────────────────────────────────────────── */
+  function bundleName() {
+    var tags = document.querySelectorAll('script[src]');
+    for (var i = 0; i < tags.length; i++) {
+      if (tags[i].src.indexOf('_expo') !== -1) return tags[i].src.split('/').pop();
     }
+    return '–';
   }
 
-  function el(tag, style, html) {
-    var e = document.createElement(tag);
-    if (style) e.setAttribute('style', style);
-    if (html)  e.innerHTML = html;
-    return e;
-  }
-
-  function renderLines(lines) {
-    return lines.map(function (l) { return '🔧 ' + l; }).join('<br>');
+  /* ── Diagnose-Overlay ──────────────────────────────────────────────────── */
+  function strip(url) {
+    return url ? url.replace('https://5dbp6h96ch-droid.github.io', '') : '–';
   }
 
   function renderOverlay(lines) {
     var existing = document.getElementById('sw-diag');
     if (existing) existing.remove();
-    var div = el('div',
-      'position:fixed;bottom:62px;left:0;right:0;' +
-      'background:rgba(10,30,35,0.96);color:#d0eef2;' +
-      'font:9.5px/1.65 monospace;padding:6px 10px;' +
-      'z-index:2147483647;pointer-events:none;' +
-      'word-break:break-all;' +
-      'border-top:1px solid rgba(255,255,255,0.12)',
-      renderLines(lines)
-    );
+    var div = document.createElement('div');
     div.id = 'sw-diag';
-    document.body.appendChild(div);
+    div.setAttribute('style',
+      'position:fixed;bottom:62px;left:0;right:0;' +
+      'background:rgba(8,24,28,0.97);color:#c8eaf0;' +
+      'font:9px/1.7 monospace;padding:5px 8px;' +
+      'z-index:2147483647;pointer-events:none;' +
+      'word-break:break-all;border-top:2px solid #2a7a8a');
+    div.innerHTML = lines.map(function(l){ return '🔧 '+l; }).join('<br>');
+    if (document.body) document.body.appendChild(div);
   }
 
   function renderStatic(msg) {
-    if (document.body) {
-      renderOverlay([msg]);
-    } else {
-      document.addEventListener('DOMContentLoaded', function () { renderOverlay([msg]); });
-    }
+    if (document.body) renderOverlay([msg]);
+    else document.addEventListener('DOMContentLoaded', function(){ renderOverlay([msg]); });
   }
 
   function renderDiag(reg) {
-    var ctrl = SW.controller;
-    var reloaded = sessionStorage.getItem(RELOAD_KEY) ? 'ja' : 'nein';
+    var ctrl   = SW.controller;
+    var active = reg ? reg.active   : null;
+    var bundle = bundleName();
+
+    var ctrlURL   = ctrl   ? strip(ctrl.scriptURL)   : '<span style="color:#f66">⚠ NONE</span>';
+    var activeURL = active ? strip(active.scriptURL) + ' (' + active.state + ')' : '<span style="color:#f66">none</span>';
+    var ctrlEqAct = ctrl && active ? (ctrl.scriptURL === active.scriptURL ? '✅ ja' : '❌ nein') : '–';
 
     var lines = [
-      'controller: ' + (ctrl
-        ? ctrl.scriptURL.replace('https://5dbp6h96ch-droid.github.io', '')
-        : '<span style="color:#f77">⚠ NONE</span>'),
-      'bundle:     ' + BUNDLE_TAG,
-      'bfcache-reload: ' + reloaded,
+      'location:          ' + strip(location.href),
+      'registration:      ' + (reg ? 'vorhanden' : '<span style="color:#f66">FEHLT</span>'),
+      'scope:             ' + (reg ? strip(reg.scope) : '–'),
+      'scriptURL:         ' + (reg ? strip(reg.active ? reg.active.scriptURL : SW_URL) : SW_URL),
+      'active:            ' + activeURL,
+      'waiting:           ' + (reg && reg.waiting    ? strip(reg.waiting.scriptURL)    + ' (' + reg.waiting.state    + ')' : 'none'),
+      'installing:        ' + (reg && reg.installing ? strip(reg.installing.scriptURL) + ' (' + reg.installing.state + ')' : 'none'),
+      'controller:        ' + ctrlURL,
+      'ctrl === active:   ' + ctrlEqAct,
+      'ready:             ' + (state.readyResolved ? '✅ resolved' : '⏳ pending'),
+      'update() result:   ' + state.updateResult,
+      'controllerchange:  ' + (state.controllerchangeFired ? '✅ gefeuert' : '❌ nie gefeuert'),
+      'pageshow.persisted:' + (state.pageshoePersisted ? '⚠ ja (BFCache)' : 'nein'),
+      'reloaded:          ' + (state.reloaded ? sessionStorage.getItem(RELOAD_KEY) || 'ja' : 'nein'),
+      'bundle:            ' + bundle,
     ];
 
-    if (reg) {
-      lines.splice(1, 0,
-        'scope:      ' + reg.scope.replace('https://5dbp6h96ch-droid.github.io', ''),
-        'active:     ' + (reg.active
-          ? reg.active.scriptURL.replace('https://5dbp6h96ch-droid.github.io', '') +
-            ' (' + reg.active.state + ')'
-          : '<span style="color:#f77">none</span>'),
-        'waiting:    ' + (reg.waiting
-          ? reg.waiting.scriptURL.replace('https://5dbp6h96ch-droid.github.io', '') +
-            ' (' + reg.waiting.state + ')'
-          : 'none'),
-        'installing: ' + (reg.installing
-          ? reg.installing.scriptURL.replace('https://5dbp6h96ch-droid.github.io', '') +
-            ' (' + reg.installing.state + ')'
-          : 'none')
-      );
-    } else {
-      lines.splice(1, 0, 'registration: <span style="color:#f77">nicht verfügbar</span>');
-    }
-
     if (window.caches) {
-      caches.keys().then(function (names) {
-        lines.push('caches:     ' + (names.length ? names.join(' | ') : '(leer)'));
+      caches.keys().then(function(names){
+        lines.push('caches:            ' + (names.length ? names.join(' | ') : '(leer)'));
         renderOverlay(lines);
-      }).catch(function () { renderOverlay(lines); });
+      }).catch(function(){ renderOverlay(lines); });
     } else {
       renderOverlay(lines);
     }
   }
 
-  /* ── Start ─────────────────────────────────────────────────────────────── */
+  /* ── Hauptlogik ─────────────────────────────────────────────────────────── */
   function start() {
-    // Sofort mit vorhandenen Daten rendern (controller könnte schon gesetzt sein)
+    // Sofortige Erstdarstellung mit vorhandenen Daten
     renderDiag(null);
 
     ensureRegistration()
       .then(function (reg) {
         renderDiag(reg);
-        // Nach SW.ready: SW ist aktiv → finale Diagnose
-        SW.ready.then(function (readyReg) {
-          renderDiag(readyReg);
-        }).catch(function (err) {
-          renderOverlay(['SW.ready Fehler: ' + err]);
-        });
+
+        SW.ready
+          .then(function (readyReg) {
+            state.readyResolved = true;
+            renderDiag(readyReg);
+
+            /* ─── iOS SAFARI FIX ─────────────────────────────────────────
+               clients.claim() auf iOS Safari triggert KEIN controllerchange
+               Event für die bereits geöffnete Seite. Daher: nach SW.ready
+               explizit prüfen ob controller gesetzt ist. Falls nicht → reload.
+               Das ist die einzig zuverlässige Methode für iOS Safari.
+            ──────────────────────────────────────────────────────────────── */
+            if (!SW.controller) {
+              console.log(LOG, 'SW.ready resolved aber controller=null → iOS-Fix: safeReload');
+              safeReload('ready-no-controller');
+            }
+          })
+          .catch(function (err) {
+            renderOverlay(['SW.ready Fehler: ' + err]);
+          });
       })
       .catch(function (err) {
-        renderOverlay(['Registration Fehler: ' + err, 'bundle: ' + BUNDLE_TAG]);
+        renderOverlay([
+          'Registration Fehler: ' + err,
+          'bundle: ' + bundleName(),
+        ]);
       });
   }
 
@@ -188,11 +203,12 @@
   } else {
     document.addEventListener('DOMContentLoaded', start);
   }
-  // Nachladerender nach React-Mount (falls Body erst später bereit)
+
+  // Nachladen nach React-Mount
   setTimeout(function () {
-    SW.ready.then(renderDiag).catch(function () {});
+    SW.ready.then(function(r){ state.readyResolved=true; renderDiag(r); }).catch(function(){});
   }, 1500);
   setTimeout(function () {
-    SW.ready.then(renderDiag).catch(function () {});
+    SW.ready.then(function(r){ state.readyResolved=true; renderDiag(r); }).catch(function(){});
   }, 4000);
 })();
