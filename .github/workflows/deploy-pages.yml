@@ -135,12 +135,6 @@ jobs:
           cp "$DIST/index.html" "$DIST/404.html"
           echo "✓ 404.html erstellt"
 
-          # sw-diag.js: Diagnose-Script für /test/ – muss in dist/ liegen,
-          # damit es unter /Reffenthal-waechter-/sw-diag.js erreichbar ist.
-          # Wird nur in test/index.html eingebunden (nie in index.html/Produktion).
-          cp artifacts/mobile/sw-diag.js "$DIST/sw-diag.js"
-          echo "✓ sw-diag.js in dist kopiert"
-
       # ── NUR AUF DEM test-Branch: Testversion als Branch-Artefakt speichern ──
       # Der test-Branch darf NICHT direkt in die 'github-pages'-Umgebung deployen
       # (Environment-Schutzregel: nur main ist erlaubt).
@@ -177,36 +171,8 @@ jobs:
             git worktree add --orphan /tmp/test-artifacts-wd test-artifacts
           fi
 
-          # sw-diag.js in dist kopieren (muss live unter /Reffenthal-waechter-/sw-diag.js erreichbar sein)
-          cp artifacts/mobile/sw-diag.js "$DIST/sw-diag.js"
-          echo "✓ sw-diag.js in dist kopiert"
-
-          # test/index.html: sw-diag.js-Script einbetten (nur in /test/, nie in Produktion)
-          # Das Script enthält:
-          #   - controllerchange → window.location.reload(true)  (iOS-sicherer primärer Mechanismus)
-          #   - SW_UPDATED postMessage → reload                  (Fallback)
-          #   - DOM-sichtbare SW-Diagnose (active/waiting/controller/bundle/caches)
           mkdir -p /tmp/test-artifacts-wd/test
           cp "$DIST/test/index.html" /tmp/test-artifacts-wd/test/index.html
-
-          python3 - << 'PYEOF'
-          import sys
-          path = '/tmp/test-artifacts-wd/test/index.html'
-          base = '/Reffenthal-waechter-'
-          inject = f'<script src="{base}/sw-diag.js?v=__CACHE_VERSION__"></script>'
-          html = open(path).read()
-          if 'sw-diag.js' not in html:
-              html = html.replace('</body>', inject + '</body>', 1)
-              open(path, 'w').write(html)
-              print('✓ sw-diag.js in test/index.html eingebettet')
-          else:
-              print('ℹ sw-diag.js bereits vorhanden')
-          PYEOF
-
-          # Cache-Version in sw-diag.js-URL ersetzen
-          VERSION=$(git rev-parse --short HEAD)
-          sed -i "s/__CACHE_VERSION__/${VERSION}/g" /tmp/test-artifacts-wd/test/index.html
-          echo "✓ sw-diag.js URL versioniert mit ${VERSION}"
 
           # README für Klarheit (wird nie deployed, nur Dokumentation)
           cat > /tmp/test-artifacts-wd/README.md << 'EOF'
@@ -243,35 +209,12 @@ jobs:
             && echo "✓ main-Workflow ausgelöst" \
             || echo "⚠ Dispatch fehlgeschlagen (Workflow läuft möglicherweise bereits)"
 
-      # ── NUR AUF DEM main-Branch: sw-diag.js in test/index.html einbetten ──
-      # dist/test/index.html wurde bereits im SPA-Routen-Schritt aus
-      # dist/index.html kopiert → enthält immer den aktuellen Bundle-Hash.
-      # Hier wird nur sw-diag.js injiziert (identisch zum test-Branch-Schritt).
-      - name: "[main-Branch] sw-diag.js in test/index.html einbetten"
+      # ── NUR AUF DEM main-Branch: Bundle-URL in test/index.html bestätigen ──
+      - name: "[main-Branch] Bundle-URL in test/index.html bestätigen"
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         run: |
-          DIST=artifacts/mobile/dist
-          VERSION=$(git rev-parse --short HEAD)
-
-          python3 - << 'PYEOF'
-          import os
-          dist = 'artifacts/mobile/dist'
-          path = f'{dist}/test/index.html'
-          base = '/Reffenthal-waechter-'
-          inject = f'<script src="{base}/sw-diag.js?v=__CACHE_VERSION__"></script>'
-          html = open(path).read()
-          if 'sw-diag.js' not in html:
-              html = html.replace('</body>', inject + '</body>', 1)
-              open(path, 'w').write(html)
-              print('✓ sw-diag.js in test/index.html eingebettet')
-          else:
-              print('ℹ sw-diag.js bereits vorhanden')
-          PYEOF
-
-          sed -i "s/__CACHE_VERSION__/${VERSION}/g" "$DIST/test/index.html"
-          echo "✓ sw-diag.js URL versioniert mit ${VERSION}"
           echo "=== Bundle-URL in test/index.html ==="
-          grep -oP '_expo/static/js/web/index-[a-f0-9]+\.js' "$DIST/test/index.html"
+          grep -oP '_expo/static/js/web/index-[a-f0-9]+\.js' artifacts/mobile/dist/test/index.html
 
       - name: GitHub Pages konfigurieren
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
