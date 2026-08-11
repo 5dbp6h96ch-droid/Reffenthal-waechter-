@@ -4,13 +4,16 @@
  * Liest alle aktiven Einträge aus public.gauges.
  * Aktuell vorhanden: speyer, mannheim, worms.
  *
+ * Wenn Supabase nicht konfiguriert ist, gibt der Hook eine leere Liste
+ * zurück (kein Absturz – Pegelort-Auswahl ist dann nicht sichtbar).
+ *
  * Verwendung:
  *   const { gauges, loading, error } = useGauges();
  *   const selected = useSelectedGauge(gaugeId);
  */
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/app/utils/supabase';
+import { supabase, supabaseConfigured } from '@/app/utils/supabase';
 import type { Gauge } from '@/app/types/database';
 
 export interface UseGaugesResult {
@@ -21,14 +24,23 @@ export interface UseGaugesResult {
 
 export function useGauges(): UseGaugesResult {
   const [gauges, setGauges] = useState<Gauge[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Ohne Supabase-Konfiguration: leere Liste, kein Netzwerkaufruf
+    if (!supabaseConfigured || !supabase) {
+      setLoading(false);
+      return;
+    }
+    // Lokale Referenz nach dem Guard – TypeScript kann non-null in async-Closures
+    // nicht durch das Modul-Variable-Narrowing oben sicherstellen.
+    const client = supabase;
+
     const fetchGauges = async () => {
       setLoading(true);
       setError(null);
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await client
         .from('gauges')
         .select('*')
         .eq('active', true)
@@ -65,10 +77,15 @@ export function useSelectedGauge(gaugeId: string | null | undefined): {
       setGauge(null);
       return;
     }
+    // Ohne Supabase-Konfiguration: kein Netzwerkaufruf
+    if (!supabaseConfigured || !supabase) {
+      return;
+    }
+    const client = supabase; // non-null nach Guard (für async-Closure)
     setLoading(true);
     (async () => {
       try {
-        const { data, error: fetchError } = await supabase
+        const { data, error: fetchError } = await client
           .from('gauges')
           .select('*')
           .eq('id', gaugeId)

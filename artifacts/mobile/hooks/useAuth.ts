@@ -12,12 +12,16 @@
  * Session wird persistent in AsyncStorage gespeichert und beim
  * App-Start automatisch wiederhergestellt.
  *
+ * Wenn Supabase nicht konfiguriert ist (fehlende ENVs), läuft der Hook
+ * im Gastmodus: loading=false, session=null, alle Auth-Aktionen geben
+ * einen kontrollierten Fehler zurück – kein Absturz.
+ *
  * WICHTIG: Keine UI-Logik hier – nur technische Auth-Grundlage.
  */
 
 import { useState, useEffect } from 'react';
 import type { Session, User, AuthError } from '@supabase/supabase-js';
-import { supabase } from '@/app/utils/supabase';
+import { supabase, supabaseConfigured } from '@/app/utils/supabase';
 
 export interface UseAuthResult {
   session: Session | null;
@@ -28,11 +32,29 @@ export interface UseAuthResult {
   signOut: () => Promise<{ error: AuthError | null }>;
 }
 
+/** Hilfsfunktion: Erstellt einen AuthError-ähnlichen Dummy für den Gastmodus. */
+function notConfiguredError(): { error: AuthError } {
+  return {
+    error: {
+      name: 'AuthApiError',
+      message: 'Supabase nicht konfiguriert – bitte App neu bauen.',
+      status: 0,
+      code: 'supabase_not_configured',
+    } as unknown as AuthError,
+  };
+}
+
 export function useAuth(): UseAuthResult {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(supabaseConfigured); // false wenn kein Supabase
 
   useEffect(() => {
+    // Ohne Supabase-Konfiguration: Gastmodus, kein Netzwerkaufruf
+    if (!supabaseConfigured || !supabase) {
+      setLoading(false);
+      return;
+    }
+
     // Bestehende Session beim Start wiederherstellen
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -52,11 +74,13 @@ export function useAuth(): UseAuthResult {
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    if (!supabaseConfigured || !supabase) return notConfiguredError();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
   };
 
   const signUp = async (email: string, password: string) => {
+    if (!supabaseConfigured || !supabase) return notConfiguredError();
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -70,6 +94,7 @@ export function useAuth(): UseAuthResult {
   };
 
   const signOut = async () => {
+    if (!supabaseConfigured || !supabase) return notConfiguredError();
     const { error } = await supabase.auth.signOut();
     return { error };
   };

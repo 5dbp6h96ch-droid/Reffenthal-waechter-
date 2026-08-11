@@ -7,12 +7,15 @@
  * Standortdaten (latitude/longitude) werden NICHT automatisch gespeichert.
  * location_enabled ist standardmäßig false.
  *
+ * Wenn Supabase nicht konfiguriert ist, gibt der Hook settings=null zurück
+ * und alle Schreiboperationen geben einen kontrollierten Fehler zurück.
+ *
  * Verwendung:
  *   const { settings, loading, error, updateSettings } = useUserSettings(userId);
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/app/utils/supabase';
+import { supabase, supabaseConfigured } from '@/app/utils/supabase';
 import type { Database, UserSettings, UserSettingsUpdate } from '@/app/types/database';
 
 export interface UseUserSettingsResult {
@@ -30,6 +33,11 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
 
   const fetchSettings = useCallback(async () => {
     if (!userId) {
+      setSettings(null);
+      return;
+    }
+    // Ohne Supabase-Konfiguration: Gastmodus, kein Netzwerkaufruf
+    if (!supabaseConfigured || !supabase) {
       setSettings(null);
       return;
     }
@@ -55,6 +63,7 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
 
   const updateSettings = useCallback(async (update: UserSettingsUpdate) => {
     if (!userId) return { error: 'Kein Nutzer angemeldet' };
+    if (!supabaseConfigured || !supabase) return { error: 'Supabase nicht konfiguriert' };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const payload: any = {

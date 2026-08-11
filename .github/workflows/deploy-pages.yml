@@ -53,6 +53,11 @@ jobs:
           # Statischer Datenmodus: liest direkt aus den öffentlichen JSON-Dateien
           # auf GitHub statt von einem API-Server.
           EXPO_PUBLIC_STATIC_DATA: "true"
+          # Supabase-Konfiguration – wird beim Build eingebacken.
+          # Secrets müssen im GitHub-Repository unter Settings → Secrets hinterlegt sein.
+          # Fehlen sie, startet die App im Gastmodus (keine Auth, kein Absturz).
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_KEY }}
         run: |
           cd artifacts/mobile
           pnpm exec expo export --platform web --output-dir dist

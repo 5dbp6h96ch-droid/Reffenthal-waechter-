@@ -4,6 +4,10 @@
  * Verwendet @supabase/supabase-js v2 mit AsyncStorage-Session-Persistenz.
  * Konfiguration ausschließlich über EXPO_PUBLIC_*-Umgebungsvariablen –
  * niemals service_role oder Secret Keys hier verwenden.
+ *
+ * Defensiv: Fehlt EXPO_PUBLIC_SUPABASE_URL oder EXPO_PUBLIC_SUPABASE_KEY,
+ * wird createClient NICHT aufgerufen. Die App lädt weiterhin; Auth-Funktionen
+ * sind dann im Gastmodus deaktiviert. Kein App-Absturz bei fehlendem Secret.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -14,17 +18,32 @@ import type { Database } from '../types/database';
 const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY ?? '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('[Supabase] EXPO_PUBLIC_SUPABASE_URL oder EXPO_PUBLIC_SUPABASE_KEY fehlt.');
+/**
+ * true wenn beide Supabase-Umgebungsvariablen beim Build vorhanden waren.
+ * Alle Hooks prüfen diesen Wert, bevor sie den Client verwenden.
+ */
+export const supabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
+
+if (!supabaseConfigured) {
+  console.warn(
+    '[Supabase] EXPO_PUBLIC_SUPABASE_URL oder EXPO_PUBLIC_SUPABASE_KEY fehlt – ' +
+    'Auth-Funktionen sind deaktiviert (Gastmodus).',
+  );
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    // AsyncStorage: funktioniert auf iOS, Android und Web (GitHub Pages PWA)
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    // detectSessionInUrl: false ist erforderlich für React Native / Expo
-    detectSessionInUrl: false,
-  },
-});
+/**
+ * Supabase-Client-Instanz oder null wenn nicht konfiguriert.
+ * Hooks verwenden supabaseConfigured als Guard und casten sicher auf non-null.
+ */
+export const supabase = supabaseConfigured
+  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        // AsyncStorage: funktioniert auf iOS, Android und Web (GitHub Pages PWA)
+        storage: AsyncStorage,
+        autoRefreshToken: true,
+        persistSession: true,
+        // detectSessionInUrl: false ist erforderlich für React Native / Expo
+        detectSessionInUrl: false,
+      },
+    })
+  : null;
