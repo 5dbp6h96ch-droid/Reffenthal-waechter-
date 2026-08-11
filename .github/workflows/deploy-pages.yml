@@ -251,19 +251,19 @@ jobs:
           VERSION=$(git rev-parse --short HEAD)
 
           python3 - << 'PYEOF'
-import os, sys
-dist = os.environ.get('DIST', 'artifacts/mobile/dist')
-path = f'{dist}/test/index.html'
-base = '/Reffenthal-waechter-'
-inject = f'<script src="{base}/sw-diag.js?v=__CACHE_VERSION__"></script>'
-html = open(path).read()
-if 'sw-diag.js' not in html:
-    html = html.replace('</body>', inject + '</body>', 1)
-    open(path, 'w').write(html)
-    print('✓ sw-diag.js in test/index.html eingebettet')
-else:
-    print('ℹ sw-diag.js bereits vorhanden')
-PYEOF
+          import os
+          dist = 'artifacts/mobile/dist'
+          path = f'{dist}/test/index.html'
+          base = '/Reffenthal-waechter-'
+          inject = f'<script src="{base}/sw-diag.js?v=__CACHE_VERSION__"></script>'
+          html = open(path).read()
+          if 'sw-diag.js' not in html:
+              html = html.replace('</body>', inject + '</body>', 1)
+              open(path, 'w').write(html)
+              print('✓ sw-diag.js in test/index.html eingebettet')
+          else:
+              print('ℹ sw-diag.js bereits vorhanden')
+          PYEOF
 
           sed -i "s/__CACHE_VERSION__/${VERSION}/g" "$DIST/test/index.html"
           echo "✓ sw-diag.js URL versioniert mit ${VERSION}"
