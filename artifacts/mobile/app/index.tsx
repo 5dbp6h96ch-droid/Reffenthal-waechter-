@@ -295,25 +295,33 @@ export default function HomeScreen() {
   const { getGaugeSetting, updateGaugeSetting } = useUserGaugeSettings(user?.id);
 
   // ── Ausgewählter Pegelort: zentrale Quelle für Gäste und angemeldete Nutzer ──
-  const [guestGaugeId, setGuestGaugeId] = useState<string | null>(null);
-  // Einzige Quelle: Supabase-Einstellung (angemeldet) oder lokaler Gast-State
-  const selectedGaugeId = settings?.selected_gauge_id ?? guestGaugeId;
-  // Ausgewähltes Pegel-Objekt – erster aktiver Pegel als Fallback
+  //
+  // localGaugeId = sofortiger lokaler State (reagiert ohne Netzwerk-Roundtrip).
+  // Für angemeldete Nutzer wird die Auswahl zusätzlich in Supabase persistiert,
+  // aber localGaugeId ist die einzige reaktive Quelle für alle Render-Ableitungen.
+  //
+  // Priorität: localGaugeId → settings?.selected_gauge_id (Supabase, für Reload) → null
+  const [localGaugeId, setLocalGaugeId] = useState<string | null>(null);
+  const selectedGaugeId = localGaugeId ?? settings?.selected_gauge_id ?? null;
+  // Ausgewähltes Pegel-Objekt – gauges[0] als Anzeige-Fallback solange noch nichts geladen
   const selectedGauge = gauges.find(g => g.id === selectedGaugeId) ?? gauges[0] ?? null;
 
-  // Für Gäste: ersten Pegel vorauswählen sobald Gauges geladen sind
+  // Für Gäste: ersten Pegel vorauswählen sobald Gauges geladen sind.
+  // Angemeldete Nutzer: localGaugeId wird per selectGauge oder settings-Sync gesetzt.
   useEffect(() => {
-    if (gauges.length > 0 && !user && guestGaugeId == null) {
-      setGuestGaugeId(gauges[0].id);
+    if (gauges.length > 0 && localGaugeId == null) {
+      // Gast: ersten Pegel verwenden. Angemeldeter Nutzer: gespeicherte Einstellung.
+      const initial = settings?.selected_gauge_id ?? gauges[0].id;
+      setLocalGaugeId(initial);
     }
-  }, [gauges, user, guestGaugeId]);
+  }, [gauges, localGaugeId, settings?.selected_gauge_id]);
 
-  // Einheitliche Auswahl-Funktion für Gäste und angemeldete Nutzer
+  // Einheitliche Auswahl-Funktion für Gäste und angemeldete Nutzer.
+  // Aktualisiert localGaugeId sofort (reaktiv) und persistiert für angemeldete Nutzer.
   const selectGauge = useCallback((id: string) => {
+    setLocalGaugeId(id);                           // sofort, für alle Nutzertypen
     if (user) {
-      void updateSettings({ selected_gauge_id: id });
-    } else {
-      setGuestGaugeId(id);
+      void updateSettings({ selected_gauge_id: id }); // Supabase-Persistenz
     }
   }, [user, updateSettings]);
 
