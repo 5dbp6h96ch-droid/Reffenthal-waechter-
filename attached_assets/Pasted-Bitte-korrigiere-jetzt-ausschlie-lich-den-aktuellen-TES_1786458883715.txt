@@ -1,0 +1,212 @@
+Bitte korrigiere jetzt ausschließlich den aktuellen TEST-Stand.
+
+Drei konkrete Anforderungen:
+
+1. PEGEL-AUSWAHL
+
+Die separaten Pegel-Buttons oben auf der Startseite sollen vollständig
+entfernt werden.
+
+Aktuell gibt es oberhalb der Pegelstand-Kachel eine Liste mit:
+Speyer / Mannheim / Worms.
+
+Diese UI soll NICHT mehr dort erscheinen.
+
+Die Pegelauswahl bleibt ausschließlich unter „Mein Konto → Mein Pegelort“.
+
+Der aktuell ausgewählte Pegelname soll stattdessen prominent IN die
+Pegelstand-Kachel aufgenommen werden.
+
+Beispiel:
+
+SPEYER
+RHEINKILOMETER 400,61 · 11.08.2026 · 16:xx
+
+bzw.
+
+MANNHEIM
+RHEINKILOMETER 424,73 · ...
+
+bzw.
+
+WORMS
+RHEINKILOMETER 443,37 · ...
+
+Der Pegelname muss dynamisch aus selectedGauge.name kommen.
+KEIN Hardcoding.
+
+2. PERSÖNLICHE SCHWELLENWERTE
+
+Der aktuell angezeigte Schwellenwert auf der Haupt-Pegelstand-Kachel
+darf NICHT mehr aus den globalen Wächter-Daten kommen.
+
+Aktuell ist dort sinngemäß:
+
+const threshold = state?.threshold_cm ?? 225;
+
+Das ist falsch, weil state Speyer-spezifische Wächterdaten enthält.
+
+Die Schwelle muss aus den persönlichen Einstellungen des aktuell
+ausgewählten Pegels kommen:
+
+getGaugeSetting(selectedGauge.id)
+
+und insbesondere:
+
+alert_threshold_cm
+
+verwenden.
+
+Damit gilt:
+
+ausgewählter Pegel = Mannheim
+→ persönliche Mannheim-Schwelle anzeigen
+
+ausgewählter Pegel = Worms
+→ persönliche Worms-Schwelle anzeigen
+
+ausgewählter Pegel = Speyer
+→ persönliche Speyer-Schwelle anzeigen
+
+Die Werte aus „Meine Pegelwarnungen“ und die Schwelle in der großen
+Pegelstand-Kachel müssen dieselbe Datenquelle verwenden.
+
+WICHTIG:
+Nicht wieder state.threshold_cm verwenden.
+
+Wenn für einen Pegel noch kein persönlicher Eintrag existiert,
+verwende einen sinnvollen bestehenden Default, aber KEINE falschen
+Speyer-Wächterdaten. Prüfe dabei den vorhandenen Hook
+useUserGaugeSettings.ts und die bestehende GaugeAlertRow-Logik und
+verwende deren vorhandene Default-/Speicherlogik, sofern vorhanden.
+
+Auch die Alarmberechnung:
+
+isAlarm
+isSafe
+statusLabel
+
+muss anschließend dieselbe persönliche Schwelle verwenden.
+
+3. HVZ-BW-VORHERSAGE
+
+Die bisherige Zuordnung ist falsch/unvollständig.
+
+Aktuell steht sinngemäß:
+
+const HVZ_BW_IDS = {
+  SPEYER: '09017',
+  MANNHEIM: '06268',
+};
+
+Das muss korrigiert werden zu:
+
+const HVZ_BW_IDS = {
+  SPEYER: '09017',
+  MANNHEIM: '09001',
+  WORMS: '09018',
+};
+
+Die offiziellen HVZ-Seiten bestätigen:
+
+Speyer / Rhein → 09017
+Mannheim / Rhein → 09001
+Worms / Rhein → 09018
+
+Alle drei Pegel haben eine HVZ-Pegelseite.
+Bei Worms ist ausdrücklich eine Wasserstand-Vorhersage-Grafik vorhanden.
+
+Die Vorhersage muss daher bei allen drei Pegeln funktionieren.
+
+Die bestehende Logik mit selectedGauge.pegel_nr darf für die
+HVZ-Zuordnung weiter verwendet werden:
+
+selectedGauge.pegel_nr.toUpperCase()
+
+PEGELONLINE bleibt dagegen UUID-basiert und darf NICHT wieder auf
+pegel_nr zurückgestellt werden.
+
+4. VORHERSAGE-URL / BILD
+
+Prüfe außerdem, ob die aktuell verwendete GIF-URL mit den drei korrekten
+HVZ-IDs tatsächlich funktioniert.
+
+Wenn die direkte GIF-URL für einen Pegel nicht funktioniert, verwende
+eine robuste Lösung, die die offizielle HVZ-Pegelseite des ausgewählten
+Pegels öffnet bzw. die dort veröffentlichte Vorhersage darstellt.
+
+Keine erfundenen URLs.
+
+5. DEBUG-ANZEIGE
+
+Die temporäre gelbe DEBUG-Anzeige aus Commit ce12280 vollständig entfernen.
+
+Kein:
+selectedGaugeId
+selectedGauge
+pegel_uuid
+river_km
+DEBUG-Kasten
+
+mehr in der normalen TEST-Oberfläche.
+
+6. PEGELONLINE NICHT BESCHÄDIGEN
+
+Die bereits funktionierende UUID-Zuordnung unverändert lassen:
+
+Speyer:
+2cb8ae5b-c5c9-4fa8-bac0-bb724f2754f4
+
+Mannheim:
+57090802-c51a-4d09-8340-b4453cd0e1f5
+
+Worms:
+844a620f-f3b8-4b6b-8e3c-783ae2aa232a
+
+Der PEGELONLINE-Fetch muss weiterhin pegel_uuid verwenden.
+
+7. AUSWAHLTEST
+
+Nach dem Build zwingend testen:
+
+Speyer:
+- Name Speyer in der Pegelkachel
+- km 400,61
+- persönliche Speyer-Schwelle
+- PEGELONLINE Speyer
+- HVZ 09017
+
+Mannheim:
+- Name Mannheim in der Pegelkachel
+- km 424,73
+- persönliche Mannheim-Schwelle
+- PEGELONLINE Mannheim
+- HVZ 09001
+
+Worms:
+- Name Worms in der Pegelkachel
+- km 443,37
+- persönliche Worms-Schwelle
+- PEGELONLINE Worms
+- HVZ 09018
+
+8. WICHTIG
+
+Keine weitere Supabase-Migration erstellen.
+Keine Änderungen an den Gauge-IDs.
+Keine Änderungen an den PEGELONLINE-UUIDs.
+Keine Änderungen an main/Produktion.
+
+Nur TEST ändern.
+
+Nach Abschluss berichten:
+- geänderte Dateien
+- Commit
+- Test-Deploy
+- GitHub-Actions-Run
+- verwendete HVZ-IDs
+- Ergebnis der Schwellenwerte für Speyer/Mannheim/Worms
+- Ergebnis der Vorhersage für Speyer/Mannheim/Worms
+- Bestätigung, dass die oberen Pegel-Buttons entfernt wurden
+- Bestätigung, dass DEBUG entfernt wurde
+- Bestätigung, dass main unverändert blieb.
