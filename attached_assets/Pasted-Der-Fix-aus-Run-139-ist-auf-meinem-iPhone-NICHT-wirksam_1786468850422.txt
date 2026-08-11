@@ -1,0 +1,73 @@
+Der Fix aus Run #139 ist auf meinem iPhone NICHT wirksam.
+
+Beweis aus aktuellem Live-Screenshot:
+- URL: /Reffenthal-waechter-/test/
+- Diagnose zeigt: controller: ⚠ NONE
+- Bundle: index-f959be1d449747042f20d17ef55aea02.js
+- UI zeigt weiterhin „MENÜ“
+- Bottom-Navigation Konto | Preferences | Help erscheint nicht.
+
+Wichtig:
+Das Bundle ist nachweislich das richtige Bundle. Bitte NICHT erneut das UI/Bundle umbauen.
+
+Untersuche jetzt ausschließlich den Service-Worker-Control-Pfad auf iOS Safari:
+
+1. Prüfe exakt, ob /Reffenthal-waechter-/test/ tatsächlich innerhalb des SW-Scope liegt.
+2. Prüfe registration.scope und registration.scriptURL zur Laufzeit.
+3. Prüfe, ob sw.js tatsächlich registriert wird und ob die Registrierung ready/active ist.
+4. Prüfe, warum navigator.serviceWorker.controller nach dem Laden weiterhin null/undefined ist.
+5. Prüfe insbesondere den Zeitpunkt von:
+   - register()
+   - install
+   - skipWaiting()
+   - activate
+   - clients.claim()
+   - controllerchange
+6. Prüfe, ob sw-diag.js selbst zu spät geladen wird und dadurch controllerchange verpasst.
+7. Prüfe, ob clients.claim() wegen Safari/iOS nicht auf das bereits geöffnete Dokument wirkt.
+8. Prüfe, ob der SW-Scope durch Pfad/Scope/Header eingeschränkt ist.
+9. Prüfe die tatsächlichen HTTP-Header von:
+   /Reffenthal-waechter-/sw.js
+   /Reffenthal-waechter-/test/
+   insbesondere Cache-Control, Service-Worker-Allowed und Content-Type.
+10. Prüfe, ob möglicherweise mehrere SW-Registrierungen/Scopes existieren.
+
+Baue anschließend eine Diagnose ein, die NICHT nur „controller: NONE“ ausgibt, sondern eindeutig zeigt:
+
+registration:
+scope:
+scriptURL:
+active:
+waiting:
+installing:
+controller:
+controller === active:
+ready:
+registration.update() Ergebnis:
+controllerchange fired:
+pageshow.persisted:
+location:
+
+Ganz wichtig:
+Keinen weiteren kosmetischen Fix und keine weitere Änderung am Bundle.
+
+Ziel:
+Nach einem vollständig geschlossenen und neu geöffneten Safari muss
+navigator.serviceWorker.controller
+auf
+/Reffenthal-waechter-/sw.js
+zeigen.
+
+Erst wenn controller tatsächlich vorhanden ist, ist der SW-Fix erfolgreich.
+
+Danach muss die Seite das neue UI mit
+Konto | Preferences | Help
+anzeigen und „MENÜ“ darf nicht mehr erscheinen.
+
+Bitte liefere nach der Reparatur:
+- exakten Root Cause
+- geänderte Dateien
+- neuen Commit SHA
+- Live-URL
+- HTTP-Verifikation
+- erwarteten Diagnose-Output auf iOS Safari.
