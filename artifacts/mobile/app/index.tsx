@@ -527,10 +527,11 @@ export default function HomeScreen() {
   const neverRan = !statusLoading && !lastRunAt;
   const rssNewCount = waechterStatus?.rss_new_count ?? 0;
 
-  // Pegelstand-Daten vom ausgewählten Pegel (PEGELONLINE), Fallback auf Wächter (nur Speyer)
-  const currentCm = pegelLive?.cm ?? state?.last_pegel_cm ?? null;
-  const currentTs = pegelLive?.ts ?? state?.last_pegel_time ?? null;
-  const currentHistory = pegelLive?.history ?? state?.history ?? [];
+  // Pegelstand-Daten ausschließlich von PEGELONLINE für den ausgewählten Pegel.
+  // KEIN Fallback auf Wächter-Daten (state) – diese sind immer Speyer-spezifisch.
+  const currentCm = pegelLive?.cm ?? null;
+  const currentTs = pegelLive?.ts ?? null;
+  const currentHistory = pegelLive?.history ?? [];
   // Schwelle aus Wächter-Daten (Speyer); persönliche Schwelle wird pro Gauge separat verwaltet
   const threshold = state?.threshold_cm ?? 225;
   const isAlarm = currentCm !== null && currentCm < threshold;
@@ -701,7 +702,7 @@ export default function HomeScreen() {
               flex: 1,
               flexShrink: 1,
             }} numberOfLines={1}>
-              {`RHEINKILOMETER ${selectedGauge?.river_km != null ? String(selectedGauge.river_km).replace('.', ',') : SPEYER_RHEINKILOMETER}`}
+              {`RHEINKILOMETER ${selectedGauge?.river_km != null ? String(selectedGauge.river_km).replace('.', ',') : '—'}`}
               {currentTs
                 ? ` · ${formatDate(currentTs)} · ${formatTime(currentTs)}`
                 : ''}
@@ -829,7 +830,17 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {pegelLiveLoading ? (
+          {pegelStationId == null ? (
+            <View style={{ alignItems: 'center', paddingVertical: 18, gap: 6 }}>
+              <Feather name="alert-circle" size={18} color={colors.primaryForeground} style={{ opacity: 0.55 }} />
+              <Text style={{
+                fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                color: colors.primaryForeground, opacity: 0.55, textAlign: 'center',
+              }}>
+                {'Kein PEGELONLINE-Stationsname\nfür ' + (selectedGauge?.name ?? 'diesen Pegel') + ' konfiguriert.'}
+              </Text>
+            </View>
+          ) : pegelLiveLoading ? (
             <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
               <ActivityIndicator color={colors.primary} />
             </View>
@@ -899,8 +910,8 @@ export default function HomeScreen() {
                     <TouchableOpacity
                       onPress={() => {
                         const hvzId = selectedGauge?.pegel_nr
-                          ? HVZ_BW_IDS[selectedGauge.pegel_nr.toUpperCase()]
-                          : HVZ_BW_IDS.SPEYER;
+                          ? (HVZ_BW_IDS[selectedGauge.pegel_nr.toUpperCase()] ?? null)
+                          : null;
                         void Linking.openURL(
                           hvzId
                             ? `https://www.hvz.baden-wuerttemberg.de/pegel.html?id=${hvzId}`
@@ -932,8 +943,8 @@ export default function HomeScreen() {
                   <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 8 }}>
                     {(() => {
                       const hvzId = selectedGauge?.pegel_nr
-                        ? HVZ_BW_IDS[selectedGauge.pegel_nr.toUpperCase()]
-                        : HVZ_BW_IDS.SPEYER;
+                        ? (HVZ_BW_IDS[selectedGauge.pegel_nr.toUpperCase()] ?? null)
+                        : null;
                       if (!hvzId) {
                         return (
                           <View style={{ alignItems: 'center', paddingVertical: 24, gap: 8 }}>
