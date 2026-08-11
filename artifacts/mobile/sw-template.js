@@ -49,14 +49,15 @@ self.addEventListener('activate', (event) => {
       )
       .then(() => clients.claim())
       .then(() =>
-        // Alle offenen Fenster neu laden, damit frische HTML + Bundle geladen wird.
-        // Ohne diesen Schritt bleibt die alte gecachte index.html aktiv,
-        // auch wenn der neue SW bereits Kontrolle hat.
+        // Alle offenen Fenster via postMessage informieren (SW_UPDATED).
+        // Die Seite lauscht in +html.tsx (controllerchange) und sw-diag.js (message)
+        // und ruft window.location.reload() auf.
+        // KEIN client.navigate(): iOS Safari benötigt user-gesture-Kontext.
         self.clients.matchAll({ type: 'window', includeUncontrolled: true })
           .then((windowClients) => {
-            console.log('[SW] Lade', windowClients.length, 'Fenster neu nach SW-Update.');
+            console.log('[SW] Sende SW_UPDATED an', windowClients.length, 'Fenster.');
             windowClients.forEach((client) => {
-              client.navigate(client.url);
+              client.postMessage({ type: 'SW_UPDATED' });
             });
           })
       )

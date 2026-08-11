@@ -78,15 +78,13 @@ export default function Root({ children }: PropsWithChildren) {
 (function () {
   if (!('serviceWorker' in navigator)) return;
 
-  /* Merken ob beim Seitenaufruf bereits ein SW aktiv war.
-     Nur dann lösen wir bei controllerchange einen Reload aus –
-     nicht beim allerersten Installieren. */
-  /* pendingReload wird NUR gesetzt wenn der User auf "Aktualisieren" tippt.
-     Verhindert Auto-Reload durch Android-Chrome-interne SW-Promotion. */
-  var pendingReload = false;
-
+  /* Auto-Reload bei controllerchange: wenn der SW via skipWaiting() + clients.claim()
+     die Kontrolle übernimmt, muss die Seite neu laden um das frische Bundle zu erhalten.
+     Anti-Loop: sessionStorage verhindert Endlosschleifen (reset beim Tab-Schließen). */
+  var reloadKey = 'sw-ctrl-reloaded';
   navigator.serviceWorker.addEventListener('controllerchange', function () {
-    if (pendingReload) {
+    if (!sessionStorage.getItem(reloadKey)) {
+      sessionStorage.setItem(reloadKey, '1');
       window.location.reload();
     }
   });
