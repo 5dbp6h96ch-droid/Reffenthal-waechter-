@@ -1,0 +1,82 @@
+Behebe jetzt ausschließlich das Expo-Routing-Problem für /test/.
+
+BEKANNTE URSACHE:
+Die Analyse hat bestätigt:
+- /test/ lädt test.tsx.
+- test.tsx enthält noch die alte 7-Punkte-Version.
+- index.tsx enthält die aktuelle Version mit „Mein Konto“ sowie Auth und Pegelort-Auswahl.
+- CI/CD ist korrekt.
+- test-artifacts ist korrekt.
+- Das aktuelle JS-Bundle enthält „Mein Konto“.
+- Das Problem liegt ausschließlich am Expo-Routing bzw. an test.tsx.
+
+ZIEL:
+Die URL
+
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/
+
+soll dieselbe aktuelle App wie index.tsx anzeigen, einschließlich:
+
+- Vorhersage
+- WSV – Nachrichten
+- Tankstelle
+- Clubs
+- Rhein-Karte
+- News
+- Wächter Status
+- Mein Konto
+- Supabase Auth
+- Registrierung / Login / Logout
+- Pegelort-Auswahl
+- Speicherung des ausgewählten Pegelorts
+
+WICHTIG:
+- NICHT auf main wechseln.
+- NICHT auf main pushen.
+- Keine Supabase-Datenbank ändern.
+- Keine Supabase-Tabellen ändern.
+- Keine Auth-Logik verändern.
+- Keine CI/CD-Workflow-Dateien verändern.
+- Keine neuen Funktionen hinzufügen.
+- Die Produktionsroute / darf nicht verändert oder beschädigt werden.
+- Die bestehenden 7 Menüpunkte dürfen nicht entfernt oder verändert werden.
+
+VOR DER ÄNDERUNG:
+1. test.tsx und index.tsx vergleichen.
+2. Prüfen, ob test.tsx gefahrlos die aktuelle index.tsx-App verwenden kann.
+3. Die minimalste und sicherste Lösung wählen.
+
+BEVORZUGTE LÖSUNG:
+test.tsx soll die aktuelle index.tsx-App verwenden, statt eine zweite,
+veraltete 7-Punkte-App zu enthalten.
+
+Falls dafür ein Wrapper/Import erforderlich ist, diesen minimal umsetzen.
+Keine Code-Duplikation erzeugen.
+
+DANACH TESTEN:
+1. TypeScript prüfen.
+2. Expo-Web-Build prüfen.
+3. Prüfen, dass / weiterhin die Produktions-App verwendet.
+4. Prüfen, dass /test/ die aktuelle index.tsx-App verwendet.
+5. Prüfen, dass unter /test/ „Mein Konto“ vorhanden ist.
+6. Prüfen, dass keine der bestehenden Funktionen verloren gegangen ist.
+
+GIT:
+- Aktueller Branch muss supabase-integration bleiben.
+- main darf keinen neuen Commit erhalten.
+- Vorhandene Supabase-Commits müssen erhalten bleiben.
+
+AM ENDE BERICHTEN:
+- Ursache bestätigt: JA/NEIN
+- Geänderte Datei(en)
+- Genaue Änderung
+- TypeScript: Ergebnis
+- Expo-Web-Build: Ergebnis
+- / funktioniert weiterhin: JA/NEIN
+- /test/ zeigt „Mein Konto“: JA/NEIN
+- Aktueller Branch
+- Neuer Commit-Hash
+
+ERST NACH DEM ERFOLGREICHEN TEST EINEN COMMIT ERSTELLEN.
+
+NICHT auf main mergen oder pushen.
