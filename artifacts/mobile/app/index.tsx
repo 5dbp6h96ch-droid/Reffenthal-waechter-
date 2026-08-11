@@ -1,5 +1,6 @@
 /**
  * index.tsx – TEST R(h)einschiffer (Supabase-Integration, Bottom-Navigation)
+ * Build: 2026-08-11-v2  (erzwingt neuen Bundle-Hash für Cache-Busting)
  *
  * Struktur:
  *   Hauptbereich (activeTab === null):
