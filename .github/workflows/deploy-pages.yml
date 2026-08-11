@@ -165,7 +165,7 @@ jobs:
             git worktree add /tmp/test-artifacts-wd origin/test-artifacts
           else
             echo "Lege test-artifacts Branch neu an..."
-            git worktree add --orphan /tmp/test-artifacts-wd test-artifacts
+            git worktree add --orphan -b test-artifacts /tmp/test-artifacts-wd
           fi
 
           # Nur test/index.html in den Branch schreiben
