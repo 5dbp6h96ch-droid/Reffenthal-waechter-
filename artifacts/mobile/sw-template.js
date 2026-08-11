@@ -30,10 +30,17 @@ self.addEventListener('install', (event) => {
 
 // ── Activate ──────────────────────────────────────────────────────────────────
 // Reihenfolge:
-//   1. Alte Caches löschen (damit kein altes Bundle mehr ausgeliefert wird)
-//   2. clients.claim() – übernimmt sofort alle offenen Tabs
-//   3. Alle Fenster neu laden – damit sie die frische index.html + neues Bundle
-//      holen, nicht die alte gecachte HTML aus dem alten SW-Cache.
+//   1. Alte Caches löschen → kein altes Bundle mehr verfügbar
+//   2. clients.claim() → übernimmt alle offenen Tabs sofort;
+//      löst in jedem kontrollierten Fenster das 'controllerchange'-Event aus
+//   3. SW_UPDATED postMessage → Fallback-Reload für Clients, die
+//      controllerchange verpasst haben (z.B. iOS Safari edge case)
+//
+// Warum KEIN client.navigate():
+//   client.navigate() ist im activate-Handler auf iOS Safari unzuverlässig
+//   (darf nur aus einem user-gesture-Context aufgerufen werden und schlägt
+//   sonst lautlos fehl). Stattdessen reagiert sw-diag.js auf der Seite auf
+//   'controllerchange' + 'SW_UPDATED' und ruft window.location.reload(true).
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
@@ -49,14 +56,14 @@ self.addEventListener('activate', (event) => {
       )
       .then(() => clients.claim())
       .then(() =>
-        // Alle offenen Fenster neu laden, damit frische HTML + Bundle geladen wird.
-        // Ohne diesen Schritt bleibt die alte gecachte index.html aktiv,
-        // auch wenn der neue SW bereits Kontrolle hat.
+        // Sende SW_UPDATED an alle Fenster als Fallback-Reload-Signal.
+        // Der primäre Mechanismus (controllerchange) wird durch clients.claim()
+        // oben bereits ausgelöst und von sw-diag.js in test/index.html abgefangen.
         self.clients.matchAll({ type: 'window', includeUncontrolled: true })
           .then((windowClients) => {
-            console.log('[SW] Lade', windowClients.length, 'Fenster neu nach SW-Update.');
+            console.log('[SW] Sende SW_UPDATED an', windowClients.length, 'Fenster.');
             windowClients.forEach((client) => {
-              client.navigate(client.url);
+              client.postMessage({ type: 'SW_UPDATED' });
             });
           })
       )
