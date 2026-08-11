@@ -223,6 +223,12 @@ jobs:
             git show FETCH_HEAD:test/index.html > "$DIST/test/index.html" 2>/dev/null \
               && echo "✓ test/index.html aus test-artifacts eingebunden" \
               || echo "⚠ test/index.html im test-artifacts Branch nicht gefunden"
+
+            # Test-JS-Bundle aus test-artifacts in dist/_expo/ einmischen.
+            # Dateinamen sind build-hash-eindeutig → kein Überschreiben des Prod-Bundles.
+            git archive FETCH_HEAD _expo/ | tar -x -C "$DIST/" 2>/dev/null \
+              && echo "✓ test-_expo/ in dist/_expo eingemischt" \
+              || echo "⚠ kein _expo/ in test-artifacts – Test-Bundle fehlt"
           else
             echo "ℹ test-artifacts Branch nicht vorhanden – /test/ wird nicht eingebunden"
           fi
