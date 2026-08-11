@@ -53,6 +53,9 @@ import { useNfbNotifications } from '@/hooks/useNfbNotifications';
 import { useColors } from '@/hooks/useColors';
 import { useSinceLastVisit } from '@/hooks/useSinceLastVisit';
 import RheinKarte from '@/components/RheinKarte';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { useGauges } from '@/hooks/useGauges';
 
 // ─── Typen (identisch mit index.tsx) ─────────────────────────────────────────
 
@@ -269,6 +272,17 @@ export default function HomeScreen() {
   const [mapOpen, setMapOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
   const [waechterOpen, setWaechterOpen] = useState(false);
+  const [kontoOpen, setKontoOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // ── Supabase Auth + User Settings + Gauges ──────────────────────────────
+  const { user, signIn, signUp, signOut } = useAuth();
+  const { settings, updateSettings } = useUserSettings(user?.id);
+  const { gauges } = useGauges();
 
   // HVZ-Vorhersage: Cache-Busting-Timestamp, alle 5 Min aktualisiert (= HVZ-Takt)
   const [hvzTs, setHvzTs] = useState(() => Math.floor(Date.now() / 300_000));
@@ -1539,6 +1553,303 @@ export default function HomeScreen() {
                     fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
                     color: colors.destructive, opacity: 0.85,
                   }} numberOfLines={3}>{lastError}</Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          <View style={menuDivider} />
+
+          {/* ── 8. Mein Konto ── */}
+          <TouchableOpacity
+            onPress={() => setKontoOpen(o => !o)}
+            activeOpacity={0.7}
+            style={menuRow}
+          >
+            <MenuRowLeft icon="user" label="Mein Konto" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {user != null && (
+                <View style={{
+                  backgroundColor: colors.primary + '18',
+                  paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99,
+                }}>
+                  <Text style={{
+                    fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold',
+                    color: colors.primary,
+                  }}>
+                    Angemeldet
+                  </Text>
+                </View>
+              )}
+              <Feather
+                name={kontoOpen ? 'chevron-up' : 'chevron-right'}
+                size={16}
+                color={colors.mutedForeground}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {kontoOpen && (
+            <View style={[menuContent, { gap: 14 }]}>
+              {user == null ? (
+                /* ── Nicht angemeldet: Login / Registrierung ── */
+                <View style={{ gap: 12 }}>
+                  {/* Tabs */}
+                  <View style={{
+                    flexDirection: 'row', backgroundColor: colors.muted,
+                    borderRadius: 8, padding: 2,
+                  }}>
+                    {(['login', 'register'] as const).map(mode => (
+                      <TouchableOpacity
+                        key={mode}
+                        onPress={() => { setAuthMode(mode); setAuthError(null); }}
+                        activeOpacity={0.7}
+                        style={{
+                          flex: 1, paddingVertical: 7, alignItems: 'center',
+                          borderRadius: 6,
+                          backgroundColor: authMode === mode ? colors.card : 'transparent',
+                        }}
+                      >
+                        <Text style={{
+                          fontSize: 13,
+                          fontFamily: authMode === mode
+                            ? 'SpaceGrotesk_600SemiBold' : 'SpaceGrotesk_400Regular',
+                          color: authMode === mode ? colors.foreground : colors.mutedForeground,
+                        }}>
+                          {mode === 'login' ? 'Anmelden' : 'Registrieren'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* E-Mail */}
+                  <View style={{ gap: 6 }}>
+                    <Text style={{
+                      fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium',
+                      color: colors.mutedForeground, letterSpacing: 0.5,
+                    }}>
+                      E-Mail
+                    </Text>
+                    <TextInput
+                      value={authEmail}
+                      onChangeText={v => { setAuthEmail(v); setAuthError(null); }}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      placeholder="name@beispiel.de"
+                      placeholderTextColor={colors.mutedForeground}
+                      style={{
+                        fontSize: 14, fontFamily: 'SpaceGrotesk_400Regular',
+                        color: colors.foreground, backgroundColor: colors.muted,
+                        borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+                        borderWidth: 1, borderColor: colors.border,
+                      }}
+                    />
+                  </View>
+
+                  {/* Passwort */}
+                  <View style={{ gap: 6 }}>
+                    <Text style={{
+                      fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium',
+                      color: colors.mutedForeground, letterSpacing: 0.5,
+                    }}>
+                      Passwort
+                    </Text>
+                    <TextInput
+                      value={authPassword}
+                      onChangeText={v => { setAuthPassword(v); setAuthError(null); }}
+                      secureTextEntry
+                      placeholder="••••••••"
+                      placeholderTextColor={colors.mutedForeground}
+                      style={{
+                        fontSize: 14, fontFamily: 'SpaceGrotesk_400Regular',
+                        color: colors.foreground, backgroundColor: colors.muted,
+                        borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+                        borderWidth: 1, borderColor: colors.border,
+                      }}
+                    />
+                  </View>
+
+                  {/* Fehler */}
+                  {authError != null && (
+                    <View style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 6,
+                      backgroundColor: colors.destructive + '18',
+                      borderRadius: 8, padding: 10,
+                    }}>
+                      <Feather name="alert-circle" size={13} color={colors.destructive} />
+                      <Text style={{
+                        fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                        color: colors.destructive, flex: 1,
+                      }}>
+                        {authError}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Button */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    disabled={authLoading}
+                    onPress={async () => {
+                      if (!authEmail.trim() || !authPassword) {
+                        setAuthError('Bitte E-Mail und Passwort eingeben.');
+                        return;
+                      }
+                      setAuthLoading(true);
+                      setAuthError(null);
+                      Keyboard.dismiss();
+                      const fn = authMode === 'login' ? signIn : signUp;
+                      const { error } = await fn(authEmail.trim(), authPassword);
+                      setAuthLoading(false);
+                      if (error) {
+                        setAuthError(error.message);
+                      } else {
+                        setAuthEmail('');
+                        setAuthPassword('');
+                        if (authMode === 'register') {
+                          setAuthError('Bestätigungs-E-Mail gesendet. Bitte prüfe deinen Posteingang.');
+                        }
+                      }
+                    }}
+                    style={{
+                      backgroundColor: authLoading ? colors.muted : colors.primary,
+                      borderRadius: 8, paddingVertical: 12,
+                      alignItems: 'center',
+                    }}
+                  >
+                    {authLoading ? (
+                      <ActivityIndicator size="small" color={colors.primaryForeground} />
+                    ) : (
+                      <Text style={{
+                        fontSize: 14, fontFamily: 'SpaceGrotesk_600SemiBold',
+                        color: colors.primaryForeground,
+                      }}>
+                        {authMode === 'login' ? 'Anmelden' : 'Konto erstellen'}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                /* ── Angemeldet: Profil + Pegelort-Auswahl ── */
+                <View style={{ gap: 14 }}>
+                  {/* Nutzer-Info */}
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 10,
+                    backgroundColor: colors.muted, borderRadius: 10,
+                    paddingHorizontal: 12, paddingVertical: 10,
+                  }}>
+                    <View style={{
+                      width: 36, height: 36, borderRadius: 18,
+                      backgroundColor: colors.primary + '28',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Feather name="user" size={17} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold',
+                        color: colors.foreground,
+                      }} numberOfLines={1}>
+                        {user.email ?? 'Angemeldet'}
+                      </Text>
+                      <Text style={{
+                        fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular',
+                        color: colors.mutedForeground,
+                      }}>
+                        Supabase Auth
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Pegelort-Auswahl */}
+                  <View style={{ gap: 8 }}>
+                    <Text style={{
+                      fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color: colors.mutedForeground,
+                      letterSpacing: 1.5, textTransform: 'uppercase',
+                    }}>
+                      Mein Pegelort
+                    </Text>
+                    {gauges.length === 0 ? (
+                      <ActivityIndicator size="small" color={colors.primary} style={{ alignSelf: 'flex-start' }} />
+                    ) : (
+                      <View style={{ gap: 6 }}>
+                        {gauges.map(g => {
+                          const isSelected = settings?.selected_gauge_id === g.id;
+                          return (
+                            <TouchableOpacity
+                              key={g.id}
+                              activeOpacity={0.75}
+                              onPress={() => void updateSettings({ selected_gauge_id: g.id })}
+                              style={{
+                                flexDirection: 'row', alignItems: 'center',
+                                justifyContent: 'space-between',
+                                paddingHorizontal: 12, paddingVertical: 10,
+                                borderRadius: 8,
+                                borderWidth: 1.5,
+                                borderColor: isSelected ? colors.primary : colors.border,
+                                backgroundColor: isSelected ? colors.primary + '0F' : colors.muted,
+                              }}
+                            >
+                              <View style={{ gap: 1 }}>
+                                <Text style={{
+                                  fontSize: 14,
+                                  fontFamily: isSelected
+                                    ? 'SpaceGrotesk_700Bold' : 'SpaceGrotesk_500Medium',
+                                  color: isSelected ? colors.primary : colors.foreground,
+                                }}>
+                                  {g.name}
+                                </Text>
+                                {(g.river != null || g.river_km != null) && (
+                                  <Text style={{
+                                    fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular',
+                                    color: colors.mutedForeground,
+                                  }}>
+                                    {[g.river, g.river_km != null ? `km ${g.river_km}` : null]
+                                      .filter(Boolean).join(' · ')}
+                                  </Text>
+                                )}
+                              </View>
+                              {isSelected && (
+                                <Feather name="check-circle" size={18} color={colors.primary} />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                    {settings?.selected_gauge_id == null && gauges.length > 0 && (
+                      <Text style={{
+                        fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular',
+                        color: colors.mutedForeground, fontStyle: 'italic',
+                      }}>
+                        Noch kein Pegelort gewählt.
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Abmelden */}
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={async () => {
+                      await signOut();
+                      setKontoOpen(false);
+                    }}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                      gap: 8, paddingVertical: 10, borderRadius: 8,
+                      borderWidth: 1, borderColor: colors.border,
+                    }}
+                  >
+                    <Feather name="log-out" size={14} color={colors.mutedForeground} />
+                    <Text style={{
+                      fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium',
+                      color: colors.mutedForeground,
+                    }}>
+                      Abmelden
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
