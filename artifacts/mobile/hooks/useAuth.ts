@@ -57,7 +57,15 @@ export function useAuth(): UseAuthResult {
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        // Bestätigungs-Link leitet auf die GitHub-Pages-Test-URL zurück.
+        // Supabase hängt den Token als Fragment (#access_token=...) an.
+        emailRedirectTo: 'https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/',
+      },
+    });
     return { error };
   };
 
