@@ -1,0 +1,72 @@
+NEUES PROBLEM – SERVICE WORKER NICHT MEHR ANFASSEN.
+
+Der iPhone-Test bestätigt:
+- active: /Reffenthal-waechter-/sw.js (activated)
+- controller: /Reffenthal-waechter-/sw.js
+- ctrl === active: ja
+- ready: resolved
+- bundle: index-115818134691cce70786e3aa65074e91.js
+- caches: rheinschiffer-b927790
+- Bottom-Nav Konto | Preferences | Help ist korrekt sichtbar
+
+Das SW-/Routing-/Bundle-Problem ist abgeschlossen.
+
+JETZT NEU DIAGNOSIZIEREN:
+
+Auf dem Konto/Login-Screen erscheint live:
+
+"Supabase nicht konfiguriert – bitte App neu bauen."
+
+Das bedeutet sehr wahrscheinlich, dass der Produktions-/GitHub-Pages-Build ohne die erforderlichen Supabase-Environment-Variablen erstellt wurde.
+
+Aufgabe:
+
+1. Finde im Source exakt die Stelle, die den Fehler
+   "Supabase nicht konfiguriert – bitte App neu bauen."
+   erzeugt.
+
+2. Ermittle exakt, welche Environment-Variablen bzw. Expo-Config-Werte dort erwartet werden.
+   Nicht raten.
+
+3. Prüfe den CI/CD-Workflow für den aktuellen main-Build:
+   - Welche env/secrets werden beim Expo-Web-Build gesetzt?
+   - Werden sie tatsächlich an `npx expo export` / den Web-Build übergeben?
+   - Werden die Variablen mit den im Source verwendeten Namen bezeichnet?
+
+4. Prüfe insbesondere den Unterschied zwischen:
+   - lokalen `.env`-Dateien
+   - GitHub Actions secrets/variables
+   - `EXPO_PUBLIC_*`
+   - Expo config / app.config.*
+   - dem tatsächlich erzeugten Web-Bundle.
+
+5. Suche im aktuellen Bundle
+   `index-115818134691cce70786e3aa65074e91.js`
+   nach dem Supabase-Initialisierungscode und prüfe, ob URL und anon/public key beim Build tatsächlich eingebettet wurden.
+
+6. NICHT:
+   - Service Worker ändern
+   - Cache-Version ändern
+   - sw-diag.js ändern
+   - Routing ändern
+   - test.tsx ändern
+   - Bottom-Navigation ändern
+
+7. Falls die GitHub-Secrets fehlen oder falsch heißen:
+   NICHT deren Werte ausgeben oder in Logs schreiben.
+   Nur feststellen, welche Variablen benötigt werden und ob sie gesetzt sind.
+
+8. Falls die Variablen vorhanden sind, aber nicht in den Build gelangen:
+   CI/CD so reparieren, dass der Build sie korrekt erhält.
+
+9. Danach einen neuen Build erzeugen und im fertigen Bundle verifizieren:
+   - Supabase-Konfiguration vorhanden
+   - Login-Initialisierung nicht mehr "nicht konfiguriert"
+
+Akzeptanztest:
+Nach Deployment auf /test/ darf auf dem Konto-Screen NICHT mehr
+"Supabase nicht konfiguriert – bitte App neu bauen."
+erscheinen.
+
+Wichtig:
+Das im Screenshot sichtbare E-Mail-Feld ist Test-/Benutzerdatenkontext. Keine Zugangsdaten oder Secrets in Logs, Reports oder Commit-Messages ausgeben.
