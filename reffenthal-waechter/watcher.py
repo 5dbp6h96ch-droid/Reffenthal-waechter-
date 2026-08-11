@@ -314,6 +314,12 @@ def _git_commit_state() -> None:
     Kein force-push, damit parallele Schreiber (z.B. NfB-Monitor via Contents API)
     nicht überschrieben werden.  Da Wächter und NfB-Monitor unterschiedliche Dateien
     schreiben, entstehen dabei keine Merge-Konflikte.
+
+    Entwicklungsbranch-Schutz: Alle Git-Operationen (commit, fetch, reset, push)
+    finden ausschließlich auf dem Branch 'main' statt.  Ist ein anderer Branch
+    ausgecheckt, wird temporär zu 'main' gewechselt und danach im finally-Block
+    zuverlässig zurückgewechselt.  So kann 'git reset --hard FETCH_HEAD' niemals
+    lokale Entwicklungs-Commits auf anderen Branches zerstören.
     """
     import os
     import subprocess
@@ -324,6 +330,21 @@ def _git_commit_state() -> None:
 
     repo_url = f"https://x-access-token:{token}@github.com/5dbp6h96ch-droid/Reffenthal-waechter-.git"
     git_log = logging.getLogger("git")
+
+    # Zustandsdateien hier definieren, damit der finally-Block keinen
+    # NameError riskiert falls die Variable im try-Block nicht erreicht wird.
+    files = [
+        "reffenthal-waechter/state.json",
+        "reffenthal-waechter/seen.json",
+        "reffenthal-waechter/clubs_seen.json",
+        "reffenthal-waechter/run_status.json",
+        "reffenthal-waechter/nfb.json",
+        "reffenthal-waechter/nfb-state.json",
+        "reffenthal-waechter/mck.json",   # MCK Tankstellenpreise
+    ]
+
+    switched_branch = False
+    original_branch = "main"
 
     try:
         # Arbeitsverzeichnis ist das Repo-Root (eine Ebene über watcher.py)
@@ -337,16 +358,31 @@ def _git_commit_state() -> None:
         run(["git", "config", "user.email", "waechter@replit.local"])
         run(["git", "config", "user.name", "Reffenthal-Wächter"])
 
+        # ── Entwicklungsbranch-Schutz ─────────────────────────────────────
+        # Alle nachfolgenden Git-Operationen (inkl. reset --hard) dürfen NUR
+        # auf 'main' laufen.  Ist ein anderer Branch ausgecheckt, wechseln
+        # wir temporär zu 'main' und kehren im finally-Block zurück.
+        current = run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+        original_branch = current.stdout.strip()
+
+        if original_branch not in ("", "HEAD", "main"):
+            checkout = run(["git", "checkout", "main"])
+            if checkout.returncode != 0:
+                git_log.warning(
+                    "Git: Branch-Wechsel von '%s' zu main fehlgeschlagen – "
+                    "State-Commit übersprungen. Entwicklungs-Commits bleiben erhalten.",
+                    original_branch,
+                )
+                return
+            switched_branch = True
+            git_log.debug(
+                "Git: Temporär zu main gewechselt (Entwicklungsbranch: %s).",
+                original_branch,
+            )
+
+        # Ab hier läuft alles garantiert auf 'main'.
+
         # Nur eigene Zustandsdateien stagen.
-        files = [
-            "reffenthal-waechter/state.json",
-            "reffenthal-waechter/seen.json",
-            "reffenthal-waechter/clubs_seen.json",
-            "reffenthal-waechter/run_status.json",
-            "reffenthal-waechter/nfb.json",
-            "reffenthal-waechter/nfb-state.json",
-            "reffenthal-waechter/mck.json",   # MCK Tankstellenpreise
-        ]
         run(["git", "add", "--force"] + files)
 
         # Prüfen ob es Änderungen gibt
@@ -360,6 +396,8 @@ def _git_commit_state() -> None:
         # Push mit Retry: bei Race Condition (remote ahead) Remote-Stand holen,
         # hart resetten und Datei-Änderungen neu committen – kein Rebase, der bei
         # Datei-Konflikten still fehlschlägt und git in einen kaputten Zustand bringt.
+        # Das 'git reset --hard FETCH_HEAD' ist sicher, weil wir garantiert auf
+        # 'main' sind (Entwicklungsbranch-Schutz oben).
         for attempt in range(1, 4):
             result = run(["git", "push", repo_url, "main"])
             if result.returncode == 0:
@@ -380,8 +418,25 @@ def _git_commit_state() -> None:
                     run(["git", "commit", "-m", "chore: Wächter-Zustand aktualisiert [skip ci]"])
 
         git_log.error("Git: Push nach 3 Versuchen gescheitert.")
+
     except Exception as exc:  # noqa: BLE001
         git_log.warning("Git: Fehler beim State-Commit: %s", exc)
+
+    finally:
+        # Immer zurück zum ursprünglichen Entwicklungsbranch wechseln.
+        if switched_branch:
+            run_back = subprocess.run(
+                ["git", "checkout", original_branch],
+                cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                capture_output=True, text=True, timeout=30,
+            )
+            if run_back.returncode == 0:
+                git_log.debug("Git: Zurück zu '%s' gewechselt.", original_branch)
+            else:
+                git_log.warning(
+                    "Git: Rückwechsel zu '%s' fehlgeschlagen: %s",
+                    original_branch, run_back.stderr[:200],
+                )
 
 
 if __name__ == "__main__":
