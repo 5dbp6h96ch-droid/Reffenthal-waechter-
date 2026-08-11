@@ -15,9 +15,11 @@ const CACHE_NAME    = `rheinschiffer-${CACHE_VERSION}`;
 const BASE          = '/Reffenthal-waechter-';
 
 // ── Install ───────────────────────────────────────────────────────────────────
-// KEIN skipWaiting() hier – der Client schickt SKIP_WAITING wenn er bereit ist.
-// Einzige Ausnahme: Erstinstallation (kein vorheriger Controller) → sofort aktiv.
+// skipWaiting() sofort beim Install → neue SW-Version übernimmt ohne Warten.
+// Kombiniert mit clients.claim() im Activate werden alle offenen Tabs
+// sofort auf die neue Version umgeschaltet (kein Tab-Schließen nötig).
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
       // App-Shell vorab cachen
