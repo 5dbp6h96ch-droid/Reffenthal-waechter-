@@ -307,26 +307,27 @@ export default function HomeScreen() {
   // ── Supabase Auth + User Settings + Gauges ──────────────────────────────
   const { user, signIn, signUp, signOut } = useAuth();
   const { profile: userProfile, displayName: profileDisplayName, displayUsername: profileDisplayUsername } = useProfile(user);
-  const { settings, updateSettings } = useUserSettings(user?.id);
+  const { settings, loading: settingsLoading, updateSettings } = useUserSettings(user?.id);
   const { gauges } = useGauges();
   const { getGaugeSetting, updateGaugeSetting } = useUserGaugeSettings(user?.id);
 
   // ── Ausgewählter Pegelort ────────────────────────────────────────────────
-  // localGaugeId = sofortiger lokaler State (reagiert ohne Netzwerk-Roundtrip).
-  // Priorität: localGaugeId → settings?.selected_gauge_id (Supabase, für Reload) → null
-  const [localGaugeId, setLocalGaugeId] = useState<string | null>(null);
-  const selectedGaugeId = localGaugeId ?? settings?.selected_gauge_id ?? null;
+  // overrideGaugeId = nur bei expliziter Nutzer-Auswahl gesetzt (kein init-Effekt).
+  // Priorität: overrideGaugeId → settings?.selected_gauge_id (Supabase) → gauges[0]
+  //
+  // Fix für Race-Condition: Früher wurde localGaugeId per useEffect auf gauges[0]
+  // gesetzt sobald Gauges luden. Wenn settings danach mit einer anderen Präferenz
+  // kamen, wurde sie ignoriert (localGaugeId != null). Jetzt leitet sich
+  // selectedGaugeId direkt von settings ab; kein init-Effekt überschreibt sie.
+  const [overrideGaugeId, setOverrideGaugeId] = useState<string | null>(null);
+  const selectedGaugeId =
+    overrideGaugeId ??
+    (user && settingsLoading ? null : settings?.selected_gauge_id) ??
+    null;
   const selectedGauge = gauges.find(g => g.id === selectedGaugeId) ?? gauges[0] ?? null;
 
-  useEffect(() => {
-    if (gauges.length > 0 && localGaugeId == null) {
-      const initial = settings?.selected_gauge_id ?? gauges[0].id;
-      setLocalGaugeId(initial);
-    }
-  }, [gauges, localGaugeId, settings?.selected_gauge_id]);
-
   const selectGauge = useCallback((id: string) => {
-    setLocalGaugeId(id);
+    setOverrideGaugeId(id);
     if (user) {
       void updateSettings({ selected_gauge_id: id });
     }
