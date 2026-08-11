@@ -1,0 +1,80 @@
+Bitte behebe jetzt ausschließlich die PEGELONLINE-Stationszuordnung in der TEST-Umgebung.
+
+Ausgangslage:
+public.gauges wurde bereits erweitert und enthält jetzt:
+
+speyer:
+  pegel_nr = SPEYER
+  pegel_uuid = 2cb8ae5b-c5c9-4fa8-bac0-bb724f2754f4
+  river_km = 400.610
+
+mannheim:
+  pegel_nr = MANNHEIM
+  pegel_uuid = 57090802-c51a-4d09-8340-b4453cd0e1f5
+  river_km = 424.730
+
+worms:
+  pegel_nr = WORMS
+  pegel_uuid = 844a620f-f3b8-4b6b-8e3c-783ae2aa232a
+  river_km = 443.370
+
+Aktueller Fehler:
+In /test/ wird trotz Auswahl von Mannheim oder Worms weiterhin Speyer
+angezeigt (Rheinkilometer 400,4).
+
+Wichtig:
+Die Datenbank ist bereits korrekt. KEINE weitere SQL-Migration erstellen.
+KEINE UUIDs ändern.
+KEINE Änderungen an main/Produktion.
+
+Aufgaben:
+
+1. Ergänze den Type `Gauge` in artifacts/mobile/app/types/database.ts
+   um:
+   pegel_uuid: string | null
+
+2. Ändere in artifacts/mobile/app/index.tsx die PEGELONLINE-Zuordnung:
+   bisher:
+     const pegelStationId = selectedGauge?.pegel_nr ?? null;
+
+   neu:
+     const pegelStationId = selectedGauge?.pegel_uuid ?? null;
+
+3. Der PEGELONLINE-Fetch soll weiterhin genau diese UUID verwenden:
+   /stations/${pegelStationId}/W/currentmeasurement.json
+   /stations/${pegelStationId}/W/measurements.json?start=P90D
+
+4. Prüfe ALLE Stellen in index.tsx, an denen pegel_nr für
+   PEGELONLINE verwendet wird. Die HVZ-BW-Vorhersage darf weiterhin
+   pegel_nr verwenden, weil dort die vorhandene Zuordnung
+   SPEYER/MANNHEIM → 09017/06268 benötigt wird.
+
+5. Wichtig:
+   selectedGauge muss weiterhin anhand von:
+     localGaugeId / settings.selected_gauge_id
+   aus gauges gefunden werden.
+   Den bestehenden Auswahlmechanismus nicht unnötig umbauen.
+
+6. Prüfe insbesondere, warum /test/ bisher trotz
+   selected_gauge_id = "mannheim" bzw. "worms" oben weiterhin
+   400,4 angezeigt hat.
+
+7. Baue die Testumgebung neu und verifiziere:
+   Speyer → 400,61
+   Mannheim → 424,73
+   Worms → 443,37
+
+8. Prüfe zusätzlich, dass der jeweilige aktuelle PEGELONLINE-Messwert
+   und der Verlauf zum ausgewählten Pegel gehören.
+
+9. Produktion/main NICHT verändern.
+
+Nach Abschluss bitte berichten:
+- geänderte Dateien
+- Commit
+- Test-Branch
+- GitHub-Actions-Run
+- welche PEGELONLINE-UUID beim jeweiligen Pegel verwendet wird
+- Ergebnis Speyer/Mannheim/Worms
+- ob /test/ erfolgreich deployed wurde
+- ob main unverändert blieb.

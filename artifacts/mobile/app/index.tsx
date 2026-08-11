@@ -1,3 +1,21 @@
+/**
+ * index.tsx – TEST R(h)einschiffer (Supabase-Integration, Bottom-Navigation)
+ *
+ * Struktur:
+ *   Hauptbereich (activeTab === null):
+ *     – Gastmodus: Pegelstand-Kachel (Pegelname / Rheinkilometer / cm / Zeit)
+ *     – Angemeldet: Pegelstand + Verlauf-Chart + Akkordeon-Menü
+ *   Bottom-Navigation (fest, immer sichtbar):
+ *     – Konto | Preferences | Help
+ *
+ * Alle bestehenden Funktionen erhalten:
+ *   – PEGELONLINE über pegel_uuid
+ *   – Persönliche Schwellenwerte per useUserGaugeSettings
+ *   – HVZ-Vorhersage (09017 / 09001 / 09018)
+ *   – useAuth / useProfile / useGauges / useUserSettings / useUserGaugeSettings
+ *   – GaugeAlertRow, RheinKarte, NfB, Wächter, Clubs, MCK, News
+ */
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -13,8 +31,6 @@ import {
   ActivityIndicator,
   Animated,
   Switch,
-  Modal,
-  Pressable,
   Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -40,10 +56,40 @@ import type { NfbList } from '@workspace/api-client-react';
 import { useNfbNotifications } from '@/hooks/useNfbNotifications';
 import { useColors } from '@/hooks/useColors';
 import { useSinceLastVisit } from '@/hooks/useSinceLastVisit';
-import type { VisitChange } from '@/hooks/useSinceLastVisit';
 import RheinKarte from '@/components/RheinKarte';
-// Local type aliases matching the generated API schemas (api-client-react types
-// are not resolved by the mobile tsconfig due to missing project references).
+import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { useGauges } from '@/hooks/useGauges';
+import { useUserGaugeSettings } from '@/hooks/useUserGaugeSettings';
+import { GaugeAlertRow } from '@/components/GaugeAlertRow';
+
+// ─── Typen ───────────────────────────────────────────────────────────────────
+
+type MckData = {
+  source: string;
+  petrol: number | null;
+  diesel: number | null;
+  unit: string;
+  sourceDate?: string | null;
+  checkedAt?: string | null;
+  error?: string;
+};
+
+type NfbMeldung = {
+  nfb_id: string; titel: string; km_von: number | null; km_bis: number | null;
+  gueltig_ab: string | null; gueltig_bis: string | null; url: string | null;
+  first_seen: string; is_new: boolean;
+};
+
+type WaechterClubHit = {
+  name: string; icon: string; url: string; snippet: string;
+  dedup_key: string; seen_at: string;
+};
+
+type ActiveTab = null | 'konto' | 'preferences' | 'help';
+
+// ─── Konstanten ──────────────────────────────────────────────────────────────
 
 type TimeRange = 7 | 30 | 90;
 const TIME_RANGE_OPTIONS: { label: string; value: TimeRange }[] = [
@@ -52,6 +98,25 @@ const TIME_RANGE_OPTIONS: { label: string; value: TimeRange }[] = [
   { label: '3 M', value: 90 },
 ];
 const STORAGE_KEY = 'pegel_chart_range';
+const NFB_KM_DEFAULT_VON = 1;
+const NFB_KM_DEFAULT_BIS = 900;
+const NFB_KM_KEY = 'nfb_km_range';
+
+const SCREEN_W = Dimensions.get('window').width;
+const CARD_PADDING = 16;
+const CHART_W = SCREEN_W - CARD_PADDING * 2 - 32;
+const CHART_H = 140;
+const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
+const BOTTOM_NAV_HEIGHT = 60;
+
+// HVZ Baden-Württemberg Vorhersage-IDs (Schlüssel = pegel_nr Großbuchstaben)
+const HVZ_BW_IDS: Record<string, string> = {
+  SPEYER: '09017',
+  MANNHEIM: '09001',
+  WORMS: '09018',
+};
+
+// ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
 
 function filterHistory(
   history: { cm: number; ts: string }[],
@@ -61,20 +126,18 @@ function filterHistory(
   return history.filter((h) => new Date(h.ts).getTime() >= cutoff);
 }
 
-// ─── Chart constants ────────────────────────────────────────────────────────
-
-const SCREEN_W = Dimensions.get('window').width;
-const CARD_PADDING = 16;
-const CHART_W = SCREEN_W - CARD_PADDING * 2 - 32; // full card minus side padding
-const CHART_H = 140;
-const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('de-DE', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
+}
 
 function formatTime(iso: string | null): string {
   if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString('de-DE', {
+    hour: '2-digit', minute: '2-digit',
+  });
 }
 
 function formatDateTime(iso: string | null): string {
@@ -100,11 +163,7 @@ function formatRelativeTime(iso: string | null): string {
 }
 
 function getDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
 }
 
 function getPathAndQuery(url: string): string {
@@ -112,12 +171,10 @@ function getPathAndQuery(url: string): string {
     const u = new URL(url);
     const full = u.pathname + (u.search || '');
     return full.length > 60 ? full.slice(0, 58) + '…' : full;
-  } catch {
-    return url;
-  }
+  } catch { return url; }
 }
 
-// ─── Pegel Chart ─────────────────────────────────────────────────────────────
+// ─── PegelChart ──────────────────────────────────────────────────────────────
 
 interface PegelChartProps {
   history: { cm: number; ts: string }[];
@@ -126,41 +183,22 @@ interface PegelChartProps {
 
 function PegelChart({ history, threshold }: PegelChartProps) {
   const colors = useColors();
-
   if (history.length < 2) {
     return (
-      <View
-        style={{
-          height: 80,
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          borderWidth: 1,
-          borderStyle: 'dashed',
-          borderRadius: 8,
-          borderColor: colors.border,
-        }}
-      >
+      <View style={{
+        height: 80, alignItems: 'center', justifyContent: 'center', gap: 8,
+        borderWidth: 1, borderStyle: 'dashed', borderRadius: 8, borderColor: colors.border,
+      }}>
         <Feather name="bar-chart-2" size={22} color={colors.mutedForeground} />
-        <Text
-          style={{
-            fontSize: 13,
-            fontFamily: 'SpaceGrotesk_400Regular',
-            color: colors.mutedForeground,
-          }}
-        >
+        <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
           Keine Verlaufsdaten
         </Text>
       </View>
     );
   }
-
-  // History is chronological (oldest-first) — do NOT reverse
   const raw = [...history];
-  // Downsample: max 200 points for performance
   const step = Math.max(1, Math.floor(raw.length / 200));
   const data = raw.filter((_, i) => i % step === 0);
-
   const cmValues = data.map((d) => d.cm);
   const dataMin = Math.min(...cmValues);
   const dataMax = Math.max(...cmValues);
@@ -168,188 +206,139 @@ function PegelChart({ history, threshold }: PegelChartProps) {
   const minCm = Math.min(dataMin, threshold) - padding;
   const maxCm = Math.max(dataMax, threshold) + padding;
   const range = maxCm - minCm || 1;
-
   const plotW = CHART_W - PAD.left - PAD.right;
   const plotH = CHART_H - PAD.top - PAD.bottom;
   const n = data.length - 1;
-
   const toX = (i: number): number => PAD.left + (i / (n || 1)) * plotW;
-  const toY = (cm: number): number =>
-    PAD.top + plotH - ((cm - minCm) / range) * plotH;
-
-  const linePath = data
-    .map((d, i) => `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(d.cm).toFixed(1)}`)
-    .join(' ');
-
+  const toY = (cm: number): number => PAD.top + plotH - ((cm - minCm) / range) * plotH;
+  const linePath = data.map((d, i) =>
+    `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(d.cm).toFixed(1)}`
+  ).join(' ');
   const baseY = (PAD.top + plotH).toFixed(1);
-  const areaPath =
-    linePath +
-    ` L${toX(n).toFixed(1)},${baseY}` +
-    ` L${PAD.left.toFixed(1)},${baseY} Z`;
-
+  const areaPath = linePath + ` L${toX(n).toFixed(1)},${baseY} L${PAD.left.toFixed(1)},${baseY} Z`;
   const threshY = toY(threshold);
-  // last entry = newest = rightmost dot
   const lastCm = data[data.length - 1].cm;
   const isAlarm = lastCm < threshold;
   const lineColor = isAlarm ? colors.alarm : colors.safe;
-
-  // Y-axis: 3 evenly-spaced values
   const yTicks = [
     Math.round(maxCm - padding),
     Math.round((minCm + maxCm) / 2),
     Math.round(minCm + padding),
   ];
-
-  // X-axis time labels (4 evenly-spaced)
   const startMs = new Date(data[0].ts).getTime();
-  const endMs   = new Date(data[data.length - 1].ts).getTime();
+  const endMs = new Date(data[data.length - 1].ts).getTime();
   const totalMs = endMs - startMs || 1;
   const totalDays = totalMs / 86_400_000;
   const xTicks = Array.from({ length: 5 }, (_, i) => {
     const frac = i / 4;
-    const ms   = startMs + frac * totalMs;
-    const x    = PAD.left + frac * plotW;
-    const d    = new Date(ms);
-    let label: string;
-    if (totalDays <= 8) {
-      label = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-    } else if (totalDays <= 35) {
-      label = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-    } else {
-      label = d.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
-    }
+    const ms = startMs + frac * totalMs;
+    const x = PAD.left + frac * plotW;
+    const d = new Date(ms);
+    const label = totalDays <= 35
+      ? d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+      : d.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
     return { x, label, anchor: i === 0 ? 'start' : i === 4 ? 'end' : 'middle' };
   });
-
   return (
     <Svg width={CHART_W} height={CHART_H}>
       <Defs>
-        <SvgGradient id="pegelGrad" x1="0" y1="0" x2="0" y2="1">
+        <SvgGradient id="pegelGradTest" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={lineColor} stopOpacity="0.25" />
           <Stop offset="1" stopColor={lineColor} stopOpacity="0.01" />
         </SvgGradient>
       </Defs>
-
-      {/* Y-axis tick labels */}
       {yTicks.map((cm) => (
-        <SvgText
-          key={cm}
-          x={PAD.left - 6}
-          y={toY(cm) + 4}
-          fontSize={9}
-          fill={colors.mutedForeground}
-          textAnchor="end"
-        >
-          {cm}
-        </SvgText>
+        <SvgText key={cm} x={PAD.left - 6} y={toY(cm) + 4} fontSize={9}
+          fill={colors.mutedForeground} textAnchor="end">{cm}</SvgText>
       ))}
-
-      {/* Threshold dashed line */}
-      <SvgLine
-        x1={PAD.left}
-        y1={threshY}
-        x2={CHART_W - PAD.right}
-        y2={threshY}
-        stroke={colors.accent}
-        strokeWidth={1}
-        strokeDasharray="5,3"
-        strokeOpacity={0.85}
-      />
-      {/* Threshold label — inside right edge to avoid clipping */}
-      <SvgText
-        x={CHART_W - PAD.right - 2}
-        y={threshY - 3}
-        fontSize={8}
-        fill={colors.accent}
-        textAnchor="end"
-        opacity={0.85}
-      >
-        {threshold} cm
-      </SvgText>
-
-      {/* Area fill */}
-      <Path d={areaPath} fill="url(#pegelGrad)" />
-
-      {/* Line */}
-      <Path
-        d={linePath}
-        stroke={lineColor}
-        strokeWidth={2}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Latest point dot (rightmost = newest) */}
+      <SvgLine x1={PAD.left} y1={threshY} x2={CHART_W - PAD.right} y2={threshY}
+        stroke={colors.accent} strokeWidth={1} strokeDasharray="5,3" strokeOpacity={0.85} />
+      <SvgText x={CHART_W - PAD.right - 2} y={threshY - 3} fontSize={8}
+        fill={colors.accent} textAnchor="end" opacity={0.85}>{threshold} cm</SvgText>
+      <Path d={areaPath} fill="url(#pegelGradTest)" />
+      <Path d={linePath} stroke={lineColor} strokeWidth={2} fill="none"
+        strokeLinecap="round" strokeLinejoin="round" />
       <Circle cx={toX(n)} cy={toY(lastCm)} r={4} fill={lineColor} />
       <Circle cx={toX(n)} cy={toY(lastCm)} r={7} fill={lineColor} fillOpacity={0.2} />
-
-      {/* X-axis time labels */}
       {xTicks.map((tick, i) => (
-        <SvgText
-          key={i}
-          x={tick.x}
-          y={CHART_H - 4}
-          fontSize={8}
-          fill={colors.mutedForeground}
-          textAnchor={tick.anchor as 'start' | 'middle' | 'end'}
-          opacity={0.75}
-        >
-          {tick.label}
-        </SvgText>
+        <SvgText key={i} x={tick.x} y={CHART_H - 4} fontSize={8}
+          fill={colors.mutedForeground} textAnchor={tick.anchor as 'start' | 'middle' | 'end'}
+          opacity={0.75}>{tick.label}</SvgText>
       ))}
     </Svg>
   );
 }
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
+// ─── HomeScreen ───────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? 0 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
+  // ── Bottom-Navigation ────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<ActiveTab>(null);
+
+  const handleTabPress = useCallback((tab: NonNullable<ActiveTab>) => {
+    setActiveTab(prev => prev === tab ? null : tab);
+  }, []);
+
+  // ── Akkordeon-Zustand (Hauptbereich) ─────────────────────────────────────
   const [chartRange, setChartRange] = useState<TimeRange>(30);
-  const [newsOpen, setNewsOpen] = useState(false);
-  const [vereineOpen, setVereineOpen] = useState(false);
+  const [hvzOpen, setHvzOpen] = useState(false);
   const [nfbOpen, setNfbOpen] = useState(false);
   const [mckOpen, setMckOpen] = useState(false);
-  const [hvzOpen, setHvzOpen] = useState(false);
+  const [vereineOpen, setVereineOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(false);
+  const [waechterOpen, setWaechterOpen] = useState(false);
 
-  // HVZ-Vorhersage: Cache-Busting-Timestamp, aktualisiert alle 5 Min (= HVZ-Takt)
+  // ── Auth-Formular-Zustand (Konto-Tab) ────────────────────────────────────
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authFirstName, setAuthFirstName] = useState('');
+  const [authUsername, setAuthUsername] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // ── Supabase Auth + User Settings + Gauges ──────────────────────────────
+  const { user, signIn, signUp, signOut } = useAuth();
+  const { profile: userProfile, displayName: profileDisplayName, displayUsername: profileDisplayUsername } = useProfile(user);
+  const { settings, updateSettings } = useUserSettings(user?.id);
+  const { gauges } = useGauges();
+  const { getGaugeSetting, updateGaugeSetting } = useUserGaugeSettings(user?.id);
+
+  // ── Ausgewählter Pegelort ────────────────────────────────────────────────
+  // localGaugeId = sofortiger lokaler State (reagiert ohne Netzwerk-Roundtrip).
+  // Priorität: localGaugeId → settings?.selected_gauge_id (Supabase, für Reload) → null
+  const [localGaugeId, setLocalGaugeId] = useState<string | null>(null);
+  const selectedGaugeId = localGaugeId ?? settings?.selected_gauge_id ?? null;
+  const selectedGauge = gauges.find(g => g.id === selectedGaugeId) ?? gauges[0] ?? null;
+
+  useEffect(() => {
+    if (gauges.length > 0 && localGaugeId == null) {
+      const initial = settings?.selected_gauge_id ?? gauges[0].id;
+      setLocalGaugeId(initial);
+    }
+  }, [gauges, localGaugeId, settings?.selected_gauge_id]);
+
+  const selectGauge = useCallback((id: string) => {
+    setLocalGaugeId(id);
+    if (user) {
+      void updateSettings({ selected_gauge_id: id });
+    }
+  }, [user, updateSettings]);
+
+  // ── HVZ Cache-Busting ────────────────────────────────────────────────────
   const [hvzTs, setHvzTs] = useState(() => Math.floor(Date.now() / 300_000));
   useEffect(() => {
-    const timer = setInterval(
-      () => setHvzTs(Math.floor(Date.now() / 300_000)),
-      300_000,
-    );
+    const timer = setInterval(() => setHvzTs(Math.floor(Date.now() / 300_000)), 300_000);
     return () => clearInterval(timer);
   }, []);
 
-  // iOS-Installationsbutton: nur im Safari-Browser auf iPhone/iPad anzeigen,
-  // nicht wenn die App bereits im Standalone-Modus (Home Screen) läuft.
-  const [showIosInstall, setShowIosInstall] = useState(false);
-  const [installModalVisible, setInstallModalVisible] = useState(false);
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    const isStandalone =
-      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-    if (isStandalone) return;
-    const ua = navigator.userAgent;
-    const isIosSafari =
-      /iPhone|iPad|iPod/.test(ua) &&
-      /WebKit/.test(ua) &&
-      !/CriOS|FxiOS|OPiOS|mercury/.test(ua);
-    setShowIosInstall(isIosSafari);
-  }, []);
-
-  // NfB km-Bereich
-  const NFB_KM_DEFAULT_VON = 1;
-  const NFB_KM_DEFAULT_BIS = 900;
-  const NFB_KM_KEY = 'nfb_km_range';
+  // ── NfB km-Bereich ───────────────────────────────────────────────────────
   const [nfbKmVon, setNfbKmVon] = useState(NFB_KM_DEFAULT_VON);
   const [nfbKmBis, setNfbKmBis] = useState(NFB_KM_DEFAULT_BIS);
   const [nfbKmEdit, setNfbKmEdit] = useState(false);
@@ -357,29 +346,22 @@ export default function HomeScreen() {
   const [nfbKmInputBis, setNfbKmInputBis] = useState(String(NFB_KM_DEFAULT_BIS));
   const nfbKmBisRef = useRef<TextInput>(null);
 
-  // Load persisted ranges on mount
+  // ── Persistierte Einstellungen laden ────────────────────────────────────
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((val) => {
-        if (val === '7' || val === '30' || val === '90') {
-          setChartRange(Number(val) as TimeRange);
+    AsyncStorage.getItem(STORAGE_KEY).then((val) => {
+      if (val === '7' || val === '30' || val === '90') setChartRange(Number(val) as TimeRange);
+    }).catch(() => {});
+    AsyncStorage.getItem(NFB_KM_KEY).then((val) => {
+      if (val) {
+        const parsed = JSON.parse(val) as { von: number; bis: number };
+        if (typeof parsed.von === 'number' && typeof parsed.bis === 'number') {
+          setNfbKmVon(parsed.von);
+          setNfbKmBis(parsed.bis);
+          setNfbKmInputVon(String(parsed.von));
+          setNfbKmInputBis(String(parsed.bis));
         }
-      })
-      .catch(() => {});
-
-    AsyncStorage.getItem(NFB_KM_KEY)
-      .then((val) => {
-        if (val) {
-          const parsed = JSON.parse(val) as { von: number; bis: number };
-          if (typeof parsed.von === 'number' && typeof parsed.bis === 'number') {
-            setNfbKmVon(parsed.von);
-            setNfbKmBis(parsed.bis);
-            setNfbKmInputVon(String(parsed.von));
-            setNfbKmInputBis(String(parsed.bis));
-          }
-        }
-      })
-      .catch(() => {});
+      }
+    }).catch(() => {});
   }, []);
 
   const applyNfbKm = () => {
@@ -390,7 +372,6 @@ export default function HomeScreen() {
       setNfbKmBis(bis);
       AsyncStorage.setItem(NFB_KM_KEY, JSON.stringify({ von, bis })).catch(() => {});
     } else {
-      // Reset inputs to current valid values on invalid input
       setNfbKmInputVon(String(nfbKmVon));
       setNfbKmInputBis(String(nfbKmBis));
     }
@@ -403,72 +384,46 @@ export default function HomeScreen() {
     AsyncStorage.setItem(STORAGE_KEY, String(range)).catch(() => {});
   };
 
+  // ── API-Hooks ─────────────────────────────────────────────────────────────
   const {
-    data: state,
-    isLoading: stateLoading,
-    isError: stateError,
-    refetch: refetchState,
-    isRefetching: stateRefetching,
+    data: state, isLoading: stateLoading, isError: stateError,
+    refetch: refetchState, isRefetching: stateRefetching,
   } = useGetWaechterState();
-
   const {
-    data: treffer,
-    isLoading: trefferLoading,
-    isError: trefferError,
-    refetch: refetchTreffer,
-    isRefetching: trefferRefetching,
+    data: treffer, isLoading: trefferLoading, isError: trefferError,
+    refetch: refetchTreffer, isRefetching: trefferRefetching,
   } = useGetWaechterTreffer();
-
   const {
-    data: waechterStatus,
-    isLoading: statusLoading,
-    refetch: refetchStatus,
-    isRefetching: statusRefetching,
+    data: waechterStatus, isLoading: statusLoading,
+    refetch: refetchStatus, isRefetching: statusRefetching,
   } = useGetWaechterStatus();
-
   const {
-    data: clubsData,
-    isLoading: clubsLoading,
-    isError: clubsError,
-    refetch: refetchClubs,
-    isRefetching: clubsRefetching,
+    data: clubsData, isLoading: clubsLoading, isError: clubsError,
+    refetch: refetchClubs, isRefetching: clubsRefetching,
   } = useGetWaechterClubs();
 
-  // NfB mit km-Bereich-Filter — eigener useQuery statt generiertem Hook
   const nfbApiBase = process.env.EXPO_PUBLIC_DOMAIN
-    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-    : '';
+    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : '';
+
   const {
-    data: nfbData,
-    isLoading: nfbLoading,
-    isError: nfbError,
-    refetch: refetchNfb,
-    isRefetching: nfbRefetching,
+    data: nfbData, isLoading: nfbLoading, isError: nfbError,
+    refetch: refetchNfb, isRefetching: nfbRefetching,
     dataUpdatedAt: nfbDataUpdatedAt,
   } = useQuery<NfbList>({
     queryKey: ['nfb', nfbKmVon, nfbKmBis],
     queryFn: async ({ signal }) => {
-      const params = new URLSearchParams({
-        km_von: String(nfbKmVon),
-        km_bis: String(nfbKmBis),
-      });
+      const params = new URLSearchParams({ km_von: String(nfbKmVon), km_bis: String(nfbKmBis) });
       const res = await fetch(`${nfbApiBase}/api/nfb?${params.toString()}`, { signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json() as Promise<NfbList>;
     },
-    staleTime: 60_000,
-    refetchInterval: 5 * 60_000,
-    refetchIntervalInBackground: false,
-    retry: 2,
+    staleTime: 60_000, refetchInterval: 5 * 60_000,
+    refetchIntervalInBackground: false, retry: 2,
   });
 
-  // MCK Tankstellenpreise
   const {
-    data: mckData,
-    isLoading: mckLoading,
-    isError: mckIsError,
-    refetch: refetchMck,
-    isRefetching: mckRefetching,
+    data: mckData, isLoading: mckLoading, isError: mckIsError,
+    refetch: refetchMck, isRefetching: mckRefetching,
   } = useQuery<MckData>({
     queryKey: ['mck'],
     queryFn: async () => {
@@ -476,23 +431,52 @@ export default function HomeScreen() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json() as Promise<MckData>;
     },
-    staleTime: 60 * 60_000,
-    refetchInterval: 60 * 60_000,
+    staleTime: 60 * 60_000, refetchInterval: 60 * 60_000,
+    refetchIntervalInBackground: false, retry: 2,
+  });
+
+  // ── PEGELONLINE: Live-Messwert + Verlauf für ausgewählten Pegel ──────────
+  const pegelStationId = selectedGauge?.pegel_uuid ?? null;
+  const {
+    data: pegelLive,
+    isLoading: pegelLiveLoading,
+    isError: pegelLiveError,
+    isRefetching: pegelLiveRefetching,
+    refetch: refetchPegelLive,
+  } = useQuery({
+    queryKey: ['pegel-live', pegelStationId],
+    enabled: pegelStationId != null,
+    queryFn: async () => {
+      const stId = pegelStationId!;
+      const base = 'https://pegelonline.wsv.de/webservices/rest-api/v2/stations';
+      const [curRes, histRes] = await Promise.all([
+        fetch(`${base}/${stId}/W/currentmeasurement.json`),
+        fetch(`${base}/${stId}/W/measurements.json?start=P90D`),
+      ]);
+      if (!curRes.ok) throw new Error(`PEGELONLINE HTTP ${curRes.status}`);
+      const cur = await curRes.json() as { value: number; timestamp: string };
+      let history: { cm: number; ts: string }[] = [];
+      if (histRes.ok) {
+        const raw = await histRes.json() as { value: number; timestamp: string }[];
+        history = raw.map(m => ({ cm: Math.round(m.value), ts: m.timestamp }));
+      }
+      return { cm: Math.round(cur.value), ts: cur.timestamp, history };
+    },
+    staleTime: 5 * 60_000,
+    refetchInterval: 15 * 60_000,
     refetchIntervalInBackground: false,
     retry: 2,
   });
 
-  // ── NfB notifications ────────────────────────────────────────────────────
   const {
     notifEnabled: nfbNotifEnabled,
     osPermission: nfbOsPermission,
     toggleNotifEnabled: toggleNfbNotif,
   } = useNfbNotifications(nfbData?.meldungen, nfbKmVon, nfbKmBis);
 
-  // Deep-link: open the NfB section when user taps a notification
-  const scrollRef    = useRef<ScrollView>(null);
-  const nfbCardRef   = useRef<View>(null);
-  const pegelCardRef = useRef<View>(null);
+  // Deep-link: NfB-Bereich öffnen bei Notification-Tap
+  const scrollRef = useRef<ScrollView>(null);
+  const nfbCardRef = useRef<View>(null);
   useEffect(() => {
     if (Platform.OS === 'web') return;
     let sub: { remove: () => void } | null = null;
@@ -502,47 +486,40 @@ export default function HomeScreen() {
         sub = Notifications.addNotificationResponseReceivedListener((response) => {
           const data = response.notification.request.content.data as { screen?: string };
           if (data?.screen === 'nfb') {
+            setActiveTab(null);
             setNfbOpen(true);
-            // Small delay lets the section expand before we scroll
             setTimeout(() => {
               nfbCardRef.current?.measureLayout(
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                scrollRef.current as any,
+                scrollRef.current as any, // eslint-disable-line @typescript-eslint/no-explicit-any
                 (_x, y) => scrollRef.current?.scrollTo({ y, animated: true }),
                 () => {},
               );
             }, 300);
           }
         });
-      } catch {
-        // notifications unavailable – ignore
-      }
+      } catch { /* notifications unavailable */ }
     })();
     return () => { sub?.remove(); };
   }, []);
 
-  // Count new notices that overlap the user's selected km range
+  // ── Abgeleitete Werte ────────────────────────────────────────────────────
   const nfbNewCount = nfbData?.meldungen.filter(
-    (m: NfbMeldung) =>
-      m.is_new &&
-      (m.km_von == null || m.km_bis == null || (m.km_von <= nfbKmBis && m.km_bis >= nfbKmVon)),
+    (m: NfbMeldung) => m.is_new &&
+      (m.km_von == null || m.km_bis == null ||
+        (m.km_von <= nfbKmBis && m.km_bis >= nfbKmVon)),
   ).length ?? 0;
 
-  const isRefreshing = stateRefetching || trefferRefetching || statusRefetching || clubsRefetching || nfbRefetching || mckRefetching;
+  const isRefreshing =
+    pegelLiveRefetching || stateRefetching || trefferRefetching || statusRefetching ||
+    clubsRefetching || nfbRefetching || mckRefetching;
 
-  // Dreh-Animation für den Refresh-Button
   const spinAnim = useRef(new Animated.Value(0)).current;
   const spinLoop = useRef<Animated.CompositeAnimation | null>(null);
-
   useEffect(() => {
     if (isRefreshing) {
       spinAnim.setValue(0);
       spinLoop.current = Animated.loop(
-        Animated.timing(spinAnim, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
+        Animated.timing(spinAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
       );
       spinLoop.current.start();
     } else {
@@ -551,19 +528,10 @@ export default function HomeScreen() {
     }
   }, [isRefreshing, spinAnim]);
 
-  const spinInterpolate = spinAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
   const onRefresh = useCallback(() => {
-    void refetchState();
-    void refetchTreffer();
-    void refetchStatus();
-    void refetchClubs();
-    void refetchNfb();
-    void refetchMck();
-  }, [refetchState, refetchTreffer, refetchStatus, refetchClubs, refetchNfb, refetchMck]);
+    void refetchPegelLive(); void refetchState(); void refetchTreffer(); void refetchStatus();
+    void refetchClubs(); void refetchNfb(); void refetchMck();
+  }, [refetchPegelLive, refetchState, refetchTreffer, refetchStatus, refetchClubs, refetchNfb, refetchMck]);
 
   const lastRunAt = waechterStatus?.last_run_at ?? null;
   const lastRunMs = lastRunAt ? Date.now() - new Date(lastRunAt).getTime() : null;
@@ -572,2043 +540,1987 @@ export default function HomeScreen() {
   const neverRan = !statusLoading && !lastRunAt;
   const rssNewCount = waechterStatus?.rss_new_count ?? 0;
 
-  const currentCm = state?.last_pegel_cm ?? null;
-  const threshold = state?.threshold_cm ?? 225;
+  const currentCm = pegelLive?.cm ?? null;
+  const currentTs = pegelLive?.ts ?? null;
+  const currentHistory = pegelLive?.history ?? [];
+  // Persönliche Schwelle aus user_gauge_settings für den aktuell ausgewählten Pegel
+  const gaugeSetting = selectedGauge ? getGaugeSetting(selectedGauge.id) : null;
+  const threshold = gaugeSetting?.alert_threshold_cm ?? 225;
   const isAlarm = currentCm !== null && currentCm < threshold;
   const isSafe = currentCm !== null && currentCm >= threshold;
-  const statusColor = isAlarm
-    ? colors.alarm
-    : isSafe
-      ? colors.safe
-      : colors.mutedForeground;
+  const statusColor = isAlarm ? colors.alarm : isSafe ? colors.safe : colors.mutedForeground;
   const statusLabel = isAlarm ? 'ALARM' : isSafe ? 'SICHER' : null;
 
-  // ── Seit deinem letzten Besuch ──────────────────────────────────────────────
-  const sinceLastVisitChanges = useSinceLastVisit(
-    nfbData?.meldungen,
-    !nfbLoading && !nfbError && nfbData !== undefined,
-    currentCm,
-    !stateLoading && !stateError && state !== undefined,
-    mckData,
-    !mckLoading && !mckIsError && mckData !== undefined,
+  // useSinceLastVisit – Datenquelle aktiv halten
+  useSinceLastVisit(
+    nfbData?.meldungen, !nfbLoading && !nfbError && nfbData !== undefined,
+    currentCm, !pegelLiveLoading && !pegelLiveError && pegelLive !== undefined,
+    mckData, !mckLoading && !mckIsError && mckData !== undefined,
   );
 
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView
-        ref={scrollRef}
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingTop: topPad + 4,
-          paddingBottom: botPad + 32,
-          paddingHorizontal: 16,
-          gap: 14,
-        }}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Header ── */}
-        <View
-          style={{
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingTop: 2,
-            paddingBottom: 8,
-            marginBottom: 2,
-          }}
-        >
-          {/* Logo */}
-          <Image
-            source={require('../assets/images/icon.png')}
-            style={{ width: 64, height: 64, marginBottom: 6 }}
-            resizeMode="contain"
-          />
-          {/* Titel – volle Breite */}
-          <Text
-            style={{
-              fontSize: 32,
-              fontFamily: 'SpaceGrotesk_700Bold',
-              color: colors.primary,
-              width: '100%',
-              textAlign: 'center',
-            }}
-            numberOfLines={1}
-          >
-            R(h)einschiffer
-          </Text>
+  // ── Stil-Helfer für Menüzeilen ────────────────────────────────────────────
+  const menuRow: object = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 52,
+  };
+  const menuDivider = { height: 1, backgroundColor: colors.border };
+  const menuContent: object = {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 4,
+    gap: 12,
+  };
 
-          {/* Refresh + Uhrzeit – absolut rechts, damit Titel wirklich mittig bleibt */}
-          <View
-            style={{
-              position: 'absolute',
-              right: 0,
-              top: 0,
-              bottom: 0,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 8,
-            }}
-          >
-            {state?.last_pegel_time ? (
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.mutedForeground,
-                }}
-              >
-                {formatTime(state.last_pegel_time)}
-              </Text>
-            ) : null}
-            <TouchableOpacity
-              onPress={onRefresh}
-              disabled={isRefreshing}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              activeOpacity={0.6}
-            >
-              <Animated.View style={{ transform: [{ rotate: spinInterpolate }] }}>
-                <Feather
-                  name="refresh-cw"
-                  size={16}
-                  color={isRefreshing ? colors.primary : colors.mutedForeground}
-                />
-              </Animated.View>
-            </TouchableOpacity>
-          </View>
-        </View>
+  const MenuRowLeft = ({
+    icon, label, color,
+  }: { icon: React.ComponentProps<typeof Feather>['name']; label: string; color?: string }) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+      <View style={{
+        width: 32, height: 32, borderRadius: 8,
+        backgroundColor: (color ?? colors.primary) + '18',
+        alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Feather name={icon} size={15} color={color ?? colors.primary} />
+      </View>
+      <Text style={{
+        fontSize: 14, fontFamily: 'SpaceGrotesk_500Medium',
+        color: colors.foreground, flex: 1,
+      }} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
 
-        {/* ── Seit deinem letzten Besuch ── */}
-        {sinceLastVisitChanges.length > 0 && (
-          <View
-            style={{
-              backgroundColor: colors.card,
-              borderRadius: colors.radius,
-              borderWidth: 1,
-              borderColor: colors.border,
-              paddingHorizontal: 14,
-              paddingVertical: 12,
-              gap: 8,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 10,
-                fontFamily: 'SpaceGrotesk_500Medium',
-                color: colors.mutedForeground,
-                letterSpacing: 2,
-                textTransform: 'uppercase',
-              }}
-            >
-              🕐 Seit deinem letzten Besuch
+  const CountBadge = ({ count }: { count: number }) => (
+    <View style={{
+      backgroundColor: colors.muted, paddingHorizontal: 8,
+      paddingVertical: 2, borderRadius: 99, marginRight: 4,
+    }}>
+      <Text style={{
+        fontSize: 12, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.primary,
+      }}>{count}</Text>
+    </View>
+  );
+
+  // ── Pegelstand-Kachel (shared für Gast- und angemeldeten Bereich) ─────────
+  const renderPegelCard = () => (
+    <View style={{
+      backgroundColor: colors.primary,
+      borderRadius: (colors.radius as number) + 4,
+      padding: 20,
+      gap: 10,
+    }}>
+      {/* Pegelname */}
+      <Text style={{
+        fontSize: 18,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        color: colors.primaryForeground,
+        letterSpacing: 1,
+      }}>
+        {(selectedGauge?.name ?? '—').toUpperCase()}
+      </Text>
+
+      {/* Rheinkilometer · Datum · Uhrzeit + ALARM-Badge */}
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'nowrap',
+      }}>
+        <Text style={{
+          fontSize: 11,
+          fontFamily: 'SpaceGrotesk_600SemiBold',
+          color: colors.primaryForeground,
+          opacity: 0.75,
+          letterSpacing: 0.5,
+          flex: 1,
+          flexShrink: 1,
+        }} numberOfLines={1}>
+          {`RHEINKILOMETER ${selectedGauge?.river_km != null ? String(selectedGauge.river_km).replace('.', ',') : '—'}`}
+          {currentTs
+            ? ` · ${formatDate(currentTs)} · ${formatTime(currentTs)}`
+            : ''}
+        </Text>
+        {statusLabel && (
+          <View style={{
+            paddingHorizontal: 10, paddingVertical: 4,
+            borderRadius: 99, backgroundColor: statusColor,
+            marginLeft: 8, flexShrink: 0,
+          }}>
+            <Text style={{
+              fontSize: 10, fontFamily: 'SpaceGrotesk_700Bold',
+              color: '#FFFFFF', letterSpacing: 2,
+            }}>
+              {statusLabel}
             </Text>
-            {/* Feste Reihenfolge: NfB → Pegel → Sperrung → MCK */}
-            {sinceLastVisitChanges
-              .slice()
-              .sort((a, b) => {
-                const ORDER: Record<string, number> = { nfb: 0, pegel: 1, sperrung: 2, mck: 3 };
-                return (ORDER[a.kind] ?? 99) - (ORDER[b.kind] ?? 99);
-              })
-              .map((change) => {
-                if (change.kind === 'nfb') {
-                  return (
-                    <TouchableOpacity
-                      key="nfb"
-                      onPress={() => {
-                        setNfbOpen(true);
-                        setTimeout(() => {
-                          nfbCardRef.current?.measureLayout(
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            scrollRef.current as any,
-                            (_x, y) => scrollRef.current?.scrollTo({ y, animated: true }),
-                            () => {},
-                          );
-                        }, 300);
-                      }}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          fontFamily: 'SpaceGrotesk_500Medium',
-                          color: colors.foreground,
-                        }}
-                      >
-                        {'🟠 '}
-                        {change.newCount}{' '}
-                        {change.newCount === 1 ? 'neue NfB' : 'neue NfBs'}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                }
-                if (change.kind === 'pegel') {
-                  const up = change.deltaCm > 0;
-                  return (
-                    <TouchableOpacity
-                      key="pegel"
-                      onPress={() => {
-                        setTimeout(() => {
-                          pegelCardRef.current?.measureLayout(
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            scrollRef.current as any,
-                            (_x, y) => scrollRef.current?.scrollTo({ y, animated: true }),
-                            () => {},
-                          );
-                        }, 100);
-                      }}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          fontFamily: 'SpaceGrotesk_500Medium',
-                          color: colors.foreground,
-                        }}
-                      >
-                        {up ? '📈' : '📉'}{' '}
-                        {'Pegel Speyer '}
-                        {up ? '+' : ''}
-                        {change.deltaCm}{' cm'}
-                        {'   '}
-                        <Text style={{ fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground, fontSize: 12 }}>
-                          {change.oldCm} → {change.newCm} cm
-                        </Text>
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                }
-                if (change.kind === 'sperrung') {
-                  return (
-                    <TouchableOpacity
-                      key="sperrung"
-                      onPress={() => {
-                        setNfbOpen(true);
-                        setTimeout(() => {
-                          nfbCardRef.current?.measureLayout(
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            scrollRef.current as any,
-                            (_x, y) => scrollRef.current?.scrollTo({ y, animated: true }),
-                            () => {},
-                          );
-                        }, 300);
-                      }}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          fontFamily: 'SpaceGrotesk_500Medium',
-                          color: colors.foreground,
-                        }}
-                      >
-                        {'🚧 '}
-                        {change.count}{' '}
-                        {change.count === 1 ? 'neue Sperrmeldung' : 'neue Sperrmeldungen'}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                }
-                if (change.kind === 'mck') {
-                  const lines: string[] = [];
-                  if (
-                    change.oldPetrol !== null &&
-                    change.newPetrol !== null &&
-                    change.oldPetrol !== change.newPetrol
-                  ) {
-                    lines.push(
-                      `Benzin ${change.oldPetrol.toFixed(2)} → ${change.newPetrol.toFixed(2)} €/l`,
-                    );
-                  }
-                  if (
-                    change.oldDiesel !== null &&
-                    change.newDiesel !== null &&
-                    change.oldDiesel !== change.newDiesel
-                  ) {
-                    lines.push(
-                      `Diesel ${change.oldDiesel.toFixed(2)} → ${change.newDiesel.toFixed(2)} €/l`,
-                    );
-                  }
-                  if (lines.length === 0) return null;
-                  return (
-                    <Text
-                      key="mck"
-                      style={{
-                        fontSize: 14,
-                        fontFamily: 'SpaceGrotesk_500Medium',
-                        color: colors.foreground,
-                      }}
-                    >
-                      {'⛽ '}
-                      {lines.join(' · ')}
-                    </Text>
-                  );
-                }
-                return null;
-              })}
           </View>
         )}
+      </View>
 
-        {/* ── Pegel Hero Card ── */}
-        <View
-          ref={pegelCardRef}
-          style={{
-            backgroundColor: colors.primary,
-            borderRadius: colors.radius + 4,
-            padding: 20,
-            gap: 14,
-          }}
-        >
-          {/* Row: label + status badge */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 10,
-                fontFamily: 'SpaceGrotesk_500Medium',
-                color: colors.primaryForeground,
-                opacity: 0.55,
-                letterSpacing: 2,
-                textTransform: 'uppercase',
-              }}
-            >
-              Pegel Speyer
+      {/* Großer cm-Wert */}
+      {pegelLiveLoading ? (
+        <ActivityIndicator size="large" color={colors.primaryForeground} style={{ marginVertical: 4 }} />
+      ) : pegelLiveError ? (
+        <Text style={{
+          fontSize: 52, fontFamily: 'SpaceGrotesk_400Regular',
+          color: colors.primaryForeground, opacity: 0.3,
+        }}>—</Text>
+      ) : (
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
+          <Text style={{
+            fontSize: 60,
+            fontFamily: 'SpaceGrotesk_700Bold',
+            color: colors.primaryForeground,
+            lineHeight: 66,
+            includeFontPadding: false,
+          }}>
+            {currentCm ?? '—'}
+          </Text>
+          {currentCm !== null && (
+            <Text style={{
+              fontSize: 22,
+              fontFamily: 'SpaceGrotesk_400Regular',
+              color: colors.primaryForeground,
+              opacity: 0.55,
+              marginBottom: 6,
+            }}>
+              cm
             </Text>
-            {statusLabel && (
-              <View
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 99,
-                  backgroundColor: statusColor,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontFamily: 'SpaceGrotesk_700Bold',
-                    color: '#FFFFFF',
-                    letterSpacing: 2,
-                  }}
-                >
-                  {statusLabel}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Big number */}
-          {stateLoading ? (
-            <ActivityIndicator
-              size="large"
-              color={colors.primaryForeground}
-              style={{ marginVertical: 8 }}
-            />
-          ) : stateError ? (
-            <Text
-              style={{
-                fontSize: 48,
-                fontFamily: 'SpaceGrotesk_400Regular',
-                color: colors.primaryForeground,
-                opacity: 0.3,
-              }}
-            >
-              —
-            </Text>
-          ) : (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'flex-end',
-                gap: 6,
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 56,
-                  fontFamily: 'SpaceGrotesk_700Bold',
-                  color: colors.primaryForeground,
-                  lineHeight: 62,
-                  includeFontPadding: false,
-                }}
-              >
-                {currentCm ?? '—'}
-              </Text>
-              {currentCm !== null && (
-                <Text
-                  style={{
-                    fontSize: 22,
-                    fontFamily: 'SpaceGrotesk_400Regular',
-                    color: colors.primaryForeground,
-                    opacity: 0.55,
-                    marginBottom: 6,
-                  }}
-                >
-                  cm
-                </Text>
-              )}
-            </View>
           )}
+        </View>
+      )}
 
-          {/* Footer row: timestamp + threshold */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 12,
-                fontFamily: 'SpaceGrotesk_400Regular',
-                color: colors.primaryForeground,
-                opacity: 0.5,
-              }}
-            >
-              {state?.last_pegel_time
-                ? formatDateTime(state.last_pegel_time)
-                : 'Kein Messwert'}
+      {/* Schwelle – nur wenn angemeldet */}
+      {user && (
+        <Text style={{
+          fontSize: 12,
+          fontFamily: 'SpaceGrotesk_500Medium',
+          color: colors.primaryForeground,
+          opacity: 0.55,
+        }}>
+          Schwelle: {threshold} cm
+        </Text>
+      )}
+    </View>
+  );
+
+  // ── HAUPTBEREICH (null) ───────────────────────────────────────────────────
+  const renderHome = () => (
+    <ScrollView
+      ref={scrollRef}
+      style={{ flex: 1 }}
+      contentContainerStyle={{
+        padding: CARD_PADDING,
+        paddingTop: topPad + CARD_PADDING,
+        paddingBottom: botPad + BOTTOM_NAV_HEIGHT + 24,
+        gap: 12,
+      }}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+        />
+      }
+    >
+      {/* Logo + Titel */}
+      <View style={{ alignItems: 'center', paddingBottom: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <Image
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            source={require('../assets/images/icon.png')}
+            style={{ width: 68, height: 68, borderRadius: 18 }}
+            resizeMode="contain"
+          />
+          <View style={{ gap: 3 }}>
+            <Text style={{
+              fontSize: 30,
+              fontFamily: 'SpaceGrotesk_700Bold',
+              color: colors.foreground,
+            }}>
+              R(h)einschiffer
             </Text>
-            <Text
-              style={{
-                fontSize: 12,
-                fontFamily: 'SpaceGrotesk_500Medium',
-                color: colors.primaryForeground,
-                opacity: 0.5,
-              }}
-            >
-              Schwelle: {threshold} cm
+            <Text style={{
+              fontSize: 13,
+              fontFamily: 'SpaceGrotesk_400Regular',
+              color: colors.mutedForeground,
+            }}>
+              Pegelvorhersage und News
             </Text>
           </View>
         </View>
+      </View>
 
-        {/* ── Chart Card ── */}
-        <View
+      {/* Pegelstand-Kachel */}
+      {renderPegelCard()}
+
+      {/* Gastmodus: CTA zur Anmeldung */}
+      {!user && (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => handleTabPress('konto')}
           style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: colors.card,
+            borderRadius: colors.radius,
+            borderWidth: 1,
+            borderColor: colors.primary + '40',
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{
+              width: 34, height: 34, borderRadius: 17,
+              backgroundColor: colors.primary + '18',
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Feather name="lock" size={16} color={colors.primary} />
+            </View>
+            <View style={{ gap: 2 }}>
+              <Text style={{
+                fontSize: 14, fontFamily: 'SpaceGrotesk_600SemiBold',
+                color: colors.foreground,
+              }}>
+                Alle Funktionen freischalten
+              </Text>
+              <Text style={{
+                fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                color: colors.mutedForeground,
+              }}>
+                Verlauf, Vorhersage, Warnungen & mehr
+              </Text>
+            </View>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.primary} />
+        </TouchableOpacity>
+      )}
+
+      {/* Angemeldeter Bereich: Verlauf + Akkordeon-Menü */}
+      {user && (
+        <>
+          {/* Verlauf-Chart */}
+          <View style={{
             backgroundColor: colors.card,
             borderRadius: colors.radius,
             padding: 16,
             borderWidth: 1,
             borderColor: colors.border,
             gap: 12,
-          }}
-        >
-          {/* Header row: label + range tabs */}
-          <View
-            style={{
+          }}>
+            <View style={{
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-            }}
-          >
-            <Text
-              style={{
+            }}>
+              <Text style={{
                 fontSize: 10,
                 fontFamily: 'SpaceGrotesk_600SemiBold',
                 color: colors.mutedForeground,
                 letterSpacing: 2,
                 textTransform: 'uppercase',
-              }}
-            >
-              Verlauf
-            </Text>
-
-            {/* Range selector tabs */}
-            <View
-              style={{
+              }}>
+                Verlauf
+              </Text>
+              <View style={{
                 flexDirection: 'row',
                 backgroundColor: colors.muted,
                 borderRadius: 8,
                 padding: 2,
                 gap: 2,
-              }}
-            >
-              {TIME_RANGE_OPTIONS.map(({ label, value }) => {
-                const active = chartRange === value;
-                return (
-                  <TouchableOpacity
-                    key={value}
-                    onPress={() => handleRangeChange(value)}
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 4,
-                      borderRadius: 6,
-                      backgroundColor: active ? colors.card : 'transparent',
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text
+              }}>
+                {TIME_RANGE_OPTIONS.map(({ label, value }) => {
+                  const active = chartRange === value;
+                  return (
+                    <TouchableOpacity
+                      key={value}
+                      onPress={() => handleRangeChange(value)}
+                      activeOpacity={0.7}
                       style={{
-                        fontSize: 11,
-                        fontFamily: active
-                          ? 'SpaceGrotesk_600SemiBold'
-                          : 'SpaceGrotesk_400Regular',
-                        color: active ? colors.foreground : colors.mutedForeground,
+                        paddingHorizontal: 12,
+                        paddingVertical: 5,
+                        borderRadius: 6,
+                        backgroundColor: active ? colors.card : 'transparent',
                       }}
                     >
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                      <Text style={{
+                        fontSize: 12,
+                        fontFamily: active ? 'SpaceGrotesk_600SemiBold' : 'SpaceGrotesk_400Regular',
+                        color: active ? colors.foreground : colors.mutedForeground,
+                      }}>
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
+
+            {pegelStationId == null ? (
+              <View style={{ alignItems: 'center', paddingVertical: 18, gap: 6 }}>
+                <Feather name="alert-circle" size={18} color={colors.primaryForeground} style={{ opacity: 0.55 }} />
+                <Text style={{
+                  fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.mutedForeground, textAlign: 'center',
+                }}>
+                  {'Kein PEGELONLINE-Stationsname\nfür ' + (selectedGauge?.name ?? 'diesen Pegel') + ' konfiguriert.'}
+                </Text>
+              </View>
+            ) : pegelLiveLoading ? (
+              <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : pegelLiveError ? (
+              <TouchableOpacity
+                style={{ alignItems: 'center', gap: 8, paddingVertical: 20 }}
+                onPress={() => void refetchPegelLive()}
+              >
+                <Feather name="alert-circle" size={20} color={colors.destructive} />
+                <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>
+                  Fehler beim Laden
+                </Text>
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 6,
+                  backgroundColor: colors.muted, paddingHorizontal: 14,
+                  paddingVertical: 7, borderRadius: 8, marginTop: 4,
+                }}>
+                  <Feather name="refresh-cw" size={13} color={colors.foreground} />
+                  <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>
+                    Erneut versuchen
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <PegelChart
+                history={filterHistory(currentHistory, chartRange)}
+                threshold={threshold}
+              />
+            )}
           </View>
 
-          {stateLoading ? (
-            <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
-              <ActivityIndicator color={colors.primary} />
-            </View>
-          ) : stateError ? (
-            <TouchableOpacity
-              style={{ alignItems: 'center', gap: 8, paddingVertical: 20 }}
-              onPress={() => void refetchState()}
-            >
-              <Feather name="alert-circle" size={20} color={colors.destructive} />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.destructive,
-                }}
-              >
-                Fehler beim Laden
-              </Text>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  backgroundColor: colors.muted,
-                  paddingHorizontal: 14,
-                  paddingVertical: 7,
-                  borderRadius: 8,
-                  marginTop: 4,
-                }}
-              >
-                <Feather name="refresh-cw" size={13} color={colors.foreground} />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontFamily: 'SpaceGrotesk_500Medium',
-                    color: colors.foreground,
-                  }}
-                >
-                  Erneut versuchen
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <PegelChart
-              history={filterHistory(state?.history ?? [], chartRange)}
-              threshold={threshold}
-            />
-          )}
-        </View>
+          {/* MENÜ-Label */}
+          <Text style={{
+            fontSize: 11,
+            fontFamily: 'SpaceGrotesk_600SemiBold',
+            color: colors.mutedForeground,
+            letterSpacing: 2,
+            textTransform: 'uppercase',
+            paddingTop: 4,
+            paddingHorizontal: 2,
+          }}>
+            Menü
+          </Text>
 
-        {/* ── HVZ Vorhersage Card ── */}
-        {(() => {
-          const imgW = SCREEN_W - 32 - 32;
-          const imgH = Math.round(imgW * (600 / 800));
-          return (
-            <View
-              style={{
-                backgroundColor: colors.card,
-                borderRadius: colors.radius,
-                padding: 16,
-                borderWidth: 1,
-                borderColor: colors.border,
-                gap: 12,
-              }}
-            >
-              {/* Header: linke Seite toggelt, rechte Seite öffnet LUBW */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <TouchableOpacity
-                  onPress={() => setHvzOpen(o => !o)}
-                  activeOpacity={0.7}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 10,
-                      fontFamily: 'SpaceGrotesk_600SemiBold',
-                      color: colors.mutedForeground,
-                      letterSpacing: 2,
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Vorhersage
-                  </Text>
-                  <Feather name={hvzOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.mutedForeground} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => void Linking.openURL('https://www.hvz.baden-wuerttemberg.de/pegel.html?id=09017')}
-                  activeOpacity={0.7}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                >
-                  <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
-                    LUBW / HVZ
-                  </Text>
-                  <Feather name="external-link" size={11} color={colors.mutedForeground} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Vorhersage-Grafik — nur wenn aufgeklappt */}
-              {hvzOpen && (
-                <Image
-                  source={{ uri: `https://www.hvz.baden-wuerttemberg.de/gifs/09017-2001.GIF?t=${hvzTs}` }}
-                  style={{ width: imgW, height: imgH, borderRadius: 6, alignSelf: 'center' }}
-                  resizeMode="contain"
-                />
-              )}
-            </View>
-          );
-        })()}
-
-        {/* ── NfB-Meldungen Card ── */}
-        <View
-          ref={nfbCardRef}
-          style={{
+          {/* Menü-Karte */}
+          <View style={{
             backgroundColor: colors.card,
             borderRadius: colors.radius,
-            padding: 16,
             borderWidth: 1,
-            borderColor: nfbNewCount > 0 ? colors.accent : colors.border,
-            gap: 12,
-          }}
-        >
-          {/* Section header – anklickbar zum Auf-/Zuklappen */}
-          <TouchableOpacity
-            onPress={() => { if (!nfbKmEdit) setNfbOpen(o => !o); }}
-            activeOpacity={0.7}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text
-                style={{
-                  fontSize: 10,
-                  fontFamily: 'SpaceGrotesk_600SemiBold',
-                  color: colors.mutedForeground,
-                  letterSpacing: 0.5,
-                }}
-              >
-                WSV - Nachrichten für die Binnenschifffahrt
-              </Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {nfbNewCount > 0 && (
-                <View
-                  style={{
-                    backgroundColor: colors.accent,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 99,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontFamily: 'SpaceGrotesk_700Bold',
-                      color: '#FFFFFF',
-                      letterSpacing: 1,
-                    }}
-                  >
-                    {nfbNewCount} NEU
-                  </Text>
-                </View>
-              )}
-              {nfbData != null && nfbData.count > 0 && nfbNewCount === 0 && (
-                <View
-                  style={{
-                    backgroundColor: colors.muted,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 99,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontFamily: 'SpaceGrotesk_600SemiBold',
-                      color: colors.accent,
-                    }}
-                  >
-                    {nfbData.count}
-                  </Text>
-                </View>
-              )}
-              <Feather
-                name={nfbOpen ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color={nfbNewCount > 0 ? colors.accent : colors.mutedForeground}
-              />
-            </View>
-          </TouchableOpacity>
+            borderColor: colors.border,
+            overflow: 'hidden',
+          }}>
 
-          {/* Last-updated hint */}
-          {nfbDataUpdatedAt > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -6 }}>
-              {nfbError && (
-                <Feather name="alert-circle" size={11} color="#E8620A" />
-              )}
-              <Text
-                style={{
-                  fontSize: 10,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: nfbError ? '#E8620A' : colors.mutedForeground,
-                  opacity: nfbError ? 1 : 0.6,
-                }}
-              >
-                {nfbError
-                  ? `Fehler beim Aktualisieren · Stand ${formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}`
-                  : `Aktualisiert ${formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}`}
-              </Text>
-            </View>
-          )}
-
-          {/* km-Bereich – immer sichtbar, editierbar */}
-          {nfbKmEdit ? (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                backgroundColor: colors.muted,
-                borderRadius: 8,
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
-                km
-              </Text>
-              <TextInput
-                value={nfbKmInputVon}
-                onChangeText={setNfbKmInputVon}
-                keyboardType="number-pad"
-                returnKeyType="next"
-                onSubmitEditing={() => nfbKmBisRef.current?.focus()}
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_600SemiBold',
-                  color: colors.foreground,
-                  backgroundColor: colors.card,
-                  borderRadius: 6,
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  minWidth: 52,
-                  textAlign: 'center',
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-                selectTextOnFocus
-              />
-              <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>–</Text>
-              <TextInput
-                ref={nfbKmBisRef}
-                value={nfbKmInputBis}
-                onChangeText={setNfbKmInputBis}
-                keyboardType="number-pad"
-                returnKeyType="done"
-                onSubmitEditing={applyNfbKm}
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_600SemiBold',
-                  color: colors.foreground,
-                  backgroundColor: colors.card,
-                  borderRadius: 6,
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  minWidth: 52,
-                  textAlign: 'center',
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-                selectTextOnFocus
-              />
-              <TouchableOpacity
-                onPress={applyNfbKm}
-                style={{
-                  marginLeft: 4,
-                  backgroundColor: colors.primary,
-                  borderRadius: 6,
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                }}
-              >
-                <Feather name="check" size={14} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={() => setNfbKmEdit(true)}
-              activeOpacity={0.7}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                alignSelf: 'flex-start',
-                backgroundColor: colors.muted,
-                borderRadius: 8,
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-              }}
-            >
-              <Feather name="map-pin" size={12} color={colors.mutedForeground} />
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontFamily: 'SpaceGrotesk_500Medium',
-                  color: colors.mutedForeground,
-                }}
-              >
-                km {nfbKmVon}–{nfbKmBis}
-              </Text>
-              <Feather name="edit-2" size={11} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          )}
-
-          {/* Benachrichtigungs-Toggle */}
-          {Platform.OS !== 'web' && (
-            <View>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  backgroundColor: colors.muted,
-                  borderRadius: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                  {/* Icon and label reflect effective state (user pref + OS permission) */}
-                  <Feather
-                    name={nfbNotifEnabled ? 'bell' : 'bell-off'}
-                    size={13}
-                    color={nfbNotifEnabled ? colors.foreground : colors.mutedForeground}
-                  />
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontFamily: 'SpaceGrotesk_500Medium',
-                      color: colors.foreground,
-                    }}
-                  >
-                    Benachrichtigungen
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontFamily: 'SpaceGrotesk_600SemiBold',
-                      color:
-                        nfbNotifEnabled && nfbOsPermission !== 'denied'
-                          ? colors.safe
-                          : colors.mutedForeground,
-                    }}
-                  >
-                    {nfbNotifEnabled && nfbOsPermission !== 'denied' ? 'AN' : 'AUS'}
-                  </Text>
-                </View>
-                {/* Switch always reflects the user's stored preference (not OS state).
-                    This way the user can always explicitly opt out, even when OS is denied. */}
-                <Switch
-                  value={nfbNotifEnabled}
-                  onValueChange={toggleNfbNotif}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor="#ffffff"
-                />
-              </View>
-              {/* OS denied hint — shown only when the user wants alerts ON but OS blocks them */}
-              {nfbOsPermission === 'denied' && nfbNotifEnabled && (
-                <TouchableOpacity
-                  onPress={() => void Linking.openSettings()}
-                  activeOpacity={0.7}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 6,
-                    marginTop: 6,
-                    backgroundColor: colors.alarm + '18',
-                    borderRadius: 7,
-                    paddingHorizontal: 10,
-                    paddingVertical: 7,
-                  }}
-                >
-                  <Feather name="alert-circle" size={13} color={colors.alarm} />
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontFamily: 'SpaceGrotesk_400Regular',
-                      color: colors.alarm,
-                      flex: 1,
-                    }}
-                  >
-                    Benachrichtigungen sind in den Systemeinstellungen gesperrt.
-                  </Text>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 4,
-                      backgroundColor: colors.alarm + '28',
-                      borderRadius: 6,
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontFamily: 'SpaceGrotesk_600SemiBold',
-                        color: colors.alarm,
-                      }}
-                    >
-                      Einstellungen öffnen
-                    </Text>
-                    <Feather name="external-link" size={11} color={colors.alarm} />
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-
-          {/* NfB content – nur sichtbar wenn aufgeklappt */}
-          {nfbOpen && (nfbLoading ? (
-            <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
-              <ActivityIndicator color={colors.primary} />
-            </View>
-          ) : nfbError ? (
-            <TouchableOpacity
-              style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
-              onPress={() => void refetchNfb()}
-            >
-              <Feather name="alert-circle" size={20} color={colors.destructive} />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.destructive,
-                }}
-              >
-                Fehler beim Laden
-              </Text>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  backgroundColor: colors.muted,
-                  paddingHorizontal: 14,
-                  paddingVertical: 7,
-                  borderRadius: 8,
-                  marginTop: 4,
-                }}
-              >
-                <Feather name="refresh-cw" size={13} color={colors.foreground} />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontFamily: 'SpaceGrotesk_500Medium',
-                    color: colors.foreground,
-                  }}
-                >
-                  Erneut versuchen
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ) : !nfbData?.meldungen.length ? (
-            <View style={{ alignItems: 'center', paddingVertical: 16, gap: 6 }}>
-              <Feather name="check-circle" size={20} color={colors.mutedForeground} />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.mutedForeground,
-                }}
-              >
-                Keine aktiven Meldungen
-              </Text>
-            </View>
-          ) : (
-            [...nfbData.meldungen].sort((a, b) => (a.km_von ?? 0) - (b.km_von ?? 0)).map((m: NfbMeldung, i: number) => {
-              const isLast = i === nfbData.meldungen.length - 1;
-              const kmRange =
-                m.km_von != null && m.km_bis != null
-                  ? `km ${m.km_von}–${m.km_bis}`
-                  : m.km_von != null
-                    ? `km ${m.km_von}`
-                    : null;
-              const validity =
-                m.gueltig_ab || m.gueltig_bis
-                  ? [m.gueltig_ab, m.gueltig_bis].filter(Boolean).join(' – ')
-                  : null;
-
+            {/* 1. Vorhersage */}
+            {(() => {
+              const imgW = SCREEN_W - CARD_PADDING * 2 - 32;
+              const imgH = Math.round(imgW * (600 / 800));
               return (
-                <View
-                  key={m.nfb_id}
-                  style={{
-                    paddingVertical: 10,
-                    borderBottomWidth: isLast ? 0 : 1,
-                    borderBottomColor: colors.border,
-                    gap: 6,
-                  }}
-                >
-                  {/* Top row: NfB-ID + "NEU" badge */}
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
+                <>
+                  <TouchableOpacity
+                    onPress={() => setHvzOpen(o => !o)}
+                    activeOpacity={0.7}
+                    style={menuRow}
                   >
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontFamily: 'SpaceGrotesk_500Medium',
-                        color: colors.mutedForeground,
-                      }}
-                    >
-                      {m.nfb_id}
-                    </Text>
-                    {m.is_new && (
-                      <View
+                    <MenuRowLeft icon="trending-up" label="Vorhersage" />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          const hvzId = selectedGauge?.pegel_nr
+                            ? (HVZ_BW_IDS[selectedGauge.pegel_nr.toUpperCase()] ?? null)
+                            : null;
+                          void Linking.openURL(
+                            hvzId
+                              ? `https://www.hvz.baden-wuerttemberg.de/pegel.html?id=${hvzId}`
+                              : 'https://www.hvz.baden-wuerttemberg.de/',
+                          );
+                        }}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}
+                      >
+                        <Text style={{
+                          fontSize: 11,
+                          fontFamily: 'SpaceGrotesk_400Regular',
+                          color: colors.mutedForeground,
+                        }}>
+                          LUBW
+                        </Text>
+                        <Feather name="external-link" size={11} color={colors.mutedForeground} />
+                      </TouchableOpacity>
+                      <Feather
+                        name={hvzOpen ? 'chevron-up' : 'chevron-right'}
+                        size={16}
+                        color={colors.mutedForeground}
+                      />
+                    </View>
+                  </TouchableOpacity>
+
+                  {hvzOpen && (
+                    <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 8 }}>
+                      {(() => {
+                        const hvzId = selectedGauge?.pegel_nr
+                          ? (HVZ_BW_IDS[selectedGauge.pegel_nr.toUpperCase()] ?? null)
+                          : null;
+                        if (!hvzId) {
+                          return (
+                            <View style={{ alignItems: 'center', paddingVertical: 24, gap: 8 }}>
+                              <Feather name="info" size={18} color={colors.mutedForeground} />
+                              <Text style={{
+                                fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+                                color: colors.mutedForeground, textAlign: 'center',
+                              }}>
+                                {'Vorhersage für ' + (selectedGauge?.name ?? 'diesen Pegel') + '\nnicht im HVZ-BW-Gebiet verfügbar.'}
+                              </Text>
+                            </View>
+                          );
+                        }
+                        return (
+                          <Image
+                            source={{
+                              uri: `https://www.hvz.baden-wuerttemberg.de/gifs/${hvzId}-2001.GIF?t=${hvzTs}`,
+                            }}
+                            style={{ width: imgW, height: imgH, borderRadius: 8, alignSelf: 'center' }}
+                            resizeMode="contain"
+                          />
+                        );
+                      })()}
+                    </View>
+                  )}
+                </>
+              );
+            })()}
+
+            <View style={menuDivider} />
+
+            {/* 2. WSV – Nachrichten für die Binnenschifffahrt */}
+            <View ref={nfbCardRef}>
+              <TouchableOpacity
+                onPress={() => { if (!nfbKmEdit) setNfbOpen(o => !o); }}
+                activeOpacity={0.7}
+                style={[
+                  menuRow,
+                  nfbNewCount > 0
+                    ? { borderLeftWidth: 3, borderLeftColor: colors.primary, paddingLeft: 13 }
+                    : {},
+                ]}
+              >
+                <MenuRowLeft icon="alert-circle" label="WSV – Nachrichten" />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {nfbNewCount > 0 && (
+                    <View style={{
+                      backgroundColor: colors.primary,
+                      paddingHorizontal: 8, paddingVertical: 3,
+                      borderRadius: 99,
+                    }}>
+                      <Text style={{
+                        fontSize: 11, fontFamily: 'SpaceGrotesk_700Bold',
+                        color: colors.primaryForeground, letterSpacing: 1,
+                      }}>
+                        {nfbNewCount} NEU
+                      </Text>
+                    </View>
+                  )}
+                  {nfbData != null && nfbData.count > 0 && nfbNewCount === 0 && (
+                    <CountBadge count={nfbData.count} />
+                  )}
+                  <Feather
+                    name={nfbOpen ? 'chevron-up' : 'chevron-right'}
+                    size={16}
+                    color={colors.mutedForeground}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              {nfbOpen && (
+                <View style={menuContent}>
+                  {nfbDataUpdatedAt > 0 && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      {nfbError && (
+                        <Feather name="alert-circle" size={11} color="#E8620A" />
+                      )}
+                      <Text style={{
+                        fontSize: 10,
+                        fontFamily: 'SpaceGrotesk_400Regular',
+                        color: nfbError ? '#E8620A' : colors.mutedForeground,
+                        opacity: nfbError ? 1 : 0.7,
+                      }}>
+                        {nfbError
+                          ? `Fehler · Stand ${formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}`
+                          : `Aktualisiert ${formatRelativeTime(new Date(nfbDataUpdatedAt).toISOString())}`}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* km-Bereich */}
+                  {nfbKmEdit ? (
+                    <View style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 6,
+                      backgroundColor: colors.muted, borderRadius: 8,
+                      paddingHorizontal: 10, paddingVertical: 6,
+                    }}>
+                      <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>km</Text>
+                      <TextInput
+                        value={nfbKmInputVon}
+                        onChangeText={setNfbKmInputVon}
+                        keyboardType="number-pad"
+                        returnKeyType="next"
+                        onSubmitEditing={() => nfbKmBisRef.current?.focus()}
                         style={{
-                          backgroundColor: colors.accent + '28',
-                          paddingHorizontal: 7,
-                          paddingVertical: 2,
-                          borderRadius: 99,
+                          fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold',
+                          color: colors.foreground, backgroundColor: colors.card,
+                          borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4,
+                          minWidth: 52, textAlign: 'center',
+                          borderWidth: 1, borderColor: colors.border,
+                        }}
+                        selectTextOnFocus
+                      />
+                      <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>–</Text>
+                      <TextInput
+                        ref={nfbKmBisRef}
+                        value={nfbKmInputBis}
+                        onChangeText={setNfbKmInputBis}
+                        keyboardType="number-pad"
+                        returnKeyType="done"
+                        onSubmitEditing={applyNfbKm}
+                        style={{
+                          fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold',
+                          color: colors.foreground, backgroundColor: colors.card,
+                          borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4,
+                          minWidth: 52, textAlign: 'center',
+                          borderWidth: 1, borderColor: colors.border,
+                        }}
+                        selectTextOnFocus
+                      />
+                      <TouchableOpacity
+                        onPress={applyNfbKm}
+                        style={{
+                          marginLeft: 4, backgroundColor: colors.primary,
+                          borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5,
                         }}
                       >
-                        <Text
+                        <Feather name="check" size={14} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setNfbKmEdit(true)}
+                      activeOpacity={0.7}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 6,
+                        alignSelf: 'flex-start', backgroundColor: colors.muted,
+                        borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
+                      }}
+                    >
+                      <Feather name="map-pin" size={12} color={colors.mutedForeground} />
+                      <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium', color: colors.mutedForeground }}>
+                        km {nfbKmVon}–{nfbKmBis}
+                      </Text>
+                      <Feather name="edit-2" size={11} color={colors.mutedForeground} />
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Benachrichtigungs-Toggle */}
+                  {Platform.OS !== 'web' && (
+                    <View>
+                      <View style={{
+                        flexDirection: 'row', alignItems: 'center',
+                        justifyContent: 'space-between', backgroundColor: colors.muted,
+                        borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
+                      }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                          <Feather
+                            name={nfbNotifEnabled ? 'bell' : 'bell-off'}
+                            size={13}
+                            color={nfbNotifEnabled ? colors.foreground : colors.mutedForeground}
+                          />
+                          <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>
+                            Benachrichtigungen
+                          </Text>
+                          <Text style={{
+                            fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold',
+                            color: nfbNotifEnabled && nfbOsPermission !== 'denied'
+                              ? colors.safe : colors.mutedForeground,
+                          }}>
+                            {nfbNotifEnabled && nfbOsPermission !== 'denied' ? 'AN' : 'AUS'}
+                          </Text>
+                        </View>
+                        <Switch
+                          value={nfbNotifEnabled}
+                          onValueChange={toggleNfbNotif}
+                          trackColor={{ false: colors.border, true: colors.primary }}
+                          thumbColor="#ffffff"
+                        />
+                      </View>
+                      {nfbOsPermission === 'denied' && nfbNotifEnabled && (
+                        <TouchableOpacity
+                          onPress={() => void Linking.openSettings()}
+                          activeOpacity={0.7}
                           style={{
-                            fontSize: 9,
-                            fontFamily: 'SpaceGrotesk_700Bold',
-                            color: colors.accent,
-                            letterSpacing: 1.5,
+                            flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6,
+                            backgroundColor: colors.alarm + '18', borderRadius: 7,
+                            paddingHorizontal: 10, paddingVertical: 7,
                           }}
                         >
-                          NEU
+                          <Feather name="alert-circle" size={13} color={colors.alarm} />
+                          <Text style={{
+                            fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                            color: colors.alarm, flex: 1,
+                          }}>
+                            Benachrichtigungen sind in den Systemeinstellungen gesperrt.
+                          </Text>
+                          <View style={{
+                            flexDirection: 'row', alignItems: 'center', gap: 4,
+                            backgroundColor: colors.alarm + '28', borderRadius: 6,
+                            paddingHorizontal: 8, paddingVertical: 4,
+                          }}>
+                            <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.alarm }}>
+                              Einstellungen
+                            </Text>
+                            <Feather name="external-link" size={11} color={colors.alarm} />
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+
+                  {/* NfB-Liste */}
+                  {nfbLoading ? (
+                    <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
+                      <ActivityIndicator color={colors.primary} />
+                    </View>
+                  ) : nfbError ? (
+                    <TouchableOpacity
+                      style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
+                      onPress={() => void refetchNfb()}
+                    >
+                      <Feather name="alert-circle" size={20} color={colors.destructive} />
+                      <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>
+                        Fehler beim Laden
+                      </Text>
+                      <View style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 6,
+                        backgroundColor: colors.muted, paddingHorizontal: 14,
+                        paddingVertical: 7, borderRadius: 8, marginTop: 4,
+                      }}>
+                        <Feather name="refresh-cw" size={13} color={colors.foreground} />
+                        <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>
+                          Erneut versuchen
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ) : !nfbData?.meldungen.length ? (
+                    <View style={{ alignItems: 'center', paddingVertical: 16, gap: 6 }}>
+                      <Feather name="check-circle" size={20} color={colors.mutedForeground} />
+                      <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                        Keine aktiven Meldungen
+                      </Text>
+                    </View>
+                  ) : (
+                    [...nfbData.meldungen]
+                      .sort((a, b) => (a.km_von ?? 0) - (b.km_von ?? 0))
+                      .map((m: NfbMeldung, i: number) => {
+                        const isLast = i === nfbData.meldungen.length - 1;
+                        const kmRange = m.km_von != null && m.km_bis != null
+                          ? `km ${m.km_von}–${m.km_bis}`
+                          : m.km_von != null ? `km ${m.km_von}` : null;
+                        const validity = m.gueltig_ab || m.gueltig_bis
+                          ? [m.gueltig_ab, m.gueltig_bis].filter(Boolean).join(' – ')
+                          : null;
+                        return (
+                          <View key={m.nfb_id} style={{
+                            paddingVertical: 10,
+                            borderBottomWidth: isLast ? 0 : 1,
+                            borderBottomColor: colors.border,
+                            gap: 6,
+                          }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium', color: colors.mutedForeground }}>
+                                {m.nfb_id}
+                              </Text>
+                              {m.is_new && (
+                                <View style={{
+                                  backgroundColor: colors.primary + '28',
+                                  paddingHorizontal: 7, paddingVertical: 2, borderRadius: 99,
+                                }}>
+                                  <Text style={{
+                                    fontSize: 9, fontFamily: 'SpaceGrotesk_700Bold',
+                                    color: colors.primary, letterSpacing: 1.5,
+                                  }}>NEU</Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={{
+                              fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold',
+                              color: colors.foreground, lineHeight: 18,
+                            }}>
+                              {m.titel}
+                            </Text>
+                            {(kmRange || validity) && (
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                {kmRange && (
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                    <Feather name="map-pin" size={11} color={colors.mutedForeground} />
+                                    <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                                      {kmRange}
+                                    </Text>
+                                  </View>
+                                )}
+                                {validity && (
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                    <Feather name="calendar" size={11} color={colors.mutedForeground} />
+                                    <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                                      {validity}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                            )}
+                            {m.url && (
+                              <TouchableOpacity
+                                onPress={() => void Linking.openURL(m.url!)}
+                                activeOpacity={0.65}
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}
+                              >
+                                <Feather name="external-link" size={11} color={colors.primary} />
+                                <Text style={{
+                                  fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium', color: colors.primary,
+                                }} numberOfLines={1}>ELWIS</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        );
+                      })
+                  )}
+                </View>
+              )}
+            </View>
+
+            <View style={menuDivider} />
+
+            {/* 3. Tankstelle */}
+            <TouchableOpacity
+              onPress={() => { if (!mckOpen) void refetchMck(); setMckOpen(o => !o); }}
+              activeOpacity={0.7}
+              style={menuRow}
+            >
+              <MenuRowLeft icon="droplet" label="Tankstelle" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {!mckOpen && mckData?.petrol != null && mckData?.diesel != null && (
+                  <Text style={{
+                    fontSize: 12,
+                    fontFamily: 'SpaceGrotesk_400Regular',
+                    color: colors.mutedForeground,
+                  }}>
+                    B {mckData.petrol.toFixed(3).replace('.', ',')} | D {mckData.diesel.toFixed(3).replace('.', ',')}
+                  </Text>
+                )}
+                <Feather
+                  name={mckOpen ? 'chevron-up' : 'chevron-right'}
+                  size={16}
+                  color={colors.mutedForeground}
+                />
+              </View>
+            </TouchableOpacity>
+
+            {mckOpen && (
+              <View style={menuContent}>
+                {mckLoading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (mckIsError || (mckData && mckData.petrol == null && mckData.diesel == null)) ? (
+                  <View style={{ gap: 8 }}>
+                    <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                      ⚠️ Tankstellenpreise momentan nicht abrufbar
+                    </Text>
+                    <TouchableOpacity onPress={() => void Linking.openURL('https://www.mck-mannheim.de/')} activeOpacity={0.7}>
+                      <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.primary }}>
+                        Quelle: MCK Kurpfalz Mannheim ↗
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : mckData ? (
+                  <View style={{ gap: 12 }}>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      {([['Benzin', mckData.petrol], ['Diesel', mckData.diesel]] as [string, number | null][]).map(
+                        ([label, price]) => (
+                          <View key={label} style={{
+                            flex: 1, backgroundColor: colors.background,
+                            borderRadius: (colors.radius as number) - 2,
+                            padding: 12, alignItems: 'center', gap: 2,
+                          }}>
+                            <Text style={{
+                              fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold',
+                              color: colors.mutedForeground,
+                              textTransform: 'uppercase', letterSpacing: 1.5,
+                            }}>{label}</Text>
+                            <Text style={{
+                              fontSize: 22, fontFamily: 'SpaceGrotesk_700Bold',
+                              color: colors.foreground,
+                            }}>
+                              {price != null ? price.toFixed(3).replace('.', ',') : '–'}
+                            </Text>
+                            <Text style={{
+                              fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular',
+                              color: colors.mutedForeground,
+                            }}>€/l</Text>
+                          </View>
+                        ),
+                      )}
+                    </View>
+                    <View style={{ gap: 3, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium', color: colors.mutedForeground }}>
+                        24/7 SB-Automaten-Tankstelle
+                      </Text>
+                      {mckData.sourceDate && (
+                        <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                          Stand: {mckData.sourceDate}
+                        </Text>
+                      )}
+                      {mckData.checkedAt && (
+                        <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                          Zuletzt geprüft: {new Date(mckData.checkedAt).toLocaleString('de-DE', {
+                            day: '2-digit', month: '2-digit',
+                            hour: '2-digit', minute: '2-digit',
+                          })} Uhr
+                        </Text>
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => void Linking.openURL('https://www.mck-mannheim.de/')}
+                      activeOpacity={0.7}
+                      style={{ alignItems: 'center' }}
+                    >
+                      <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.primary }}>
+                        Quelle: MCK Kurpfalz Mannheim ↗
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            <View style={menuDivider} />
+
+            {/* 4. Clubs */}
+            <TouchableOpacity onPress={() => setVereineOpen(o => !o)} activeOpacity={0.7} style={menuRow}>
+              <MenuRowLeft icon="users" label="Clubs" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                {clubsData != null && clubsData.count > 0 && (
+                  <CountBadge count={clubsData.count} />
+                )}
+                <Feather
+                  name={vereineOpen ? 'chevron-up' : 'chevron-right'}
+                  size={16}
+                  color={colors.mutedForeground}
+                />
+              </View>
+            </TouchableOpacity>
+
+            {vereineOpen && (
+              <View style={menuContent}>
+                {clubsLoading ? (
+                  <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
+                    <ActivityIndicator color={colors.primary} />
+                  </View>
+                ) : clubsError ? (
+                  <TouchableOpacity
+                    style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
+                    onPress={() => void refetchClubs()}
+                  >
+                    <Feather name="alert-circle" size={20} color={colors.destructive} />
+                    <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>
+                      Fehler beim Laden
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  (() => {
+                    const knownClubs = clubsData?.known_clubs ?? [];
+                    const findings = clubsData?.clubs ?? [];
+                    const domainOf = (u: string) => {
+                      try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; }
+                    };
+                    const latestByDomain = new Map<string, typeof findings[0]>();
+                    for (const f of findings) latestByDomain.set(domainOf(f.url), f);
+                    type RowItem = { name: string; icon: string; url: string };
+                    const rows: RowItem[] = knownClubs.length > 0
+                      ? knownClubs
+                      : findings.slice().reverse().slice(0, 10).map((f: WaechterClubHit) => ({
+                          name: f.name, icon: f.icon, url: f.url,
+                        }));
+                    return rows.map((club: RowItem, i: number) => {
+                      const finding = latestByDomain.get(domainOf(club.url));
+                      const isLast = i === rows.length - 1;
+                      return (
+                        <TouchableOpacity
+                          key={club.url}
+                          style={{
+                            flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+                            paddingVertical: 10,
+                            borderBottomWidth: isLast ? 0 : 1,
+                            borderBottomColor: colors.border,
+                          }}
+                          onPress={() => void Linking.openURL(club.url)}
+                          activeOpacity={0.65}
+                        >
+                          <View style={{
+                            width: 32, height: 32, borderRadius: 8,
+                            backgroundColor: finding ? colors.primary + '22' : colors.muted,
+                            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                          }}>
+                            <Text style={{ fontSize: 16 }}>{club.icon}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{
+                              fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold',
+                              color: colors.foreground,
+                            }} numberOfLines={1}>{club.name}</Text>
+                            <Text style={{
+                              fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular',
+                              color: finding ? colors.mutedForeground : colors.mutedForeground + '88',
+                              marginTop: 2, lineHeight: 16,
+                            }} numberOfLines={2}>
+                              {finding ? finding.snippet : 'Keine aktuellen Meldungen'}
+                            </Text>
+                          </View>
+                          <Feather name="external-link" size={14} color={colors.mutedForeground} style={{ marginTop: 2 }} />
+                        </TouchableOpacity>
+                      );
+                    });
+                  })()
+                )}
+              </View>
+            )}
+
+            <View style={menuDivider} />
+
+            {/* 5. Rhein-Karte */}
+            <TouchableOpacity onPress={() => setMapOpen(o => !o)} activeOpacity={0.7} style={menuRow}>
+              <MenuRowLeft icon="map" label="Rhein-Karte" />
+              <Feather
+                name={mapOpen ? 'chevron-up' : 'chevron-right'}
+                size={16}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
+
+            {mapOpen && (
+              <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 4 }}>
+                <RheinKarte
+                  pegelCm={state?.last_pegel_cm ?? null}
+                  pegelTime={state?.last_pegel_time ?? null}
+                  mckData={mckData}
+                  knownClubs={clubsData?.known_clubs ?? []}
+                  nfbMeldungen={nfbData?.meldungen ?? []}
+                  isOffline={stateError}
+                  colors={colors}
+                />
+              </View>
+            )}
+
+            <View style={menuDivider} />
+
+            {/* 6. News */}
+            <TouchableOpacity onPress={() => setNewsOpen(o => !o)} activeOpacity={0.7} style={menuRow}>
+              <MenuRowLeft icon="rss" label="News" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                {treffer != null && treffer.count > 0 && (
+                  <CountBadge count={treffer.count} />
+                )}
+                <Feather
+                  name={newsOpen ? 'chevron-up' : 'chevron-right'}
+                  size={16}
+                  color={colors.mutedForeground}
+                />
+              </View>
+            </TouchableOpacity>
+
+            {newsOpen && (
+              <View style={menuContent}>
+                {trefferLoading ? (
+                  <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
+                    <ActivityIndicator color={colors.primary} />
+                  </View>
+                ) : trefferError ? (
+                  <TouchableOpacity
+                    style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
+                    onPress={() => void refetchTreffer()}
+                  >
+                    <Feather name="alert-circle" size={20} color={colors.destructive} />
+                    <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>
+                      Fehler beim Laden
+                    </Text>
+                    <View style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 6,
+                      backgroundColor: colors.muted, paddingHorizontal: 14,
+                      paddingVertical: 7, borderRadius: 8, marginTop: 4,
+                    }}>
+                      <Feather name="refresh-cw" size={13} color={colors.foreground} />
+                      <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium', color: colors.foreground }}>
+                        Erneut versuchen
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : !treffer?.urls.length ? (
+                  <View style={{ alignItems: 'center', paddingVertical: 16, gap: 6 }}>
+                    <Feather name="inbox" size={20} color={colors.mutedForeground} />
+                    <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                      Noch keine News
+                    </Text>
+                  </View>
+                ) : (
+                  treffer.urls.slice().reverse().slice(0, 10).map((url: string, i: number, arr: string[]) => {
+                    const isLast = i === arr.length - 1;
+                    return (
+                      <TouchableOpacity
+                        key={`${url}-${i}`}
+                        style={{
+                          flexDirection: 'row', alignItems: 'center', gap: 10,
+                          paddingVertical: 10,
+                          borderBottomWidth: isLast ? 0 : 1,
+                          borderBottomColor: colors.border,
+                        }}
+                        onPress={() => void Linking.openURL(url)}
+                        activeOpacity={0.65}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={{
+                            fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium',
+                            color: colors.foreground,
+                          }} numberOfLines={1}>{getDomain(url)}</Text>
+                          <Text style={{
+                            fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular',
+                            color: colors.mutedForeground, marginTop: 1,
+                          }} numberOfLines={1}>{getPathAndQuery(url)}</Text>
+                        </View>
+                        <Feather name="external-link" size={14} color={colors.mutedForeground} />
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+              </View>
+            )}
+
+            <View style={menuDivider} />
+
+            {/* 7. Wächter Status */}
+            <TouchableOpacity
+              onPress={() => setWaechterOpen(o => !o)}
+              activeOpacity={0.7}
+              style={[
+                menuRow,
+                (isStale || neverRan)
+                  ? { borderLeftWidth: 3, borderLeftColor: colors.alarm, paddingLeft: 13 }
+                  : {},
+              ]}
+            >
+              <MenuRowLeft
+                icon="shield"
+                label="Wächter Status"
+                color={(isStale || neverRan) ? colors.alarm : undefined}
+              />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {isStale && (
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 4,
+                    backgroundColor: colors.alarm + '22',
+                    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99,
+                  }}>
+                    <Feather name="alert-triangle" size={11} color={colors.alarm} />
+                    <Text style={{
+                      fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color: colors.alarm, letterSpacing: 1,
+                    }}>INAKTIV</Text>
+                  </View>
+                )}
+                <Feather
+                  name={waechterOpen ? 'chevron-up' : 'chevron-right'}
+                  size={16}
+                  color={colors.mutedForeground}
+                />
+              </View>
+            </TouchableOpacity>
+
+            {waechterOpen && (
+              <View style={[menuContent, { gap: 10 }]}>
+                {statusLoading ? (
+                  <ActivityIndicator color={colors.primary} style={{ alignSelf: 'flex-start' }} />
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Feather
+                        name="clock"
+                        size={14}
+                        color={isStale || neverRan ? colors.alarm : colors.mutedForeground}
+                      />
+                      <Text style={{
+                        fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+                        color: isStale || neverRan ? colors.alarm : colors.foreground,
+                      }}>
+                        Letzter Lauf:{' '}
+                        <Text style={{
+                          fontFamily: 'SpaceGrotesk_600SemiBold',
+                          color: isStale || neverRan ? colors.alarm : colors.foreground,
+                        }}>
+                          {neverRan ? 'Nie' : formatRelativeTime(lastRunAt)}
+                        </Text>
+                      </Text>
+                    </View>
+                    {!neverRan && (
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                          Neue Treffer
+                        </Text>
+                        <Text style={{
+                          fontSize: 15, fontFamily: 'SpaceGrotesk_700Bold',
+                          color: rssNewCount > 0 ? colors.primary : colors.foreground,
+                        }}>
+                          {rssNewCount}
                         </Text>
                       </View>
                     )}
                   </View>
-
-                  {/* Title */}
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      fontFamily: 'SpaceGrotesk_600SemiBold',
-                      color: m.is_new ? colors.foreground : colors.foreground,
-                      lineHeight: 18,
-                    }}
-                  >
-                    {m.titel}
-                  </Text>
-
-                  {/* Meta row: km range + validity */}
-                  {(kmRange || validity) && (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                      {kmRange && (
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 4,
-                          }}
-                        >
-                          <Feather name="map-pin" size={11} color={colors.mutedForeground} />
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              fontFamily: 'SpaceGrotesk_400Regular',
-                              color: colors.mutedForeground,
-                            }}
-                          >
-                            {kmRange}
-                          </Text>
-                        </View>
-                      )}
-                      {validity && (
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 4,
-                          }}
-                        >
-                          <Feather name="calendar" size={11} color={colors.mutedForeground} />
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              fontFamily: 'SpaceGrotesk_400Regular',
-                              color: colors.mutedForeground,
-                            }}
-                          >
-                            {validity}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-
-                  {/* ELWIS link */}
-                  {m.url && (
-                    <TouchableOpacity
-                      onPress={() => void Linking.openURL(m.url!)}
-                      activeOpacity={0.65}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}
-                    >
-                      <Feather name="external-link" size={11} color={colors.primary} />
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          fontFamily: 'SpaceGrotesk_500Medium',
-                          color: colors.primary,
-                        }}
-                        numberOfLines={1}
-                      >
-                        ELWIS
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })
-          ))}
-        </View>
-
-        {/* ── MCK Tankstelle Card ── */}
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: colors.radius,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-            gap: 12,
-          }}
-        >
-          {/* Header */}
-          <TouchableOpacity
-            onPress={() => { if (!mckOpen) void refetchMck(); setMckOpen(o => !o); }}
-            activeOpacity={0.7}
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-          >
-            <Text
-              style={{
-                fontSize: 10,
-                fontFamily: 'SpaceGrotesk_600SemiBold',
-                color: colors.mutedForeground,
-                letterSpacing: 2,
-                textTransform: 'uppercase',
-              }}
-            >
-              ⛽ MCK Tankstelle
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {!mckOpen && mckData?.petrol != null && mckData?.diesel != null && (
-                <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
-                  B {mckData.petrol.toFixed(3).replace('.', ',')} | D {mckData.diesel.toFixed(3).replace('.', ',')}
-                </Text>
-              )}
-              <Feather name={mckOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.mutedForeground} />
-            </View>
-          </TouchableOpacity>
-
-          {/* Expanded content */}
-          {mckOpen && (
-            mckLoading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (mckIsError || (mckData && mckData.petrol == null && mckData.diesel == null)) ? (
-              <View style={{ gap: 8 }}>
-                <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
-                  ⚠️ Tankstellenpreise momentan nicht abrufbar
-                </Text>
-                <TouchableOpacity onPress={() => void Linking.openURL('https://www.mck-mannheim.de/')} activeOpacity={0.7}>
-                  <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.primary }}>
-                    Quelle: MCK Kurpfalz Mannheim ↗
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : mckData ? (
-              <View style={{ gap: 12 }}>
-                {/* Preisboxen */}
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  {([['Benzin', mckData.petrol], ['Diesel', mckData.diesel]] as [string, number | null][]).map(([label, price]) => (
-                    <View
-                      key={label}
-                      style={{
-                        flex: 1,
-                        backgroundColor: colors.background,
-                        borderRadius: (colors.radius as number) - 2,
-                        padding: 12,
-                        alignItems: 'center',
-                        gap: 2,
-                      }}
-                    >
-                      <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.mutedForeground, textTransform: 'uppercase', letterSpacing: 1.5 }}>
-                        {label}
-                      </Text>
-                      <Text style={{ fontSize: 22, fontFamily: 'SpaceGrotesk_700Bold', color: colors.foreground }}>
-                        {price != null ? price.toFixed(3).replace('.', ',') : '–'}
-                      </Text>
-                      <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
-                        €/l
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Meta */}
-                <View style={{ gap: 3, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium', color: colors.mutedForeground }}>
-                    24/7 SB-Automaten-Tankstelle
-                  </Text>
-                  {mckData.sourceDate ? (
-                    <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
-                      Stand: {mckData.sourceDate}
-                    </Text>
-                  ) : null}
-                  {mckData.checkedAt ? (
-                    <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
-                      Zuletzt geprüft: {new Date(mckData.checkedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} Uhr
-                    </Text>
-                  ) : null}
-                </View>
-
-                {/* Quellenlink */}
-                <TouchableOpacity
-                  onPress={() => void Linking.openURL('https://www.mck-mannheim.de/')}
-                  activeOpacity={0.7}
-                  style={{ alignItems: 'center' }}
-                >
-                  <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.primary }}>
-                    Quelle: MCK Kurpfalz Mannheim ↗
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : null
-          )}
-        </View>
-
-        {/* ── Clubs Card ── */}
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: colors.radius,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-            gap: 12,
-          }}
-        >
-          {/* Section header – anklickbar zum Auf-/Zuklappen */}
-          <TouchableOpacity
-            onPress={() => setVereineOpen(o => !o)}
-            activeOpacity={0.7}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 10,
-                fontFamily: 'SpaceGrotesk_600SemiBold',
-                color: colors.mutedForeground,
-                letterSpacing: 2,
-                textTransform: 'uppercase',
-              }}
-            >
-              Clubs
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {clubsData != null && clubsData.count > 0 && (
-                <View
-                  style={{
-                    backgroundColor: colors.muted,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 99,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontFamily: 'SpaceGrotesk_600SemiBold',
-                      color: colors.accent,
-                    }}
-                  >
-                    {clubsData.count}
-                  </Text>
-                </View>
-              )}
-              <Feather
-                name={vereineOpen ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color={colors.mutedForeground}
-              />
-            </View>
-          </TouchableOpacity>
-
-          {/* Clubs content – nur sichtbar wenn aufgeklappt */}
-          {vereineOpen && (clubsLoading ? (
-            <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
-              <ActivityIndicator color={colors.primary} />
-            </View>
-          ) : clubsError ? (
-            <TouchableOpacity
-              style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
-              onPress={() => void refetchClubs()}
-            >
-              <Feather name="alert-circle" size={20} color={colors.destructive} />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.destructive,
-                }}
-              >
-                Fehler beim Laden
-              </Text>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  backgroundColor: colors.muted,
-                  paddingHorizontal: 14,
-                  paddingVertical: 7,
-                  borderRadius: 8,
-                  marginTop: 4,
-                }}
-              >
-                <Feather name="refresh-cw" size={13} color={colors.foreground} />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontFamily: 'SpaceGrotesk_500Medium',
-                    color: colors.foreground,
-                  }}
-                >
-                  Erneut versuchen
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ) : (
-            (() => {
-              // Zeige alle überwachten Vereine; Meldungen werden drunter eingeblendet
-              const knownClubs = clubsData?.known_clubs ?? [];
-              const findings = clubsData?.clubs ?? [];
-
-              // Für schnellen Domain-Abgleich
-              const domainOf = (u: string) => {
-                try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; }
-              };
-
-              // Letzten Treffer pro Domain (findings sind chronologisch, letzter = neuester)
-              const latestByDomain = new Map<string, typeof findings[0]>();
-              for (const f of findings) {
-                const d = domainOf(f.url);
-                latestByDomain.set(d, f);
-              }
-
-              type RowItem = { name: string; icon: string; url: string };
-              const rows: RowItem[] = knownClubs.length > 0 ? knownClubs : findings.slice().reverse().slice(0, 10).map((f: WaechterClubHit) => ({
-                name: f.name, icon: f.icon, url: f.url,
-              }));
-
-              return rows.map((club: RowItem, i: number) => {
-                const finding = latestByDomain.get(domainOf(club.url));
-                const isLast = i === rows.length - 1;
-                return (
-                  <TouchableOpacity
-                    key={club.url}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'flex-start',
-                      gap: 10,
-                      paddingVertical: 10,
-                      borderBottomWidth: isLast ? 0 : 1,
-                      borderBottomColor: colors.border,
-                    }}
-                    onPress={() => void Linking.openURL(club.url)}
-                    activeOpacity={0.65}
-                  >
-                    {/* Icon badge */}
-                    <View
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        backgroundColor: finding ? colors.primary + '22' : colors.muted,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Text style={{ fontSize: 16 }}>{club.icon}</Text>
-                    </View>
-
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={{
-                          fontSize: 13,
-                          fontFamily: 'SpaceGrotesk_600SemiBold',
-                          color: colors.foreground,
-                        }}
-                        numberOfLines={1}
-                      >
-                        {club.name}
-                      </Text>
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          fontFamily: 'SpaceGrotesk_400Regular',
-                          color: finding ? colors.mutedForeground : colors.mutedForeground + '88',
-                          marginTop: 2,
-                          lineHeight: 16,
-                        }}
-                        numberOfLines={2}
-                      >
-                        {finding ? finding.snippet : 'Keine aktuellen Meldungen'}
-                      </Text>
-                    </View>
-                    <Feather
-                      name="external-link"
-                      size={14}
-                      color={colors.mutedForeground}
-                      style={{ marginTop: 2 }}
-                    />
-                  </TouchableOpacity>
-                );
-              });
-            })()
-          ))}
-        </View>
-
-        {/* ── Rhein-Karte Card ── */}
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: colors.radius,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-            gap: 12,
-          }}
-        >
-          {/* Section header – anklickbar zum Auf-/Zuklappen */}
-          <TouchableOpacity
-            onPress={() => setMapOpen(o => !o)}
-            activeOpacity={0.7}
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-          >
-            <Text style={{ fontSize: 14, fontFamily: 'SpaceGrotesk_700Bold', color: colors.foreground }}>
-              🗺️ Rhein-Karte
-            </Text>
-            <Feather name={mapOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.mutedForeground} />
-          </TouchableOpacity>
-
-          {mapOpen && (
-            <RheinKarte
-              pegelCm={state?.last_pegel_cm ?? null}
-              pegelTime={state?.last_pegel_time ?? null}
-              mckData={mckData}
-              knownClubs={clubsData?.known_clubs ?? []}
-              nfbMeldungen={nfbData?.meldungen ?? []}
-              isOffline={stateError}
-              colors={colors}
-            />
-          )}
-        </View>
-
-        {/* ── NEWS Card ── */}
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: colors.radius,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-            gap: 12,
-          }}
-        >
-          {/* Section header – anklickbar zum Auf-/Zuklappen */}
-          <TouchableOpacity
-            onPress={() => setNewsOpen(o => !o)}
-            activeOpacity={0.7}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 10,
-                fontFamily: 'SpaceGrotesk_600SemiBold',
-                color: colors.mutedForeground,
-                letterSpacing: 2,
-                textTransform: 'uppercase',
-              }}
-            >
-              NEWS
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {treffer != null && (
-                <View
-                  style={{
-                    backgroundColor: colors.muted,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 99,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontFamily: 'SpaceGrotesk_600SemiBold',
-                      color: colors.accent,
-                    }}
-                  >
-                    {treffer.count}
-                  </Text>
-                </View>
-              )}
-              <Feather
-                name={newsOpen ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color={colors.mutedForeground}
-              />
-            </View>
-          </TouchableOpacity>
-
-          {/* Treffer content – nur sichtbar wenn aufgeklappt */}
-          {newsOpen && (trefferLoading ? (
-            <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
-              <ActivityIndicator color={colors.primary} />
-            </View>
-          ) : trefferError ? (
-            <TouchableOpacity
-              style={{ alignItems: 'center', gap: 8, paddingVertical: 16 }}
-              onPress={() => void refetchTreffer()}
-            >
-              <Feather name="alert-circle" size={20} color={colors.destructive} />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.destructive,
-                }}
-              >
-                Fehler beim Laden
-              </Text>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  backgroundColor: colors.muted,
-                  paddingHorizontal: 14,
-                  paddingVertical: 7,
-                  borderRadius: 8,
-                  marginTop: 4,
-                }}
-              >
-                <Feather name="refresh-cw" size={13} color={colors.foreground} />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontFamily: 'SpaceGrotesk_500Medium',
-                    color: colors.foreground,
-                  }}
-                >
-                  Erneut versuchen
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ) : !treffer?.urls.length ? (
-            <View style={{ alignItems: 'center', paddingVertical: 16, gap: 6 }}>
-              <Feather name="inbox" size={20} color={colors.mutedForeground} />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.mutedForeground,
-                }}
-              >
-                Noch keine News
-              </Text>
-            </View>
-          ) : (
-            treffer.urls.slice().reverse().slice(0, 10).map((url: string, i: number, arr: string[]) => {
-              const isLast = i === arr.length - 1;
-              return (
-                <TouchableOpacity
-                  key={`${url}-${i}`}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 10,
-                    paddingVertical: 10,
-                    borderBottomWidth: isLast ? 0 : 1,
-                    borderBottomColor: colors.border,
-                  }}
-                  onPress={() => void Linking.openURL(url)}
-                  activeOpacity={0.65}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        fontFamily: 'SpaceGrotesk_500Medium',
-                        color: colors.foreground,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {getDomain(url)}
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontFamily: 'SpaceGrotesk_400Regular',
-                        color: colors.mutedForeground,
-                        marginTop: 1,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {getPathAndQuery(url)}
+                )}
+                {neverRan && (
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 7,
+                    backgroundColor: colors.alarm + '18', borderRadius: 8,
+                    paddingHorizontal: 10, paddingVertical: 8,
+                  }}>
+                    <Feather name="alert-triangle" size={13} color={colors.alarm} />
+                    <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular', color: colors.alarm }}>
+                      Wächter wurde noch nicht ausgeführt.
                     </Text>
                   </View>
-                  <Feather
-                    name="external-link"
-                    size={14}
-                    color={colors.mutedForeground}
-                  />
-                </TouchableOpacity>
-              );
-            })
-          ))}
-        </View>
+                )}
+                {lastError && (
+                  <View style={{
+                    backgroundColor: colors.destructive + '18',
+                    borderRadius: 8, padding: 10, gap: 4,
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Feather name="x-circle" size={13} color={colors.destructive} />
+                      <Text style={{
+                        fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold',
+                        color: colors.destructive, letterSpacing: 1.5,
+                        textTransform: 'uppercase',
+                      }}>Letzter Fehler</Text>
+                    </View>
+                    <Text style={{
+                      fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                      color: colors.destructive, opacity: 0.85,
+                    }} numberOfLines={3}>{lastError}</Text>
+                  </View>
+                )}
+              </View>
+            )}
 
-        {/* ── Wächter-Status Card ── */}
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: colors.radius,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: isStale || neverRan ? colors.alarm : colors.border,
-            gap: 10,
-          }}
-        >
-          {/* Header */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 10,
-                fontFamily: 'SpaceGrotesk_600SemiBold',
-                color: colors.mutedForeground,
-                letterSpacing: 2,
-                textTransform: 'uppercase',
-              }}
-            >
-              Wächter
+          </View>
+          {/* Ende Menü-Karte */}
+        </>
+      )}
+    </ScrollView>
+  );
+
+  // ── KONTO-TAB ─────────────────────────────────────────────────────────────
+  const renderKonto = () => (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{
+        padding: CARD_PADDING,
+        paddingTop: topPad + CARD_PADDING,
+        paddingBottom: botPad + BOTTOM_NAV_HEIGHT + 24,
+        gap: 16,
+      }}
+      keyboardShouldPersistTaps="handled"
+    >
+      {/* Tab-Titel */}
+      <Text style={{
+        fontSize: 24, fontFamily: 'SpaceGrotesk_700Bold',
+        color: colors.foreground,
+      }}>
+        Konto
+      </Text>
+
+      {user == null ? (
+        /* ── Nicht angemeldet: Login / Registrierung ── */
+        <View style={{ gap: 14 }}>
+          {/* Gastmodus-Hinweis */}
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', gap: 10,
+            backgroundColor: colors.primary + '10',
+            borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
+            borderWidth: 1, borderColor: colors.primary + '30',
+          }}>
+            <Feather name="bell" size={16} color={colors.primary} />
+            <Text style={{
+              flex: 1, fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+              color: colors.primary,
+            }}>
+              Für persönliche Pegelwarnungen, Verlauf und Vorhersage bitte anmelden.
             </Text>
-            {isStale && (
-              <View
+          </View>
+
+          {/* Login / Registrieren Tabs */}
+          <View style={{
+            flexDirection: 'row', backgroundColor: colors.muted,
+            borderRadius: 10, padding: 3,
+          }}>
+            {(['login', 'register'] as const).map(mode => (
+              <TouchableOpacity
+                key={mode}
+                onPress={() => { setAuthMode(mode); setAuthError(null); }}
+                activeOpacity={0.7}
                 style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 4,
-                  backgroundColor: colors.alarm + '22',
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 99,
+                  flex: 1, paddingVertical: 9, alignItems: 'center',
+                  borderRadius: 8,
+                  backgroundColor: authMode === mode ? colors.card : 'transparent',
                 }}
               >
-                <Feather name="alert-triangle" size={11} color={colors.alarm} />
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontFamily: 'SpaceGrotesk_600SemiBold',
-                    color: colors.alarm,
-                    letterSpacing: 1,
-                  }}
-                >
-                  INAKTIV
+                <Text style={{
+                  fontSize: 14,
+                  fontFamily: authMode === mode
+                    ? 'SpaceGrotesk_600SemiBold' : 'SpaceGrotesk_400Regular',
+                  color: authMode === mode ? colors.foreground : colors.mutedForeground,
+                }}>
+                  {mode === 'login' ? 'Anmelden' : 'Registrieren'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Formularfelder */}
+          <View style={{
+            backgroundColor: colors.card, borderRadius: 12,
+            borderWidth: 1, borderColor: colors.border,
+            padding: 16, gap: 14,
+          }}>
+            {/* Vorname + Nutzername (nur bei Registrierung) */}
+            {authMode === 'register' && (
+              <>
+                <View style={{ gap: 6 }}>
+                  <Text style={{
+                    fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium',
+                    color: colors.mutedForeground, letterSpacing: 0.3,
+                  }}>
+                    Vorname
+                  </Text>
+                  <TextInput
+                    value={authFirstName}
+                    onChangeText={v => { setAuthFirstName(v); setAuthError(null); }}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    placeholder="Max"
+                    placeholderTextColor={colors.mutedForeground}
+                    style={{
+                      fontSize: 15, fontFamily: 'SpaceGrotesk_400Regular',
+                      color: colors.foreground, backgroundColor: colors.muted,
+                      borderRadius: 8, paddingHorizontal: 12, paddingVertical: 11,
+                      borderWidth: 1, borderColor: colors.border,
+                    }}
+                  />
+                </View>
+                <View style={{ gap: 6 }}>
+                  <Text style={{
+                    fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium',
+                    color: colors.mutedForeground, letterSpacing: 0.3,
+                  }}>
+                    Nutzername
+                  </Text>
+                  <TextInput
+                    value={authUsername}
+                    onChangeText={v => { setAuthUsername(v); setAuthError(null); }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholder="maxrhein"
+                    placeholderTextColor={colors.mutedForeground}
+                    style={{
+                      fontSize: 15, fontFamily: 'SpaceGrotesk_400Regular',
+                      color: colors.foreground, backgroundColor: colors.muted,
+                      borderRadius: 8, paddingHorizontal: 12, paddingVertical: 11,
+                      borderWidth: 1, borderColor: colors.border,
+                    }}
+                  />
+                </View>
+              </>
+            )}
+
+            {/* E-Mail */}
+            <View style={{ gap: 6 }}>
+              <Text style={{
+                fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium',
+                color: colors.mutedForeground, letterSpacing: 0.3,
+              }}>
+                E-Mail
+              </Text>
+              <TextInput
+                value={authEmail}
+                onChangeText={v => { setAuthEmail(v); setAuthError(null); }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="name@beispiel.de"
+                placeholderTextColor={colors.mutedForeground}
+                style={{
+                  fontSize: 15, fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.foreground, backgroundColor: colors.muted,
+                  borderRadius: 8, paddingHorizontal: 12, paddingVertical: 11,
+                  borderWidth: 1, borderColor: colors.border,
+                }}
+              />
+            </View>
+
+            {/* Passwort */}
+            <View style={{ gap: 6 }}>
+              <Text style={{
+                fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium',
+                color: colors.mutedForeground, letterSpacing: 0.3,
+              }}>
+                Passwort
+              </Text>
+              <TextInput
+                value={authPassword}
+                onChangeText={v => { setAuthPassword(v); setAuthError(null); }}
+                secureTextEntry
+                placeholder="••••••••"
+                placeholderTextColor={colors.mutedForeground}
+                style={{
+                  fontSize: 15, fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.foreground, backgroundColor: colors.muted,
+                  borderRadius: 8, paddingHorizontal: 12, paddingVertical: 11,
+                  borderWidth: 1, borderColor: colors.border,
+                }}
+              />
+            </View>
+
+            {/* Fehler */}
+            {authError != null && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                backgroundColor: authMode === 'register' && authError.includes('Bestätigungs')
+                  ? colors.safe + '18' : colors.destructive + '18',
+                borderRadius: 8, padding: 12,
+              }}>
+                <Feather
+                  name={authMode === 'register' && authError.includes('Bestätigungs') ? 'check-circle' : 'alert-circle'}
+                  size={14}
+                  color={authMode === 'register' && authError.includes('Bestätigungs') ? colors.safe : colors.destructive}
+                />
+                <Text style={{
+                  fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+                  color: authMode === 'register' && authError.includes('Bestätigungs')
+                    ? colors.safe : colors.destructive,
+                  flex: 1,
+                }}>
+                  {authError}
                 </Text>
               </View>
             )}
+
+            {/* Button */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              disabled={authLoading}
+              onPress={async () => {
+                if (authMode === 'register') {
+                  if (!authFirstName.trim()) { setAuthError('Bitte Vorname eingeben.'); return; }
+                  if (!authUsername.trim()) { setAuthError('Bitte Nutzername eingeben.'); return; }
+                }
+                if (!authEmail.trim()) { setAuthError('Bitte E-Mail eingeben.'); return; }
+                if (!authPassword) { setAuthError('Bitte Passwort eingeben.'); return; }
+                setAuthLoading(true);
+                setAuthError(null);
+                Keyboard.dismiss();
+                let error;
+                if (authMode === 'login') {
+                  ({ error } = await signIn(authEmail.trim(), authPassword));
+                } else {
+                  ({ error } = await signUp(authEmail.trim(), authPassword, {
+                    firstName: authFirstName.trim(),
+                    username: authUsername.trim(),
+                  }));
+                }
+                setAuthLoading(false);
+                if (error) {
+                  setAuthError(error.message);
+                } else {
+                  setAuthEmail('');
+                  setAuthPassword('');
+                  setAuthFirstName('');
+                  setAuthUsername('');
+                  if (authMode === 'login') {
+                    // Nach erfolgreichem Login → Hauptbereich
+                    setActiveTab(null);
+                  } else {
+                    setAuthError('Bestätigungs-E-Mail gesendet. Bitte prüfe deinen Posteingang.');
+                  }
+                }
+              }}
+              style={{
+                backgroundColor: authLoading ? colors.muted : colors.primary,
+                borderRadius: 10, paddingVertical: 14,
+                alignItems: 'center', marginTop: 2,
+              }}
+            >
+              {authLoading ? (
+                <ActivityIndicator size="small" color={colors.primaryForeground} />
+              ) : (
+                <Text style={{
+                  fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.primaryForeground,
+                }}>
+                  {authMode === 'login' ? 'Anmelden' : 'Konto erstellen'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        /* ── Angemeldet: Profil ── */
+        <View style={{ gap: 16 }}>
+          {/* Profil-Karte */}
+          <View style={{
+            backgroundColor: colors.card,
+            borderRadius: 14, borderWidth: 1, borderColor: colors.border,
+            padding: 18, gap: 0,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <View style={{
+                width: 52, height: 52, borderRadius: 26,
+                backgroundColor: colors.primary + '20',
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Feather name="user" size={24} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                {profileDisplayName ? (
+                  <Text style={{
+                    fontSize: 18, fontFamily: 'SpaceGrotesk_700Bold',
+                    color: colors.foreground,
+                  }} numberOfLines={1}>
+                    {profileDisplayName}
+                  </Text>
+                ) : null}
+                {profileDisplayUsername ? (
+                  <Text style={{
+                    fontSize: 14, fontFamily: 'SpaceGrotesk_500Medium',
+                    color: colors.primary,
+                  }} numberOfLines={1}>
+                    {'@' + profileDisplayUsername}
+                  </Text>
+                ) : null}
+                <Text style={{
+                  fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.mutedForeground,
+                  marginTop: (profileDisplayName || profileDisplayUsername) ? 1 : 0,
+                }} numberOfLines={1}>
+                  {user.email ?? 'Angemeldet'}
+                </Text>
+              </View>
+            </View>
           </View>
 
-          {/* Last run + rss_new_count */}
-          {statusLoading ? (
-            <ActivityIndicator color={colors.primary} style={{ alignSelf: 'flex-start' }} />
-          ) : (
-            <View
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Feather
-                  name="clock"
-                  size={14}
-                  color={isStale || neverRan ? colors.alarm : colors.mutedForeground}
-                />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontFamily: 'SpaceGrotesk_400Regular',
-                    color: isStale || neverRan ? colors.alarm : colors.foreground,
-                  }}
-                >
-                  Letzter Lauf:{' '}
-                  <Text
-                    style={{
-                      fontFamily: 'SpaceGrotesk_600SemiBold',
-                      color: isStale || neverRan ? colors.alarm : colors.foreground,
-                    }}
-                  >
-                    {neverRan ? 'Nie' : formatRelativeTime(lastRunAt)}
-                  </Text>
-                </Text>
-              </View>
-
-              {/* Neue Treffer (rss_new_count) */}
-              {!neverRan && (
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text
-                    style={{
-                      fontSize: 10,
-                      fontFamily: 'SpaceGrotesk_400Regular',
-                      color: colors.mutedForeground,
-                    }}
-                  >
-                    Neue Treffer
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      fontFamily: 'SpaceGrotesk_700Bold',
-                      color: rssNewCount > 0 ? colors.accent : colors.foreground,
-                    }}
-                  >
-                    {rssNewCount}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Never ran warning */}
-          {neverRan && (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 7,
-                backgroundColor: colors.alarm + '18',
-                borderRadius: 8,
-                paddingHorizontal: 10,
-                paddingVertical: 8,
-              }}
-            >
-              <Feather name="alert-triangle" size={13} color={colors.alarm} />
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.alarm,
-                }}
-              >
-                Wächter wurde noch nicht ausgeführt.
-              </Text>
-            </View>
-          )}
-
-          {/* Last error (only if present) */}
-          {lastError ? (
-            <View
-              style={{
-                backgroundColor: colors.destructive + '18',
-                borderRadius: 8,
-                padding: 10,
-                gap: 4,
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Feather name="x-circle" size={13} color={colors.destructive} />
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontFamily: 'SpaceGrotesk_600SemiBold',
-                    color: colors.destructive,
-                    letterSpacing: 1.5,
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Letzter Fehler
-                </Text>
-              </View>
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.destructive,
-                  opacity: 0.85,
-                }}
-                numberOfLines={3}
-              >
-                {lastError}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
-        {/* ── iOS Installationsbutton ── */}
-        {showIosInstall && (
+          {/* Abmelden */}
           <TouchableOpacity
-            onPress={() => setInstallModalVisible(true)}
             activeOpacity={0.75}
+            onPress={async () => {
+              await signOut();
+              setActiveTab(null);
+            }}
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+              gap: 8, paddingVertical: 13, borderRadius: 10,
+              borderWidth: 1, borderColor: colors.border,
               backgroundColor: colors.card,
-              borderRadius: colors.radius,
-              borderWidth: 1,
-              borderColor: colors.border,
-              paddingVertical: 13,
-              paddingHorizontal: 20,
             }}
           >
-            <Text style={{ fontSize: 18, lineHeight: 22 }}>📲</Text>
-            <Text
-              style={{
-                fontSize: 14,
-                fontFamily: 'SpaceGrotesk_600SemiBold',
-                color: colors.foreground,
-              }}
-            >
-              Auf iPhone installieren
+            <Feather name="log-out" size={16} color={colors.mutedForeground} />
+            <Text style={{
+              fontSize: 14, fontFamily: 'SpaceGrotesk_500Medium',
+              color: colors.mutedForeground,
+            }}>
+              Abmelden
             </Text>
           </TouchableOpacity>
-        )}
+        </View>
+      )}
+    </ScrollView>
+  );
 
-      </ScrollView>
+  // ── PREFERENCES-TAB ───────────────────────────────────────────────────────
+  const renderPreferences = () => (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{
+        padding: CARD_PADDING,
+        paddingTop: topPad + CARD_PADDING,
+        paddingBottom: botPad + BOTTOM_NAV_HEIGHT + 24,
+        gap: 20,
+      }}
+    >
+      {/* Tab-Titel */}
+      <Text style={{
+        fontSize: 24, fontFamily: 'SpaceGrotesk_700Bold',
+        color: colors.foreground,
+      }}>
+        Preferences
+      </Text>
 
-      {/* ── iOS Installations-Modal ── */}
-      <Modal
-        visible={installModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setInstallModalVisible(false)}
-        statusBarTranslucent
-      >
-        <Pressable
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.55)',
-            justifyContent: 'flex-end',
-          }}
-          onPress={() => setInstallModalVisible(false)}
-        >
-          <Pressable
-            onPress={() => {}}
-            style={{
-              backgroundColor: colors.card,
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              paddingTop: 12,
-              paddingBottom: 40,
-              paddingHorizontal: 24,
-            }}
-          >
-            {/* Drag handle */}
-            <View
-              style={{
-                width: 36,
-                height: 4,
-                borderRadius: 2,
-                backgroundColor: colors.border,
-                alignSelf: 'center',
-                marginBottom: 20,
-              }}
-            />
+      {/* MEIN PEGELORT */}
+      <View style={{ gap: 10 }}>
+        <Text style={{
+          fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold',
+          color: colors.mutedForeground,
+          letterSpacing: 2, textTransform: 'uppercase',
+        }}>
+          Mein Pegelort
+        </Text>
 
-            {/* Schließen-Button */}
-            <TouchableOpacity
-              onPress={() => setInstallModalVisible(false)}
-              style={{ position: 'absolute', top: 20, right: 20 }}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Feather name="x" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
-
-            {/* Titel */}
-            <Text
-              style={{
-                fontSize: 17,
-                fontFamily: 'SpaceGrotesk_700Bold',
-                color: colors.foreground,
-                marginBottom: 6,
-                paddingRight: 32,
-              }}
-            >
-              Auf dem Home-Bildschirm installieren
-            </Text>
-            <Text
-              style={{
-                fontSize: 13,
-                fontFamily: 'SpaceGrotesk_400Regular',
-                color: colors.mutedForeground,
-                marginBottom: 24,
-                lineHeight: 18,
-              }}
-            >
-              So fügst du R(h)einschiffer zu deinem Home-Bildschirm hinzu:
-            </Text>
-
-            {/* Schritte */}
-            {[
-              {
-                step: '1',
-                icon: '⬆️',
-                text: 'Tippe in Safari auf das\nTeilen-Symbol unten in der Mitte',
-              },
-              {
-                step: '2',
-                icon: '📋',
-                text: 'Scrolle und wähle\n„Zum Home-Bildschirm"',
-              },
-              {
-                step: '3',
-                icon: '✅',
-                text: 'Tippe oben rechts auf\n„Hinzufügen"',
-              },
-            ].map(({ step, icon, text }) => (
-              <View
-                key={step}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'flex-start',
-                  gap: 14,
-                  marginBottom: 18,
-                }}
-              >
-                <View
+        {gauges.length === 0 ? (
+          <ActivityIndicator size="small" color={colors.primary} style={{ alignSelf: 'flex-start' }} />
+        ) : (
+          <View style={{
+            backgroundColor: colors.card, borderRadius: 12,
+            borderWidth: 1, borderColor: colors.border,
+            overflow: 'hidden',
+          }}>
+            {gauges.map((g, idx) => {
+              const isSelected = selectedGauge?.id === g.id;
+              const isLast = idx === gauges.length - 1;
+              return (
+                <TouchableOpacity
+                  key={g.id}
+                  activeOpacity={0.75}
+                  onPress={() => selectGauge(g.id)}
                   style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 15,
-                    backgroundColor: colors.primary,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    marginTop: 1,
+                    flexDirection: 'row', alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 16, paddingVertical: 14,
+                    borderBottomWidth: isLast ? 0 : 1,
+                    borderBottomColor: colors.border,
+                    backgroundColor: isSelected ? colors.primary + '08' : 'transparent',
                   }}
                 >
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      fontFamily: 'SpaceGrotesk_700Bold',
-                      color: colors.primaryForeground,
-                    }}
-                  >
-                    {step}
-                  </Text>
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={{ fontSize: 22, lineHeight: 26 }}>{icon}</Text>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontFamily: 'SpaceGrotesk_400Regular',
-                      color: colors.foreground,
-                      lineHeight: 20,
-                    }}
-                  >
-                    {text}
-                  </Text>
-                </View>
-              </View>
-            ))}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{
+                      width: 32, height: 32, borderRadius: 16,
+                      backgroundColor: isSelected ? colors.primary + '20' : colors.muted,
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Feather
+                        name="anchor"
+                        size={14}
+                        color={isSelected ? colors.primary : colors.mutedForeground}
+                      />
+                    </View>
+                    <View style={{ gap: 1 }}>
+                      <Text style={{
+                        fontSize: 15,
+                        fontFamily: isSelected ? 'SpaceGrotesk_700Bold' : 'SpaceGrotesk_500Medium',
+                        color: isSelected ? colors.primary : colors.foreground,
+                      }}>
+                        {g.name}
+                      </Text>
+                      {(g.river != null || g.river_km != null) && (
+                        <Text style={{
+                          fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                          color: colors.mutedForeground,
+                        }}>
+                          {[g.river, g.river_km != null ? `km ${g.river_km}` : null]
+                            .filter(Boolean).join(' · ')}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  {isSelected && (
+                    <Feather name="check-circle" size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+      </View>
 
-            {/* Hinweis */}
-            <View
-              style={{
-                backgroundColor: colors.muted,
-                borderRadius: 10,
-                padding: 12,
-                marginTop: 4,
-                flexDirection: 'row',
-                gap: 8,
-                alignItems: 'flex-start',
-              }}
-            >
-              <Feather name="info" size={14} color={colors.mutedForeground} style={{ marginTop: 1 }} />
-              <Text
-                style={{
-                  flex: 1,
-                  fontSize: 12,
-                  fontFamily: 'SpaceGrotesk_400Regular',
-                  color: colors.mutedForeground,
-                  lineHeight: 17,
-                }}
-              >
-                iOS erfordert, dass du die Installation selbst bestätigst. Die App öffnet sich danach wie eine native App ohne Browser-Leiste.
+      {/* MEINE PEGELWARNUNGEN */}
+      <View style={{ gap: 10 }}>
+        <Text style={{
+          fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold',
+          color: colors.mutedForeground,
+          letterSpacing: 2, textTransform: 'uppercase',
+        }}>
+          Meine Pegelwarnungen
+        </Text>
+
+        {user == null ? (
+          /* Nicht angemeldet: Hinweis */
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => handleTabPress('konto')}
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: 12,
+              backgroundColor: colors.card,
+              borderRadius: 12, borderWidth: 1,
+              borderColor: colors.primary + '30',
+              paddingHorizontal: 16, paddingVertical: 14,
+            }}
+          >
+            <View style={{
+              width: 34, height: 34, borderRadius: 17,
+              backgroundColor: colors.primary + '15',
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Feather name="lock" size={15} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontSize: 14, fontFamily: 'SpaceGrotesk_600SemiBold',
+                color: colors.foreground,
+              }}>
+                Anmeldung erforderlich
+              </Text>
+              <Text style={{
+                fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                color: colors.mutedForeground, marginTop: 1,
+              }}>
+                Persönliche Schwellen nach Login verfügbar
               </Text>
             </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+            <Feather name="chevron-right" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        ) : gauges.length === 0 ? (
+          <ActivityIndicator size="small" color={colors.primary} style={{ alignSelf: 'flex-start' }} />
+        ) : (
+          <View style={{ gap: 8 }}>
+            {gauges.map(g => (
+              <GaugeAlertRow
+                key={g.id}
+                gauge={g}
+                setting={getGaugeSetting(g.id)}
+                onToggle={async (enabled) =>
+                  updateGaugeSetting(g.id, { alert_enabled: enabled })
+                }
+                onSaveThreshold={async (cm) =>
+                  updateGaugeSetting(g.id, { alert_threshold_cm: cm })
+                }
+              />
+            ))}
+          </View>
+        )}
+      </View>
+    </ScrollView>
+  );
 
+  // ── HELP-TAB ─────────────────────────────────────────────────────────────
+  const renderHelp = () => {
+    const HelpSection = ({
+      icon, title, children,
+    }: { icon: React.ComponentProps<typeof Feather>['name']; title: string; children: React.ReactNode }) => (
+      <View style={{
+        backgroundColor: colors.card, borderRadius: 12,
+        borderWidth: 1, borderColor: colors.border,
+        padding: 16, gap: 8,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{
+            width: 32, height: 32, borderRadius: 8,
+            backgroundColor: colors.primary + '18',
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Feather name={icon} size={15} color={colors.primary} />
+          </View>
+          <Text style={{
+            fontSize: 15, fontFamily: 'SpaceGrotesk_700Bold',
+            color: colors.foreground,
+          }}>
+            {title}
+          </Text>
+        </View>
+        {children}
+      </View>
+    );
+
+    const HelpText = ({ text }: { text: string }) => (
+      <Text style={{
+        fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+        color: colors.mutedForeground, lineHeight: 20,
+      }}>
+        {text}
+      </Text>
+    );
+
+    return (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          padding: CARD_PADDING,
+          paddingTop: topPad + CARD_PADDING,
+          paddingBottom: botPad + BOTTOM_NAV_HEIGHT + 24,
+          gap: 12,
+        }}
+      >
+        {/* Tab-Titel */}
+        <Text style={{
+          fontSize: 24, fontFamily: 'SpaceGrotesk_700Bold',
+          color: colors.foreground,
+        }}>
+          Help
+        </Text>
+
+        {/* Über R(h)einschiffer */}
+        <View style={{
+          backgroundColor: colors.primary,
+          borderRadius: 14, padding: 18, gap: 8,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Image
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              source={require('../assets/images/icon.png')}
+              style={{ width: 44, height: 44, borderRadius: 12 }}
+              resizeMode="contain"
+            />
+            <View style={{ gap: 2 }}>
+              <Text style={{
+                fontSize: 20, fontFamily: 'SpaceGrotesk_700Bold',
+                color: colors.primaryForeground,
+              }}>
+                R(h)einschiffer
+              </Text>
+              <Text style={{
+                fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                color: colors.primaryForeground, opacity: 0.75,
+              }}>
+                Pegelvorhersage und News
+              </Text>
+            </View>
+          </View>
+          <Text style={{
+            fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+            color: colors.primaryForeground, opacity: 0.85,
+            lineHeight: 20,
+          }}>
+            R(h)einschiffer zeigt aktuelle Pegelstände, Verlaufsdaten und offizielle Vorhersagen des Rheins. Für Wassersportler, Schiffer und alle, die den Rhein im Blick behalten möchten.
+          </Text>
+        </View>
+
+        {/* Aktueller Pegelstand */}
+        <HelpSection icon="droplet" title="Aktueller Pegelstand">
+          <HelpText text="Die Pegelstand-Kachel zeigt den aktuellen Wasserstand in Zentimetern (cm) direkt von PEGELONLINE / WSV. Die Angabe enthält Pegelname, Rheinkilometer, Messzeitpunkt und den aktuellen Wert in cm." />
+          <HelpText text="Verfügbare Pegelorte: Speyer (km 400,57), Mannheim (km 424,73), Worms (km 443,37)." />
+        </HelpSection>
+
+        {/* Verlauf */}
+        <HelpSection icon="bar-chart-2" title="Verlauf">
+          <HelpText text="Das Verlaufs-Diagramm zeigt die Pegelentwicklung der letzten 7 Tage, 30 Tage oder 3 Monate. Die gestrichelte Linie markiert die persönliche Warnschwelle." />
+          <HelpText text="Grüne Kurve = Pegelstand oberhalb der Schwelle. Rote Kurve = Pegelstand unterhalb der Schwelle." />
+        </HelpSection>
+
+        {/* Vorhersage */}
+        <HelpSection icon="trending-up" title="Vorhersage">
+          <HelpText text="Die HVZ Baden-Württemberg stellt offizielle Vorhersage-Grafiken bereit. Diese werden alle 5 Minuten aktualisiert. Die Vorhersage steht für Speyer, Mannheim und Worms zur Verfügung." />
+          <TouchableOpacity
+            onPress={() => void Linking.openURL('https://www.hvz.baden-wuerttemberg.de/')}
+            activeOpacity={0.7}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}
+          >
+            <Feather name="external-link" size={12} color={colors.primary} />
+            <Text style={{
+              fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium', color: colors.primary,
+            }}>
+              hvz.baden-wuerttemberg.de
+            </Text>
+          </TouchableOpacity>
+        </HelpSection>
+
+        {/* Persönliche Pegelwarnungen */}
+        <HelpSection icon="bell" title="Persönliche Pegelwarnungen">
+          <HelpText text="Nach der Anmeldung kannst du für jeden Pegelort einen persönlichen Schwellenwert festlegen. Die Warnung zeigt ALARM an, wenn der Wasserstand die Schwelle unterschreitet." />
+          <HelpText text="Die Einstellungen findest du unter Preferences → Meine Pegelwarnungen." />
+        </HelpSection>
+
+        {/* Was bedeutet die Schwelle? */}
+        <View style={{
+          backgroundColor: colors.muted, borderRadius: 12,
+          borderWidth: 1, borderColor: colors.border,
+          padding: 16, gap: 8,
+        }}>
+          <Text style={{
+            fontSize: 13, fontFamily: 'SpaceGrotesk_700Bold',
+            color: colors.foreground,
+          }}>
+            Was bedeutet die Schwelle?
+          </Text>
+          <Text style={{
+            fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+            color: colors.mutedForeground, lineHeight: 20,
+          }}>
+            Die persönliche Schwelle bestimmt, ab welchem Wasserstand die Pegelwarnung ausgelöst wird. Liegt der aktuelle Pegelstand unterhalb der Schwelle, wird ALARM angezeigt. Oberhalb der Schwelle: SICHER.
+          </Text>
+          <Text style={{
+            fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+            color: colors.mutedForeground, opacity: 0.75, lineHeight: 18,
+          }}>
+            Beispiel: Schwelle 225 cm → ALARM wenn Wasserstand unter 225 cm fällt.
+          </Text>
+        </View>
+
+        {/* Quellen */}
+        <View style={{ gap: 8 }}>
+          <Text style={{
+            fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold',
+            color: colors.mutedForeground,
+            letterSpacing: 2, textTransform: 'uppercase',
+          }}>
+            Quellen
+          </Text>
+          <View style={{
+            backgroundColor: colors.card, borderRadius: 12,
+            borderWidth: 1, borderColor: colors.border,
+            overflow: 'hidden',
+          }}>
+            {[
+              {
+                label: 'PEGELONLINE / WSV',
+                sub: 'Aktuelle Pegelstände und Verlaufsdaten',
+                url: 'https://pegelonline.wsv.de/',
+              },
+              {
+                label: 'HVZ Baden-Württemberg',
+                sub: 'Offizielle Hochwasservorhersage',
+                url: 'https://www.hvz.baden-wuerttemberg.de/',
+              },
+              {
+                label: 'ELWIS',
+                sub: 'WSV Nachrichten für die Binnenschifffahrt',
+                url: 'https://www.elwis.de/',
+              },
+            ].map((src, i, arr) => (
+              <TouchableOpacity
+                key={src.url}
+                onPress={() => void Linking.openURL(src.url)}
+                activeOpacity={0.7}
+                style={{
+                  flexDirection: 'row', alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 16, paddingVertical: 13,
+                  borderBottomWidth: i === arr.length - 1 ? 0 : 1,
+                  borderBottomColor: colors.border,
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: 14, fontFamily: 'SpaceGrotesk_600SemiBold',
+                    color: colors.foreground,
+                  }}>
+                    {src.label}
+                  </Text>
+                  <Text style={{
+                    fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                    color: colors.mutedForeground, marginTop: 1,
+                  }}>
+                    {src.sub}
+                  </Text>
+                </View>
+                <Feather name="external-link" size={14} color={colors.primary} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+    );
+  };
+
+  // ── BOTTOM NAVIGATION ─────────────────────────────────────────────────────
+  const renderBottomNav = () => {
+    type NavItem = {
+      tab: NonNullable<ActiveTab>;
+      icon: React.ComponentProps<typeof Feather>['name'];
+      label: string;
+    };
+    const items: NavItem[] = [
+      { tab: 'konto', icon: 'user', label: 'Konto' },
+      { tab: 'preferences', icon: 'sliders', label: 'Preferences' },
+      { tab: 'help', icon: 'help-circle', label: 'Help' },
+    ];
+
+    return (
+      <View style={{
+        flexDirection: 'row',
+        height: BOTTOM_NAV_HEIGHT + botPad,
+        backgroundColor: colors.card,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+        paddingBottom: botPad,
+      }}>
+        {items.map(({ tab, icon, label }) => {
+          const isActive = activeTab === tab;
+          return (
+            <TouchableOpacity
+              key={tab}
+              onPress={() => handleTabPress(tab)}
+              activeOpacity={0.7}
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 3,
+                paddingTop: 6,
+              }}
+            >
+              <View style={{
+                width: 36, height: 28,
+                alignItems: 'center', justifyContent: 'center',
+                borderRadius: 14,
+                backgroundColor: isActive ? colors.primary + '18' : 'transparent',
+              }}>
+                <Feather
+                  name={icon}
+                  size={18}
+                  color={isActive ? colors.primary : colors.mutedForeground}
+                />
+              </View>
+              <Text style={{
+                fontSize: 10,
+                fontFamily: isActive ? 'SpaceGrotesk_600SemiBold' : 'SpaceGrotesk_400Regular',
+                color: isActive ? colors.primary : colors.mutedForeground,
+                letterSpacing: 0.2,
+              }}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
+
+  // ── RENDER ────────────────────────────────────────────────────────────────
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Inhalt – je nach aktivem Tab */}
+      <View style={{ flex: 1 }}>
+        {activeTab === null && renderHome()}
+        {activeTab === 'konto' && renderKonto()}
+        {activeTab === 'preferences' && renderPreferences()}
+        {activeTab === 'help' && renderHelp()}
+      </View>
+
+      {/* Feste Bottom-Navigation */}
+      {renderBottomNav()}
     </View>
   );
 }
-
-type MckData = {
-  source: string;
-  petrol: number | null;
-  diesel: number | null;
-  unit: string;
-  sourceDate?: string | null;
-  checkedAt?: string | null;
-  error?: string;
-};
-
-type NfbMeldung = {
-  nfb_id: string; titel: string; km_von: number | null; km_bis: number | null;
-  gueltig_ab: string | null; gueltig_bis: string | null; url: string | null;
-  first_seen: string; is_new: boolean;
-};
-
-type WaechterClubHit = { name: string; icon: string; url: string; snippet: string; dedup_key: string; seen_at: string };

@@ -1,0 +1,155 @@
+BEHEBE IN DER TESTUMGEBUNG (/test/) DIE PEGELORT-AUSWAHL
+
+Ziel:
+Wenn der Nutzer unter „Mein Pegelort“ zwischen Speyer, Mannheim und Worms wechselt, müssen sich sowohl der AKTUELLE PEGELSTAND als auch die VORHERSAGE auf den ausgewählten Pegel beziehen.
+
+Aktueller Fehler:
+Die Auswahlmarkierung wechselt zwar zwischen Speyer, Mannheim und Worms, aber Pegelstand und Vorhersage bleiben auf dem ursprünglich ausgewählten Pegel.
+
+WICHTIG:
+- Ausschließlich TEST-Umgebung ändern.
+- main/Produktion NICHT verändern.
+- Keine Änderungen an der bestehenden Supabase-Authentifizierung.
+- Keine Änderungen an user_gauge_settings.
+- Keine Pegel hart codieren.
+- Die bestehende Auswahl-UI soll erhalten bleiben.
+
+DATENBANK:
+Die Tabelle public.gauges ist bereits korrekt gepflegt.
+
+Aktuelle Datensätze:
+- Speyer: id = speyer, pegel_nr = SPEYER, river_km = 400.61
+- Mannheim: id = mannheim, pegel_nr = MANNHEIM, river_km = 424.73
+- Worms: id = worms, pegel_nr = WORMS, river_km = 443.37
+
+AUFGABEN:
+
+1. Identifiziere den zentralen React-State für den aktuell ausgewählten Pegel.
+
+2. Stelle sicher, dass beim Anklicken von Speyer/Mannheim/Worms genau diese gauge.id als selectedGaugeId gesetzt wird.
+
+3. Suche alle Stellen, an denen der aktuelle Pegelstand geladen oder angezeigt wird.
+
+4. Suche alle Stellen, an denen die Vorhersage geladen oder angezeigt wird.
+
+5. Prüfe insbesondere:
+   - hooks/useGauges.ts
+   - alle Forecast-/Pegelstand-Hooks
+   - app/index.tsx
+   - selectedGauge / selectedGaugeId
+   - gaugeId
+   - useEffect-Abhängigkeiten
+   - useMemo-Abhängigkeiten
+   - eventuell vorhandene DEFAULT_GAUGE_ID / erste Gauge / Speyer-Fallbacks
+
+6. Alle pegelabhängigen Daten müssen von selectedGaugeId abhängen.
+
+Beispiel:
+
+FALSCH:
+const gauge = gauges[0];
+
+oder:
+
+loadGaugeData(DEFAULT_GAUGE_ID);
+
+oder:
+
+loadForecast("speyer");
+
+RICHTIG:
+loadGaugeData(selectedGaugeId);
+
+bzw. die vorhandene Datenlogik so verwenden, dass selectedGaugeId die einzige Quelle für den aktuell dargestellten Pegel ist.
+
+7. Beim Wechsel des Pegels müssen folgende Inhalte aktualisiert werden:
+   - Pegelname
+   - aktueller Pegelstand
+   - Zeitstempel des aktuellen Wertes
+   - Vorhersage
+   - alle weiteren eindeutig pegelabhängigen Werte
+
+8. Verhindere stale data:
+   Alle useEffect/useMemo/useCallback-Abhängigkeiten müssen selectedGaugeId berücksichtigen, wenn die jeweilige Berechnung oder Abfrage davon abhängt.
+
+9. Falls Daten für den ausgewählten Pegel bereits geladen sind:
+   Nutze sie direkt.
+   Falls sie erst geladen werden müssen:
+   Lade sie anhand der selectedGaugeId nach.
+
+10. Die persönliche Warnungsfunktion darf nicht kaputtgehen.
+    user_gauge_settings bleibt weiterhin:
+    UNIQUE(user_id, gauge_id)
+
+    Die Warnschwellen müssen weiterhin persönlich pro Nutzer und pro Pegel gespeichert werden.
+
+11. Gastmodus:
+    Ein Gast darf ebenfalls zwischen Speyer, Mannheim und Worms wechseln.
+
+    Auch im Gastmodus müssen:
+    - aktueller Pegelstand
+    - Vorhersage
+    - Pegelname
+
+    auf den jeweils ausgewählten Pegel wechseln.
+
+    Persönliche Pegelwarnungen bleiben weiterhin nur für angemeldete Nutzer verfügbar.
+
+12. Keine neue Supabase-Migration erstellen.
+    Die Datenbankdaten sind bereits korrekt.
+
+ABNAHMETEST:
+
+Nach dem Code-Fix unbedingt /test/ öffnen und testen:
+
+TEST 1:
+Speyer auswählen.
+→ Speyer muss als ausgewählter Pegel erscheinen.
+→ aktueller Pegelstand muss Speyer entsprechen.
+→ Vorhersage muss Speyer entsprechen.
+
+TEST 2:
+Mannheim auswählen.
+→ Auswahlmarkierung muss auf Mannheim wechseln.
+→ aktueller Pegelstand muss sich ändern und Mannheim entsprechen.
+→ Vorhersage muss sich ändern und Mannheim entsprechen.
+
+TEST 3:
+Worms auswählen.
+→ Auswahlmarkierung muss auf Worms wechseln.
+→ aktueller Pegelstand muss sich ändern und Worms entsprechen.
+→ Vorhersage muss sich ändern und Worms entsprechen.
+
+TEST 4:
+Wieder Speyer auswählen.
+→ Speyer-Daten müssen wieder erscheinen.
+
+TEST 5:
+Abmelden/Gastmodus.
+→ Speyer/Mannheim/Worms weiterhin auswählbar.
+→ Pegelstand und Vorhersage wechseln auch im Gastmodus.
+
+TEST 6:
+Anmelden.
+→ persönliche Pegelwarnungen müssen weiterhin vorhanden sein.
+→ Schwellenwerte müssen weiterhin je Pegel getrennt sein.
+
+WICHTIGER DEPLOYMENT-RAHMEN:
+
+- Änderung ausschließlich auf supabase-integration.
+- Danach origin/test aktualisieren.
+- main NICHT ändern.
+- GitHub Actions Test-Build abwarten.
+- /test/ Deployment prüfen.
+
+Am Ende berichten:
+
+1. Ursache des Fehlers
+2. Geänderte Dateien
+3. Commit
+4. GitHub-Actions-Run
+5. Bestätigung, dass Speyer → Mannheim → Worms den aktuellen Pegelstand tatsächlich wechselt
+6. Bestätigung, dass die Vorhersage ebenfalls wechselt
+7. Bestätigung, dass main/Produktion unverändert geblieben ist
+
+Bitte keine kosmetischen Änderungen vornehmen. Nur die notwendige Datenfluss-/State-Verknüpfung korrigieren.

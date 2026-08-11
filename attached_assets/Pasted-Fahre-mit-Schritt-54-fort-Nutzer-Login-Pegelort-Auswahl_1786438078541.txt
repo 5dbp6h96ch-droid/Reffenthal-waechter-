@@ -1,0 +1,107 @@
+Fahre mit Schritt #54 fort: Nutzer-Login + Pegelort-Auswahl.
+
+WICHTIG:
+- Ausschließlich auf Branch supabase-integration arbeiten.
+- NICHT auf main pushen.
+- Keine Änderungen an der bestehenden Produktionsroute ohne ausdrückliche Freigabe.
+- Keine Replit-Abhängigkeit zur Laufzeit.
+- Supabase bleibt das einzige Backend.
+
+1. AUTH-UI
+
+Erstelle einen sauberen Nutzerbereich für:
+
+- Registrieren mit E-Mail + Passwort
+- Anmelden
+- Abmelden
+- Anzeige des angemeldeten Nutzers
+- Session beim Neustart erhalten
+
+Die bestehende Startseite und ihr bisheriges Layout möglichst unverändert lassen.
+
+2. PEGELORT-AUSWAHL
+
+Nutze die bereits vorhandene Tabelle:
+
+public.gauges
+
+und den vorhandenen useGauges()-Hook.
+
+Zeige die aktiven Pegelorte dynamisch an.
+
+Aktuell insbesondere:
+
+- Speyer
+- Mannheim
+- Worms
+
+Keine Pegelorte hart im UI codieren.
+
+3. PERSÖNLICHER PEGELORT
+
+Beim angemeldeten Nutzer:
+
+selected_gauge_id in public.user_settings speichern.
+
+Die Auswahl muss nach erneutem Öffnen der App erhalten bleiben.
+
+Wenn bereits ein selected_gauge_id vorhanden ist, diesen Pegel automatisch verwenden.
+
+4. GAST-NUTZUNG
+
+Die bisherige App muss weiterhin ohne Anmeldung funktionieren.
+
+Ein Nutzerkonto darf keine Voraussetzung dafür sein, die bestehenden Pegeldaten anzusehen.
+
+Die Anmeldung soll zusätzliche persönliche Funktionen ermöglichen.
+
+5. STANDORT
+
+Noch KEINE automatische Standortabfrage.
+
+location_enabled bleibt false, bis der Nutzer diese Funktion später ausdrücklich aktiviert.
+
+6. PUSH
+
+Noch KEINE Push-Benachrichtigungen implementieren.
+
+Nur die bereits vorhandene Vorbereitung unverändert lassen.
+
+7. BESTEHENDE FUNKTIONEN
+
+Nicht verändern:
+
+- Pegeldatenquelle
+- bestehende Pegelanzeige
+- Verlauf/Chart
+- WSV
+- Tankstelle
+- Clubs
+- Rhein-Karte
+- News
+- Wächter
+- bestehende Hooks/APIs
+- bestehendes Routing
+
+Kein Refactoring.
+
+8. TESTEN
+
+Nach Abschluss prüfen:
+
+- Registrierung
+- Login
+- Logout
+- Session-Persistenz
+- gauges aus Supabase laden
+- Pegelort auswählen
+- user_settings speichern
+- App neu laden
+- ausgewählten Pegelort wiederherstellen
+- Gast kann weiterhin die bisherige App verwenden
+- TypeScript
+- Expo/Web-Build
+
+Nichts auf main pushen.
+
+Am Ende einen Abschlussbericht mit geänderten Dateien, Commit, Tests und TypeScript-Ergebnis erstellen.

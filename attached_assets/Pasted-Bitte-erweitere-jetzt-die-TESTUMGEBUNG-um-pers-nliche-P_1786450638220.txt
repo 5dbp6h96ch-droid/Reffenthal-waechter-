@@ -1,0 +1,355 @@
+Bitte erweitere jetzt die TESTUMGEBUNG um persönliche Pegelschwellen
+pro Nutzer und Pegel.
+
+ARBEITSBRANCH:
+supabase-integration
+
+DEPLOY-ZIEL:
+origin/test
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/
+
+WICHTIG:
+- NICHT auf main mergen.
+- NICHT auf main pushen.
+- Produktion NICHT verändern.
+- Noch KEINE Push-Nachrichten implementieren.
+- Bestehende öffentliche Pegelschwellen NICHT verändern.
+- Vorhandene Auth-, Gauge- und user_settings-Logik nicht unnötig umbauen.
+
+==================================================
+ZIEL
+==================================================
+
+Jeder angemeldete Nutzer soll für jeden Pegelort eine eigene persönliche
+Alarmschwelle festlegen können.
+
+Beispiel:
+
+Nutzer A:
+Speyer = 350 cm
+Mannheim = 280 cm
+Worms = 400 cm
+
+Nutzer B:
+Speyer = 420 cm
+Mannheim = 300 cm
+
+Die persönliche Schwelle gehört deshalb NICHT direkt zu `gauges`.
+
+Sie gehört zur Kombination:
+
+user_id + gauge_id
+
+==================================================
+DATENBANK
+==================================================
+
+Prüfe zuerst die vorhandenen Tabellen und Migrationen.
+
+Wenn noch keine geeignete Tabelle existiert, erstelle eine neue Tabelle:
+
+public.user_gauge_settings
+
+Empfohlene Felder:
+
+- id
+- user_id
+- gauge_id
+- alert_enabled
+- alert_threshold_cm
+- created_at
+- updated_at
+
+Anforderungen:
+
+- user_id → auth.users
+- gauge_id → public.gauges
+- UNIQUE(user_id, gauge_id)
+- RLS aktivieren
+- Nutzer darf ausschließlich seine eigenen Datensätze lesen
+- Nutzer darf ausschließlich seine eigenen Datensätze anlegen/ändern/löschen
+- Keine Möglichkeit, Einstellungen anderer Nutzer zu lesen oder zu verändern
+
+Vorhandene Datenbankstruktur zuerst prüfen.
+
+Keine doppelte Tabelle oder Migration erzeugen.
+
+==================================================
+UNTERSCHIED ÖFFENTLICHE / PERSÖNLICHE SCHWELLE
+==================================================
+
+WICHTIG:
+
+Die allgemeine/öffentliche Schwelle eines Pegels bleibt unverändert.
+
+Beispiel:
+
+Pegel Speyer:
+öffentliche Schwelle = 400 cm
+
+Persönlicher Nutzer:
+eigene Alarmschwelle = 350 cm
+
+Diese beiden Werte müssen getrennt behandelt werden.
+
+Die persönliche Schwelle darf niemals die öffentliche Schwelle
+überschreiben.
+
+==================================================
+SETTINGS / UI
+==================================================
+
+Im angemeldeten Bereich „Mein Konto“ bzw. Settings einen Bereich ergänzen:
+
+„Meine Pegelwarnungen“
+
+Dort sollen die verfügbaren Pegelorte angezeigt werden:
+
+- Speyer
+- Mannheim
+- Worms
+- weitere aktive gauges dynamisch aus public.gauges
+
+Für jeden Pegel:
+
+- Alarm ein/aus
+- persönliche Schwelle in cm
+
+Beispiel:
+
+Speyer
+[✓] Pegelwarnung
+Schwelle: [350] cm
+
+Mannheim
+[ ] Pegelwarnung
+Schwelle: [280] cm
+
+Die Werte müssen gespeichert werden.
+
+Kein Hardcoding von Speyer/Mannheim/Worms.
+
+==================================================
+AUSGEWÄHLTER PEGELORT
+==================================================
+
+Die bereits festgelegte Architekturregel bleibt bestehen:
+
+Der aktuell ausgewählte Pegelort ist die zentrale Referenz für
+alle pegelbezogenen Daten.
+
+Wenn aktuell Speyer ausgewählt ist:
+
+→ persönliche Speyer-Schwelle laden.
+
+Wenn Mannheim ausgewählt wird:
+
+→ persönliche Mannheim-Schwelle laden.
+
+Wenn Worms ausgewählt wird:
+
+→ persönliche Worms-Schwelle laden.
+
+Es darf niemals die Schwelle eines anderen Pegels angezeigt werden.
+
+==================================================
+GASTMODUS
+==================================================
+
+Gastnutzer:
+
+- dürfen öffentliche Pegeldaten sehen
+- dürfen Pegelorte auswählen
+- erhalten zunächst KEINE dauerhaft gespeicherten persönlichen
+  Pegelwarnungen
+- keine Speicherung persönlicher Schwellen ohne Anmeldung
+
+Wenn ein Gast die persönliche Warnfunktion öffnet:
+
+verständlich anzeigen:
+
+„Für persönliche Pegelwarnungen bitte anmelden.“
+
+Keine Fehlermeldung und kein Absturz.
+
+==================================================
+TECHNISCHE UMSETZUNG
+==================================================
+
+Prüfe vorhandene:
+
+- database.ts
+- useAuth.ts
+- useUserSettings.ts
+- useGauges.ts
+- Supabase-RLS
+- index.tsx
+
+Erstelle bei Bedarf einen eigenen Hook, z. B.:
+
+useUserGaugeSettings(userId)
+
+Dieser soll:
+
+- persönliche Einstellungen laden
+- persönliche Einstellung für einen Gauge laden
+- speichern/upserten
+- Alarm ein/aus ändern
+- persönliche Schwelle ändern
+
+Upsert anhand:
+
+user_id + gauge_id
+
+Keine unnötigen any-Casts.
+
+TypeScript sauber halten.
+
+==================================================
+ABNAHMETEST
+==================================================
+
+TEST 1 – ANGEMELDET
+
+1. Anmelden.
+2. „Meine Pegelwarnungen“ öffnen.
+3. Speyer auf 350 cm setzen.
+4. Speichern.
+5. Mannheim auf 280 cm setzen.
+6. Speichern.
+7. Worms auf 400 cm setzen.
+8. Speichern.
+
+Prüfen:
+
+Speyer = 350
+Mannheim = 280
+Worms = 400
+
+TEST 2 – PERSISTENZ
+
+1. Seite neu laden.
+2. Alle drei Werte prüfen.
+
+Erwartung:
+
+Speyer = 350
+Mannheim = 280
+Worms = 400
+
+TEST 3 – ÄNDERN
+
+Mannheim von 280 auf 300 ändern.
+
+Nach Reload:
+
+Speyer = 350
+Mannheim = 300
+Worms = 400
+
+TEST 4 – AUSGEWÄHLTER PEGEL
+
+Speyer auswählen.
+
+Prüfen:
+persönliche Schwelle = 350 cm
+
+Mannheim auswählen.
+
+Prüfen:
+persönliche Schwelle = 300 cm
+
+Worms auswählen.
+
+Prüfen:
+persönliche Schwelle = 400 cm
+
+TEST 5 – ALARM EIN/AUS
+
+Für Speyer:
+Alarm EIN.
+
+Für Mannheim:
+Alarm AUS.
+
+Nach Reload prüfen, dass diese Zustände erhalten bleiben.
+
+TEST 6 – GAST
+
+Abmelden.
+
+Prüfen:
+- öffentliche Pegeldaten funktionieren weiterhin
+- persönliche Warnungen verlangen Anmeldung
+- kein Absturz
+- keine persönlichen Daten des vorherigen Nutzers sichtbar
+
+TEST 7 – RLS / SICHERHEIT
+
+Prüfen:
+- Nutzer kann nur eigene user_gauge_settings lesen
+- Nutzer kann nur eigene Einstellungen ändern
+- user_id wird nicht frei vom Client für fremde Nutzer verwendbar
+- UNIQUE(user_id, gauge_id) funktioniert
+
+TEST 8 – TECHNIK
+
+- TypeScript
+- Expo/Metro
+- Supabase
+- RLS
+- keine neuen Fehler
+- location_enabled bleibt false
+- Push bleibt unverändert
+
+==================================================
+GIT / DEPLOYMENT
+==================================================
+
+Nur:
+
+supabase-integration
+→ origin/test
+→ GitHub Actions
+→ /test/
+
+main darf nicht verändert werden.
+
+Vor Commit prüfen:
+
+git branch
+git status
+git log
+
+==================================================
+ABSCHLUSSBERICHT
+==================================================
+
+Berichten:
+
+- Datenbanktabelle:
+- Migration:
+- RLS:
+- Hook:
+- UI:
+- geänderte Dateien:
+- Commit:
+- Branch:
+- GitHub-Actions-Run:
+- Speyer-Test:
+- Mannheim-Test:
+- Worms-Test:
+- Persistenz:
+- Alarm EIN/AUS:
+- Gastmodus:
+- RLS-Test:
+- TypeScript:
+- Expo/Metro:
+- main unverändert:
+
+Wenn ein Punkt technisch nicht sicher umgesetzt werden kann,
+NICHT improvisieren und NICHT hardcoden.
+
+Stattdessen exakt melden, was fehlt und warum.
+
+KEIN MERGE UND KEIN PUSH AUF MAIN.

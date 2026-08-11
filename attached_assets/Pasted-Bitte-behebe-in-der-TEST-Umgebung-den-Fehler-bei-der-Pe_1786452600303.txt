@@ -1,0 +1,74 @@
+Bitte behebe in der TEST-Umgebung den Fehler bei der Pegelort-Auswahl.
+
+PROBLEM:
+Unter /test/ lassen sich Speyer, Mannheim und Worms auswählen. Die blaue Auswahlmarkierung ändert sich, aber der aktuelle Pegelstand und die Vorhersage ändern sich NICHT. Sie bleiben auf dem ursprünglich ausgewählten Pegel.
+
+ZIEL:
+Der ausgewählte Pegelort muss die zentrale Datenquelle für ALLE pegelabhängigen Inhalte sein.
+
+ANFORDERUNGEN:
+
+1. Identifiziere den bestehenden State für den ausgewählten Pegelort.
+   - Es darf nur eine zentrale selectedGaugeId/selectedGauge-Quelle geben.
+   - Beim Anklicken eines Pegelortes muss diese Auswahl aktualisiert werden.
+
+2. Der aktuelle Pegelstand muss immer anhand des aktuell ausgewählten Pegels geladen/angezeigt werden.
+   - Speyer → Speyer-Wert
+   - Mannheim → Mannheim-Wert
+   - Worms → Worms-Wert
+
+3. Die Vorhersage muss ebenfalls auf den aktuell ausgewählten Pegel reagieren.
+   - Beim Wechsel des Pegels müssen die Forecast-Daten neu ausgewählt bzw. geladen werden.
+   - Keine fest verdrahtete Verwendung von Speyer/defaultGauge.
+
+4. Prüfe alle Hooks/Komponenten, die aktuell Pegeldaten oder Vorhersagen laden.
+   Insbesondere:
+   - useGauges
+   - Forecast/Pegelstand-Komponenten
+   - selectedGauge / gaugeId
+   - alle useEffect/useMemo-Abhängigkeiten
+
+5. Wenn ein Hook eine gaugeId erwartet, muss die aktuell ausgewählte gaugeId übergeben werden.
+   Beispiel:
+   useGaugeData(selectedGaugeId)
+   statt:
+   useGaugeData(DEFAULT_GAUGE_ID)
+
+6. Bei einem Wechsel des Pegels müssen die angezeigten Werte sofort aktualisiert werden.
+   Vermeide veraltete Daten durch fehlende React-Dependencies.
+
+7. Die persönliche Pegelwarnung bleibt unabhängig davon erhalten:
+   - jeder Nutzer hat je Pegel seine eigene Schwelle
+   - die bereits funktionierende Tabelle user_gauge_settings darf nicht beschädigt werden.
+
+8. Gastmodus:
+   - Gast darf den Pegelort wechseln.
+   - Gast sieht den aktuellen Pegelstand und die Vorhersage des jeweils ausgewählten Pegels.
+   - Persönliche Warnschwellen bleiben nur für angemeldete Nutzer verfügbar.
+
+9. WICHTIG:
+   - Nur die TEST-Umgebung ändern.
+   - main/Produktion darf NICHT verändert werden.
+   - Keine Änderungen an bestehenden Supabase-Daten außer wenn technisch zwingend erforderlich.
+   - Keine Hardcodierung eines einzelnen Pegels.
+
+10. Abnahmetest nach dem Fix:
+   A) /test/ öffnen
+   B) Speyer auswählen → aktuellen Speyer-Pegel + Speyer-Vorhersage prüfen
+   C) Mannheim auswählen → Werte müssen sich ändern und Mannheim entsprechen
+   D) Worms auswählen → Werte müssen sich erneut ändern und Worms entsprechen
+   E) zurück auf Speyer → Speyer-Werte müssen wieder erscheinen
+   F) angemeldet: persönliche Warnschwellen bleiben je Pegel erhalten
+   G) Gast: Pegelwechsel funktioniert ebenfalls
+
+Bitte zuerst die Ursache im vorhandenen Code identifizieren und dann die kleinstmögliche saubere Änderung durchführen.
+
+Danach:
+- Commit auf supabase-integration
+- nach origin/test pushen
+- GitHub-Actions-Testbuild ausführen
+- /test/ Deployment prüfen
+- mitteilen:
+  Commit
+  Build-Run
+  ob Speyer → Mannheim → Worms tatsächlich unterschiedliche aktuelle Pegelstände und Vorhersagen anzeigen.

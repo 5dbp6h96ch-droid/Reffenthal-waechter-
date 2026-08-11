@@ -1,0 +1,98 @@
+Bitte behebe jetzt den /test/-Fehler gemäß dem Analysebericht.
+
+WICHTIG:
+- NICHT auf main mergen.
+- NICHT auf main pushen.
+- Nur auf supabase-integration bzw. origin/test arbeiten.
+- Keine Änderung an der Produktions-App.
+- Keine Supabase-Tabellen oder Trigger verändern.
+- Keine neuen Funktionen hinzufügen.
+
+URSACHE:
+EXPO_PUBLIC_SUPABASE_URL fehlt beim GitHub-Actions-Build.
+Dadurch wird in utils/supabase.ts createClient('', '') ausgeführt und die
+/test/-App bricht bereits beim Laden mit „supabaseUrl is required“ ab.
+
+AUFGABEN:
+
+1. GitHub-Actions-Build
+- Prüfe .github/workflows/deploy-pages.yml.
+- Übergib beim Expo-Web-Build beide vorhandenen GitHub Secrets:
+  EXPO_PUBLIC_SUPABASE_URL
+  EXPO_PUBLIC_SUPABASE_KEY
+- Die Secrets dürfen NICHT in den Quellcode geschrieben werden.
+- Prüfe, dass beide Variablen tatsächlich beim `expo export` verfügbar sind.
+
+2. Supabase-Client defensiv machen
+Datei:
+artifacts/mobile/app/utils/supabase.ts
+
+- Ein fehlendes oder leeres Supabase-ENV darf niemals mehr den gesamten
+  App-Start zum Absturz bringen.
+- createClient darf nicht mit einer leeren URL aufgerufen werden.
+- Wenn die Konfiguration fehlt, muss die App weiterhin laden können.
+- Auth-/Supabase-Funktionen sollen in diesem Fall kontrolliert/graceful
+  deaktiviert bzw. mit einem verständlichen Fehler behandelt werden.
+
+3. Abhängige Hooks prüfen
+Prüfe:
+- artifacts/mobile/hooks/useAuth.ts
+- artifacts/mobile/hooks/useUserSettings.ts
+- artifacts/mobile/hooks/useGauges.ts
+
+Sie dürfen bei fehlender Supabase-Konfiguration ebenfalls keinen
+App-Start-Absturz verursachen.
+
+WICHTIG:
+- Keine unnötigen Änderungen.
+- Bestehende Auth-Logik beibehalten.
+- Session-Persistenz beibehalten.
+- user_settings beibehalten.
+- gauges beibehalten.
+- selected_gauge_id beibehalten.
+- location_enabled bleibt false.
+- Push bleibt unverändert.
+
+4. Test-Build
+Nach den Änderungen:
+- TypeScript prüfen.
+- Expo-Web-Build ausführen.
+- GitHub-Actions-Test-Build ausführen.
+- /test/ neu deployen.
+
+5. Live-Prüfung
+Prüfe:
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/
+
+Erwartung:
+- Keine „Something went wrong“-Seite.
+- App startet normal.
+- 8 Menüeinträge sichtbar.
+- „Mein Konto“ sichtbar.
+- Gastmodus funktioniert.
+- Supabase-Client verwendet beim Build die echte Supabase-URL.
+- Das Supabase-Bundle enthält nicht mehr supabaseUrl = ''.
+
+6. Produktion
+Prüfen:
+https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/
+
+- Produktion darf unverändert bleiben.
+- main darf keinen App-Code aus supabase-integration erhalten.
+
+7. Abschlussbericht
+Bitte am Ende berichten:
+
+- Geänderte Dateien
+- Neuer Commit
+- Branch
+- GitHub-Actions-Run
+- EXPO_PUBLIC_SUPABASE_URL beim Build vorhanden: JA/NEIN
+- EXPO_PUBLIC_SUPABASE_KEY beim Build vorhanden: JA/NEIN
+- /test/ lädt: JA/NEIN
+- „Mein Konto“ sichtbar: JA/NEIN
+- Supabase-Client ohne ENV-Absturz: JA/NEIN
+- Gastmodus: JA/NEIN
+- Produktion unverändert: JA/NEIN
+
+KEIN MERGE UND KEIN PUSH AUF MAIN.
