@@ -1,0 +1,104 @@
+STOP – NICHT MEHR AM SERVICE WORKER ARBEITEN.
+
+Der iPhone-Screenshot vom Run #146 beweist:
+
+SW-Zustand:
+- active: /Reffenthal-waechter-/sw.js (activated)
+- controller: /Reffenthal-waechter-/sw.js
+- ctrl === active: JA
+- ready: resolved
+- waiting: none
+- installing: none
+- caches: rheinschiffer-cb6d569
+- bundle: index-9d98d7f511e0585406ceea29d718517.js
+- reloaded: nein
+
+Der SW funktioniert also korrekt und kontrolliert die Seite.
+
+ABER:
+Auf dem tatsächlich gerenderten iPhone-UI steht weiterhin:
+
+MENÜ
+Vorhersage
+WSV – Nachrichten
+Tankstelle
+Clubs
+Rhein-Karte
+News
+Wächter Status
+
+Die Bottom-Navigation
+[Konto] [Preferences] [Help]
+erscheint NICHT.
+
+Damit liegt der Fehler jetzt definitiv in der RENDERING-/ROUTING-/BUNDLE-INHALTS-EBENE und NICHT mehr beim Service Worker.
+
+WICHTIG:
+Keine weiteren Änderungen an:
+- skipWaiting()
+- clients.claim()
+- controllerchange
+- BFCache
+- sw-diag.js
+- Cache-Version
+- Reload-Mechanismus
+
+Neue Diagnoseaufgabe:
+
+1. Öffne den AKTUELLEN Quellcode von app/index.tsx.
+2. Öffne den AKTUELLEN Quellcode von app/test.tsx.
+3. Prüfe exakt, welche React-Komponente / welcher Screen tatsächlich bei /test/ gerendert wird.
+4. Prüfe den Expo-Router-Routenbaum.
+5. Suche im aktuellen Source nach den Strings:
+   - "MENÜ"
+   - "Vorhersage"
+   - "WSV – Nachrichten"
+   - "Tankstelle"
+   - "Rhein-Karte"
+   - "Bottom"
+   - "Preferences"
+   - "Konto"
+   - "Help"
+6. Prüfe insbesondere, ob "MENÜ" noch in index.tsx oder einer von index.tsx importierten Komponente vorhanden ist.
+7. Prüfe, ob der aktuelle Bundle-Hash 9d98d7f5 tatsächlich aus dem aktuellen Source gebaut wurde.
+8. NICHT nur index.html und HTTP-200 prüfen. Entscheidend ist der INHALT des Bundles.
+
+Sehr wichtig:
+Der Screenshot zeigt das Bundle
+index-9d98d7f511e0585406ceea29d718517.js
+
+Wenn dieses Bundle weiterhin die alte MENÜ-Komponente enthält, dann ist der Build aus dem falschen Source entstanden oder eine alte Komponente wird weiterhin importiert.
+
+Führe deshalb einen direkten Bundle-Inhaltstest durch:
+
+- HTTP GET auf index-9d98d7f511e0585406ceea29d718517.js
+- suche darin nach "MENÜ"
+- suche nach "Vorhersage"
+- suche nach "Bottom"
+- suche nach "Preferences"
+- suche nach "Konto"
+- suche nach "Help"
+
+Gib für jeden Treffer die Anzahl aus.
+
+ERWARTUNG:
+"MENÜ" und "Vorhersage" müssen im endgültigen Bundle 0 Treffer haben.
+"Konto", "Preferences" und "Help" müssen vorhanden sein.
+
+Falls "MENÜ" > 0:
+→ Ursache gefunden: Das neue Bundle enthält weiterhin den alten Screen.
+→ Source-/Import-/Build-Pipeline reparieren.
+
+Falls "MENÜ" = 0, aber das iPhone zeigt trotzdem MENÜ:
+→ dann stimmt die Zuordnung Bundle → tatsächlich ausgeführter JavaScript-Code nicht.
+→ Prüfe dann, ob ein anderes JS-Bundle geladen wird, ob mehrere Expo-Bundles eingebunden sind oder ob ein dynamischer Import/Chunk den alten Screen liefert.
+
+Falls test.tsx bereits nur ein Re-Export ist:
+→ nicht einfach erneut behaupten, dass Routing korrekt ist.
+→ den tatsächlich generierten Router-/Bundle-Code prüfen.
+
+ZIEL:
+Nicht mehr den Service Worker reparieren.
+Finde heraus, WARUM das live ausgeführte Bundle weiterhin den MENÜ-Screen rendert.
+
+Erst nach dieser Beweiskette Änderungen vornehmen.
