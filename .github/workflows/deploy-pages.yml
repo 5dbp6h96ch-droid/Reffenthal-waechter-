@@ -168,26 +168,33 @@ jobs:
             git worktree add --orphan -b test-artifacts /tmp/test-artifacts-wd
           fi
 
-          # Nur test/index.html in den Branch schreiben
+          # test/index.html + zugehöriges JS-Bundle speichern.
+          # Das Bundle hat einen build-hash-eindeutigen Dateinamen und kann
+          # daher neben dem Produktions-Bundle koexistieren.
           mkdir -p /tmp/test-artifacts-wd/test
           cp "$DIST/test/index.html" /tmp/test-artifacts-wd/test/index.html
+
+          # _expo/-Ordner komplett mitkopieren (enthält das hash-eindeutige Bundle)
+          mkdir -p /tmp/test-artifacts-wd/_expo
+          cp -r "$DIST/_expo/." /tmp/test-artifacts-wd/_expo/
+          echo "✓ _expo/ in test-artifacts kopiert"
 
           # README für Klarheit (wird nie deployed, nur Dokumentation)
           cat > /tmp/test-artifacts-wd/README.md << 'EOF'
           # test-artifacts
 
-          Dieser Branch enthält ausschließlich die vorbereitete `test/index.html`,
-          die vom test-Branch-Workflow gebaut wird.
+          Dieser Branch enthält test/index.html und das zugehörige _expo/-Bundle,
+          die vom test-Branch-Workflow gebaut werden.
 
           **Nicht manuell bearbeiten.** Wird automatisch vom test-Branch-Workflow aktualisiert.
 
-          Der main-Branch-Workflow liest diesen Branch und bettet `/test/` in das
-          GitHub-Pages-Deployment ein.
+          Der main-Branch-Workflow liest diesen Branch und bettet /test/ sowie
+          das Test-JS-Bundle in das GitHub-Pages-Deployment ein.
           EOF
 
           cd /tmp/test-artifacts-wd
-          git add test/index.html README.md
-          git commit -m "build(test): test/index.html aktualisiert [skip ci]" \
+          git add test/index.html _expo/ README.md
+          git commit -m "build(test): test/index.html + _expo-Bundle aktualisiert [skip ci]" \
             || echo "ℹ Keine Änderungen – nichts zu committen"
           git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" \
             HEAD:test-artifacts
@@ -223,6 +230,13 @@ jobs:
             git show FETCH_HEAD:test/index.html > "$DIST/test/index.html" 2>/dev/null \
               && echo "✓ test/index.html aus test-artifacts eingebunden" \
               || echo "⚠ test/index.html im test-artifacts Branch nicht gefunden"
+
+            # Test-JS-Bundle aus test-artifacts in dist/_expo/ einmischen.
+            # git archive extrahiert den _expo/-Baum direkt nach dist/.
+            # Dateinamen sind build-hash-eindeutig → kein Überschreiben des Prod-Bundles.
+            git archive FETCH_HEAD _expo/ | tar -x -C "$DIST/" 2>/dev/null \
+              && echo "✓ test-_expo/ in dist/_expo eingemischt" \
+              || echo "⚠ kein _expo/ in test-artifacts – Test-Bundle fehlt"
           else
             echo "ℹ test-artifacts Branch nicht vorhanden – /test/ wird nicht eingebunden"
           fi
