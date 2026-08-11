@@ -689,6 +689,12 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* ── DEBUG (temporär – bitte nach Diagnose entfernen) ─────────────── */}
+        <View style={{ backgroundColor: '#ff0', padding: 8, borderRadius: 6, marginBottom: 4 }}>
+          <Text style={{ fontFamily: 'monospace', fontSize: 11, color: '#000' }}>
+            {`DEBUG:\nselectedGaugeId=${selectedGaugeId ?? 'null'}\nselectedGauge=${selectedGauge?.id ?? 'null'}\npegel_uuid=${selectedGauge?.pegel_uuid ?? 'null'}\nriver_km=${selectedGauge?.river_km ?? 'null'}`}
+          </Text>
+        </View>
         {/* ── Pegelstand-Kachel (Spec-Hierarchie) ─────────────────────────── */}
         <View style={{
           backgroundColor: colors.primary,
