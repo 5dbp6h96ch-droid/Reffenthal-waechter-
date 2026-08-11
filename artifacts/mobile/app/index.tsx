@@ -102,15 +102,14 @@ const CHART_H = 140;
 const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
 
 // Speyer Rheinkilometer (Fallback wenn kein Gauge ausgewählt)
-const SPEYER_RHEINKILOMETER = '400,4';
-
 // HVZ Baden-Württemberg Vorhersage-Bild-IDs pro PEGELONLINE-Stationsname.
-// Gauges außerhalb des HVZ-BW-Gebiets haben keinen Eintrag → Vorhersage ausgeblendet.
 // Schlüssel = pegel_nr (Stationsname), Wert = HVZ-BW-Bild-ID.
 // pegel_uuid wird für PEGELONLINE-Fetches verwendet; pegel_nr bleibt hier.
+// GIF-URL: https://www.hvz.baden-wuerttemberg.de/gifs/${id}-2001.GIF
 const HVZ_BW_IDS: Record<string, string> = {
   SPEYER: '09017',
-  MANNHEIM: '06268',
+  MANNHEIM: '09001',
+  WORMS: '09018',
 };
 
 // ─── Hilfsfunktionen (identisch mit index.tsx) ───────────────────────────────
@@ -543,8 +542,10 @@ export default function HomeScreen() {
   const currentCm = pegelLive?.cm ?? null;
   const currentTs = pegelLive?.ts ?? null;
   const currentHistory = pegelLive?.history ?? [];
-  // Schwelle aus Wächter-Daten (Speyer); persönliche Schwelle wird pro Gauge separat verwaltet
-  const threshold = state?.threshold_cm ?? 225;
+  // Persönliche Schwelle aus user_gauge_settings für den aktuell ausgewählten Pegel.
+  // Identische Datenquelle wie „Meine Pegelwarnungen" in den Einstellungen.
+  const gaugeSetting = selectedGauge ? getGaugeSetting(selectedGauge.id) : null;
+  const threshold = gaugeSetting?.alert_threshold_cm ?? 225;
   const isAlarm = currentCm !== null && currentCm < threshold;
   const isSafe = currentCm !== null && currentCm >= threshold;
   const statusColor = isAlarm ? colors.alarm : isSafe ? colors.safe : colors.mutedForeground;
@@ -658,43 +659,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* ── Pegelort-Auswahl (sichtbar für alle, inkl. Gäste) ────────────── */}
-        {gauges.length > 1 && (
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-            {gauges.map(g => {
-              const active = selectedGauge?.id === g.id;
-              return (
-                <TouchableOpacity
-                  key={g.id}
-                  onPress={() => selectGauge(g.id)}
-                  activeOpacity={0.7}
-                  style={{
-                    paddingHorizontal: 14, paddingVertical: 7,
-                    borderRadius: 99,
-                    backgroundColor: active ? colors.primary : colors.muted,
-                    borderWidth: 1.5,
-                    borderColor: active ? colors.primary : colors.border,
-                  }}
-                >
-                  <Text style={{
-                    fontSize: 13,
-                    fontFamily: active ? 'SpaceGrotesk_700Bold' : 'SpaceGrotesk_400Regular',
-                    color: active ? colors.primaryForeground : colors.mutedForeground,
-                  }}>
-                    {g.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-
-        {/* ── DEBUG (temporär – bitte nach Diagnose entfernen) ─────────────── */}
-        <View style={{ backgroundColor: '#ff0', padding: 8, borderRadius: 6, marginBottom: 4 }}>
-          <Text style={{ fontFamily: 'monospace', fontSize: 11, color: '#000' }}>
-            {`DEBUG:\nselectedGaugeId=${selectedGaugeId ?? 'null'}\nselectedGauge=${selectedGauge?.id ?? 'null'}\npegel_uuid=${selectedGauge?.pegel_uuid ?? 'null'}\nriver_km=${selectedGauge?.river_km ?? 'null'}`}
-          </Text>
-        </View>
         {/* ── Pegelstand-Kachel (Spec-Hierarchie) ─────────────────────────── */}
         <View style={{
           backgroundColor: colors.primary,
@@ -702,6 +666,16 @@ export default function HomeScreen() {
           padding: 20,
           gap: 10,
         }}>
+
+          {/* Zeile 0: Pegelname – dynamisch aus selectedGauge.name */}
+          <Text style={{
+            fontSize: 18,
+            fontFamily: 'SpaceGrotesk_700Bold',
+            color: colors.primaryForeground,
+            letterSpacing: 1,
+          }}>
+            {(selectedGauge?.name ?? '—').toUpperCase()}
+          </Text>
 
           {/* Zeile 1: Rheinkilometer · Datum · Uhrzeit + ALARM-Badge rechts */}
           <View style={{
