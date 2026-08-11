@@ -100,6 +100,31 @@ export interface Database {
           updated_at?: string | null;
         };
       };
+      user_gauge_settings: {
+        Row: {
+          id: string;
+          user_id: string;
+          gauge_id: string;
+          alert_enabled: boolean;
+          alert_threshold_cm: number | null;
+          created_at: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          gauge_id: string;
+          alert_enabled?: boolean;
+          alert_threshold_cm?: number | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          alert_enabled?: boolean;
+          alert_threshold_cm?: number | null;
+          updated_at?: string | null;
+        };
+      };
       push_subscriptions: {
         Row: {
           id: string;
@@ -135,4 +160,6 @@ export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Gauge = Database['public']['Tables']['gauges']['Row'];
 export type UserSettings = Database['public']['Tables']['user_settings']['Row'];
 export type UserSettingsUpdate = Database['public']['Tables']['user_settings']['Update'];
+export type UserGaugeSetting = Database['public']['Tables']['user_gauge_settings']['Row'];
+export type UserGaugeSettingUpdate = Database['public']['Tables']['user_gauge_settings']['Update'];
 export type PushSubscription = Database['public']['Tables']['push_subscriptions']['Row'];

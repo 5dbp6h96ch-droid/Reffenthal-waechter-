@@ -56,6 +56,8 @@ import RheinKarte from '@/components/RheinKarte';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useGauges } from '@/hooks/useGauges';
+import { useUserGaugeSettings } from '@/hooks/useUserGaugeSettings';
+import { GaugeAlertRow } from '@/components/GaugeAlertRow';
 
 // ─── Typen (identisch mit index.tsx) ─────────────────────────────────────────
 
@@ -283,6 +285,7 @@ export default function HomeScreen() {
   const { user, signIn, signUp, signOut } = useAuth();
   const { settings, updateSettings } = useUserSettings(user?.id);
   const { gauges } = useGauges();
+  const { getGaugeSetting, updateGaugeSetting } = useUserGaugeSettings(user?.id);
 
   // HVZ-Vorhersage: Cache-Busting-Timestamp, alle 5 Min aktualisiert (= HVZ-Takt)
   const [hvzTs, setHvzTs] = useState(() => Math.floor(Date.now() / 300_000));
@@ -1594,6 +1597,22 @@ export default function HomeScreen() {
               {user == null ? (
                 /* ── Nicht angemeldet: Login / Registrierung ── */
                 <View style={{ gap: 12 }}>
+                  {/* Gastmodus-Hinweis: persönliche Pegelwarnungen erfordern Anmeldung */}
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 8,
+                    backgroundColor: colors.primary + '10',
+                    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+                    borderWidth: 1, borderColor: colors.primary + '30',
+                  }}>
+                    <Feather name="bell" size={14} color={colors.primary} />
+                    <Text style={{
+                      flex: 1, fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                      color: colors.primary,
+                    }}>
+                      Für persönliche Pegelwarnungen bitte anmelden.
+                    </Text>
+                  </View>
+
                   {/* Tabs */}
                   <View style={{
                     flexDirection: 'row', backgroundColor: colors.muted,
@@ -1826,6 +1845,36 @@ export default function HomeScreen() {
                       }}>
                         Noch kein Pegelort gewählt.
                       </Text>
+                    )}
+                  </View>
+
+                  {/* ── Meine Pegelwarnungen ── */}
+                  <View style={{ gap: 8 }}>
+                    <Text style={{
+                      fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold',
+                      color: colors.mutedForeground,
+                      letterSpacing: 1.5, textTransform: 'uppercase',
+                    }}>
+                      Meine Pegelwarnungen
+                    </Text>
+                    {gauges.length === 0 ? (
+                      <ActivityIndicator size="small" color={colors.primary} style={{ alignSelf: 'flex-start' }} />
+                    ) : (
+                      <View style={{ gap: 8 }}>
+                        {gauges.map(g => (
+                          <GaugeAlertRow
+                            key={g.id}
+                            gauge={g}
+                            setting={getGaugeSetting(g.id)}
+                            onToggle={async (enabled) =>
+                              updateGaugeSetting(g.id, { alert_enabled: enabled })
+                            }
+                            onSaveThreshold={async (cm) =>
+                              updateGaugeSetting(g.id, { alert_threshold_cm: cm })
+                            }
+                          />
+                        ))}
+                      </View>
                     )}
                   </View>
 
