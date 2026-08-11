@@ -1,0 +1,99 @@
+NEUER BUG: PEGELORT / PEGEL WECHSEL FUNKTIONIERT NICHT MEHR
+
+Der bisherige Deployment-/SW-/Routing-Fix ist abgeschlossen.
+NICHT am Service Worker, Cache, sw-diag.js oder Reload-Mechanismus arbeiten.
+
+Aktueller Zustand:
+- Bottom-Navigation funktioniert: Konto | Preferences | Help
+- Supabase-Konfiguration funktioniert
+- aktuelles Bundle ist live
+- Die App lädt grundsätzlich korrekt
+
+NEUES PROBLEM:
+Der Pegel bzw. Pegelort lässt sich nicht mehr korrekt wechseln.
+Nach Auswahl eines anderen Pegelorts bleibt der angezeigte Pegel auf dem bisherigen Ort bzw. aktualisiert sich nicht.
+
+DIAGNOSE:
+
+1. Finde im aktuellen index.tsx die komplette Logik für:
+   - "Mein Pegelort"
+   - Auswahl des Pegelorts
+   - Speichern des Pegelorts
+   - aktueller Pegel
+   - Pegeldaten laden
+   - Wechsel/Refresh nach Änderung
+
+2. Prüfe den gesamten Datenfluss:
+   Auswahl Pegelort
+      ↓
+   State-Änderung
+      ↓
+   Persistierung (falls vorhanden)
+      ↓
+   aktiver Pegelort
+      ↓
+   Datenabruf/API
+      ↓
+   Pegelstand + Chart + Warnschwelle
+      ↓
+   UI-Re-Render
+
+3. Prüfe insbesondere, ob beim Wechsel des Pegelorts:
+   - der React-State tatsächlich geändert wird
+   - der neue Wert gespeichert wird
+   - ein neuer Datenabruf ausgelöst wird
+   - useEffect/useMemo/useCallback die Änderung als Dependency enthält
+   - die alte Pegel-ID gecacht wird
+   - eine alte Variable/Closure weiterverwendet wird
+   - der Chart weiterhin die Daten des alten Pegels verwendet
+   - der Header/Name des Pegelorts aktualisiert wird
+   - der aktuelle Pegelstand aktualisiert wird
+
+4. Prüfe, ob der neue UI-Umbau die alte Pegelwechsel-Logik versehentlich entfernt oder vom neuen Preferences-Tab abgekoppelt hat.
+
+5. Prüfe außerdem die Persistierung:
+   - localStorage
+   - AsyncStorage
+   - Supabase user preferences
+   - sonstige gespeicherte Pegel-ID
+
+   Ermittle, welche davon tatsächlich verwendet wird.
+   NICHT raten.
+
+6. Führe einen gezielten Test mit zwei unterschiedlichen Pegelorten durch.
+   Dokumentiere:
+   - Pegelort A vor Wechsel
+   - Pegelort B nach Auswahl
+   - gespeicherter Wert
+   - API-/Datenabruf für B
+   - tatsächlich gerenderter Wert
+
+7. Prüfe NICHT nur, ob der Button klickbar ist.
+   Entscheidend ist, ob nach dem Wechsel tatsächlich neue Pegeldaten geladen und gerendert werden.
+
+8. Falls ein State-/Dependency-Problem gefunden wird:
+   minimalen Fix implementieren.
+   Keine unnötigen Änderungen an Navigation, SW oder Deployment.
+
+9. Nach dem Fix:
+   - Build erstellen
+   - Bundle prüfen
+   - neuen Test deployen
+   - Pegelwechsel A → B → A testen
+
+AKZEPTANZTEST:
+
+Pegelort A auswählen:
+→ Anzeige zeigt A und dessen Pegelstand.
+
+Danach Pegelort B auswählen:
+→ Anzeige zeigt B.
+→ Pegelstand/Chart/Warnschwelle werden auf B aktualisiert.
+→ Kein Reload der gesamten App erforderlich.
+
+Danach wieder A:
+→ Anzeige kehrt zu A zurück und zeigt wieder die Daten von A.
+
+WICHTIG:
+Nicht den erfolgreichen Service-Worker-Fix rückgängig machen.
+Nicht sw.js ändern, sofern die Diagnose nicht eindeutig beweist, dass der SW die Ursache ist.
