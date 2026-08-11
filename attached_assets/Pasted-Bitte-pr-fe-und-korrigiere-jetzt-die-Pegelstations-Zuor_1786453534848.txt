@@ -1,0 +1,202 @@
+Bitte prüfe und korrigiere jetzt die Pegelstations-Zuordnung in der TEST-Umgebung.
+
+ZIEL:
+Speyer, Mannheim und Worms müssen jeweils ihre eigenen Live-Pegeldaten und ihre eigene Vorhersage anzeigen.
+
+1. SUPABASE-GAUGES PRÜFEN
+
+Prüfe die Tabelle:
+
+public.gauges
+
+Für jeden vorhandenen Pegel müssen insbesondere diese Felder geprüft werden:
+
+- id
+- name
+- pegel_nr
+- river_km
+
+Erwartete Zuordnung:
+
+Speyer   → pegel_nr = SPEYER
+Mannheim → pegel_nr = MANNHEIM
+Worms    → pegel_nr = WORMS
+
+Falls die tatsächlichen PEGELONLINE-Stationsnamen abweichend sind, ermittle die korrekten Stationsnamen und verwende diese.
+
+WICHTIG:
+Nicht einfach neue Pegel anlegen und keine bestehenden IDs verändern.
+Nur fehlende/falsche pegel_nr-Werte korrigieren, sofern dies eindeutig ist.
+
+2. PEGELONLINE TESTEN
+
+Teste für jede Station die öffentliche PEGELONLINE-Abfrage:
+
+SPEYER
+MANNHEIM
+WORMS
+
+Prüfe, dass jeweils aktuelle Messwerte zurückkommen.
+
+Die App muss die Station dynamisch über:
+
+selectedGauge.pegel_nr
+
+abfragen.
+
+KEIN Hardcoding von SPEYER als Fallback, wenn ein anderer Pegel ausgewählt wurde.
+
+3. GAUGE-AUSWAHL PRÜFEN
+
+Prüfe:
+
+selectedGaugeId =
+  settings?.selected_gauge_id ?? guestGaugeId
+
+Die ausgewählte Gauge muss die zentrale Quelle für sämtliche Pegeldaten sein.
+
+Beim Wechsel:
+
+Speyer → Mannheim
+
+müssen sich ändern:
+
+- aktueller Pegelstand
+- Zeitstempel
+- Verlauf/Chart
+- Rheinkilometer
+- Vorhersage
+
+Beim Wechsel:
+
+Mannheim → Worms
+
+müssen sich diese Werte erneut ändern.
+
+Beim Zurückwechseln:
+
+Worms → Speyer
+
+müssen wieder die Speyer-Daten erscheinen.
+
+4. VORHERSAGE PRÜFEN
+
+Die HVZ-Vorhersage darf nicht mehr fest auf Speyer / Station 09017 eingestellt sein.
+
+Die bestehende HVZ_BW_IDS-Zuordnung verwenden.
+
+Für jeden unterstützten Pegel muss die korrekte HVZ-ID verwendet werden.
+
+Falls ein Pegel keine HVZ-Vorhersage unterstützt:
+
+- keinen Fehler werfen
+- keinen falschen Speyer-Forecast anzeigen
+- stattdessen einen verständlichen Hinweis anzeigen, dass für diesen Pegel keine HVZ-Vorhersage verfügbar ist.
+
+5. GASTMODUS
+
+Auch ohne Anmeldung muss funktionieren:
+
+Speyer auswählen
+→ Speyer-Pegel + Speyer-Vorhersage
+
+Mannheim auswählen
+→ Mannheim-Pegel + Mannheim-Vorhersage
+
+Worms auswählen
+→ Worms-Pegel + Worms-Vorhersage
+
+Gast darf die Pegel auswählen.
+
+Die persönlichen Warnschwellen bleiben weiterhin ausschließlich für angemeldete Nutzer.
+
+6. ANGEMELDETE NUTZER
+
+Bei angemeldeten Nutzern muss selected_gauge_id aus Supabase verwendet werden.
+
+Wenn der Nutzer beispielsweise Mannheim auswählt:
+
+- selected_gauge_id wird gespeichert
+- Mannheim wird als selectedGauge verwendet
+- Live-Pegel wird für Mannheim geladen
+- Vorhersage wird für Mannheim geladen
+
+Nach einem Reload muss Mannheim weiterhin ausgewählt sein.
+
+7. KEINE PRODUKTIONSÄNDERUNG
+
+Ausschließlich TEST ändern.
+
+Branch:
+
+supabase-integration
+
+Danach:
+
+git push origin supabase-integration:test
+
+NICHT main verändern.
+Keine Änderungen an Produktions-App-Code oder Produktionsdaten.
+
+8. AUTOMATISCHER ABNAHMETEST
+
+Nach dem Build bitte tatsächlich prüfen:
+
+A) Speyer auswählen
+   → Pegelstand erfassen
+   → Rheinkilometer erfassen
+   → Vorhersage erfassen
+
+B) Mannheim auswählen
+   → Pegelstand muss sich gegenüber Speyer ändern
+   → Rheinkilometer muss Mannheim entsprechen
+   → Vorhersage muss Mannheim entsprechen
+
+C) Worms auswählen
+   → Pegelstand muss sich gegenüber Mannheim ändern
+   → Rheinkilometer muss Worms entsprechen
+   → Vorhersage muss Worms entsprechen
+
+D) Zurück auf Speyer
+   → Speyer-Werte müssen wieder erscheinen.
+
+9. WICHTIGER FEHLERTEST
+
+Suche im Code nach:
+
+09017
+400.4
+400,4
+SPEYER
+DEFAULT_GAUGE
+defaultGauge
+
+Prüfe jeden Treffer.
+
+SPEYER darf nicht mehr als versteckter Default die Daten für andere ausgewählte Pegel liefern.
+
+10. ERGEBNIS BERICHTEN
+
+Am Ende bitte exakt berichten:
+
+- public.gauges geprüft: JA/NEIN
+- pegel_nr Speyer: ...
+- pegel_nr Mannheim: ...
+- pegel_nr Worms: ...
+- PEGELONLINE Speyer: HTTP/Ergebnis
+- PEGELONLINE Mannheim: HTTP/Ergebnis
+- PEGELONLINE Worms: HTTP/Ergebnis
+- HVZ Speyer: ...
+- HVZ Mannheim: ...
+- HVZ Worms: ...
+- Gastmodus Pegelwechsel: JA/NEIN
+- angemeldeter Pegelwechsel: JA/NEIN
+- Reload behält Auswahl: JA/NEIN
+- Speyer → Mannheim Datenwechsel: JA/NEIN
+- Mannheim → Worms Datenwechsel: JA/NEIN
+- Produktions-Branch verändert: JA/NEIN
+- Commit: ...
+- GitHub-Actions-Run: ...
+- Test-URL: ...
+
+Nur wenn die drei Pegel tatsächlich unterschiedliche Daten liefern, den Fix als erfolgreich melden.
