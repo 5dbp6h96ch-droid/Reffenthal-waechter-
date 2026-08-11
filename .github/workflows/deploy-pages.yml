@@ -17,9 +17,10 @@ permissions:
   pages: write          # Für GitHub Pages Deployment (main-Branch)
   id-token: write       # Für OIDC Token (Pages)
 
-# Nur ein Deploy gleichzeitig
+# Nur ein Deploy pro Branch gleichzeitig – test und main laufen unabhängig,
+# damit der test-Run den main-Dispatch nicht selbst canceliert.
 concurrency:
-  group: pages
+  group: pages-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
