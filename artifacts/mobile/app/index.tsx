@@ -106,6 +106,8 @@ const SPEYER_RHEINKILOMETER = '400,4';
 
 // HVZ Baden-Württemberg Vorhersage-Bild-IDs pro PEGELONLINE-Stationsname.
 // Gauges außerhalb des HVZ-BW-Gebiets haben keinen Eintrag → Vorhersage ausgeblendet.
+// Schlüssel = pegel_nr (Stationsname), Wert = HVZ-BW-Bild-ID.
+// pegel_uuid wird für PEGELONLINE-Fetches verwendet; pegel_nr bleibt hier.
 const HVZ_BW_IDS: Record<string, string> = {
   SPEYER: '09017',
   MANNHEIM: '06268',
@@ -431,8 +433,9 @@ export default function HomeScreen() {
 
   // ── PEGELONLINE: Live-Messwert + Verlauf für ausgewählten Pegel ───────────
   // Öffentliche WSV-API, kein Auth erforderlich.
-  // Stationsname kommt aus Gauge.pegel_nr (z. B. 'SPEYER', 'MANNHEIM', 'WORMS').
-  const pegelStationId = selectedGauge?.pegel_nr ?? null;
+  // UUID kommt aus Gauge.pegel_uuid (stabil, eindeutig je Station).
+  // pegel_nr wird weiterhin nur für HVZ-BW-Vorhersage verwendet.
+  const pegelStationId = selectedGauge?.pegel_uuid ?? null;
   const {
     data: pegelLive,
     isLoading: pegelLiveLoading,

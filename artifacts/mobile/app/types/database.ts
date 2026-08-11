@@ -47,6 +47,7 @@ export interface Database {
           river: string | null;
           river_km: number | null;
           pegel_nr: string | null;
+          pegel_uuid: string | null;
           active: boolean;
           created_at: string;
         };
@@ -56,6 +57,7 @@ export interface Database {
           river?: string | null;
           river_km?: number | null;
           pegel_nr?: string | null;
+          pegel_uuid?: string | null;
           active?: boolean;
           created_at?: string;
         };
@@ -64,6 +66,7 @@ export interface Database {
           river?: string | null;
           river_km?: number | null;
           pegel_nr?: string | null;
+          pegel_uuid?: string | null;
           active?: boolean;
         };
       };
