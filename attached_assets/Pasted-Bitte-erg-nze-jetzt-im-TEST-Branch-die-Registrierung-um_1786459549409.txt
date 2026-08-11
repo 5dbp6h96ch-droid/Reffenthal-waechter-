@@ -1,0 +1,160 @@
+Bitte ergänze jetzt im TEST-Branch die Registrierung um Vorname und Nutzername.
+
+Ziel:
+Bei „Registrieren“ müssen Vorname und Nutzername zusätzlich zu
+E-Mail und Passwort angegeben und gespeichert werden.
+
+ANFORDERUNGEN
+
+1. REGISTRIERUNGSFORMULAR
+
+Nur im Modus „Registrieren“ zusätzliche Felder anzeigen:
+
+- Vorname
+- Nutzername
+
+Reihenfolge:
+
+Vorname
+Nutzername
+E-Mail
+Passwort
+Konto erstellen
+
+Beim Modus „Anmelden“ bleiben weiterhin ausschließlich:
+
+E-Mail
+Passwort
+Anmelden
+
+2. VALIDIERUNG
+
+Vor der Registrierung prüfen:
+
+- Vorname darf nicht leer sein.
+- Nutzername darf nicht leer sein.
+- E-Mail darf nicht leer sein.
+- Passwort darf nicht leer sein.
+
+Bei fehlenden Angaben verständliche Fehlermeldung anzeigen.
+
+Nutzername:
+- führende/trailing Leerzeichen entfernen
+- keine unnötige Groß-/Kleinschreibungsnormalisierung des gespeicherten
+  Anzeigenamens erzwingen
+- prüfen, ob ein Nutzername bereits vergeben ist, sofern die vorhandene
+  Datenbankstruktur dies unterstützt.
+
+3. SPEICHERN
+
+Vorname und Nutzername müssen dauerhaft mit dem neu registrierten
+Supabase-Nutzer gespeichert werden.
+
+Zuerst die bestehende Supabase-Struktur prüfen.
+
+Bevor eine Migration erstellt wird:
+- prüfen, ob bereits eine geeignete user_settings-/profiles-Tabelle
+  oder vorhandene Spalten für Vorname/Nutzername existieren.
+- vorhandene Struktur verwenden, wenn möglich.
+- keine parallele neue Tabelle erstellen, wenn bereits eine passende
+  Struktur vorhanden ist.
+
+Falls eine Datenbankänderung tatsächlich erforderlich ist:
+- nur TEST ändern
+- Migration sauber erstellen
+- RLS beachten
+- keine bestehenden Daten oder Tabellen unnötig verändern.
+
+4. SUPABASE AUTH
+
+Die bestehende Registrierung über signUp() beibehalten.
+
+Falls die vorhandene Architektur user_metadata verwendet, können Vorname
+und Nutzername beim signUp als Metadaten mitgegeben werden.
+
+Beispielsweise konzeptionell:
+
+data: {
+  first_name: vorname,
+  username: username
+}
+
+Aber zuerst prüfen, wie die bestehende Auth-/User-Settings-Struktur
+implementiert ist und die vorhandene Architektur bevorzugen.
+
+5. NACH DER REGISTRIERUNG
+
+Nach erfolgreicher Registrierung:
+
+- Eingabefelder leeren.
+- vorhandenes Verhalten mit Bestätigungs-E-Mail beibehalten.
+- keine Anmeldung umgehen, falls E-Mail-Bestätigung erforderlich ist.
+
+6. ANGEMELDETER BEREICH
+
+Im Bereich „Mein Konto“ soll nach erfolgreicher Anmeldung nicht mehr
+nur die E-Mail als Nutzerinformation angezeigt werden.
+
+Wenn Vorname/Nutzername vorhanden sind, beispielsweise:
+
+Max
+@maxrhein
+
+E-Mail
+max@example.de
+
+Dabei vorhandenes Design beibehalten und keine unnötige UI-Vergrößerung.
+
+7. BESTEHENDE FUNKTIONEN NICHT BESCHÄDIGEN
+
+Nicht verändern:
+
+- Pegelauswahl
+- persönliche Pegelschwellen
+- PEGELONLINE UUIDs
+- HVZ-Vorhersage
+- Gastmodus
+- Wächter
+- News
+- WSV
+- bestehende Anmeldung
+
+8. TEST
+
+Nach Implementierung mindestens prüfen:
+
+A) Registrierung ohne Vorname
+→ Fehlermeldung
+
+B) Registrierung ohne Nutzername
+→ Fehlermeldung
+
+C) Registrierung mit Vorname + Nutzername
+→ erfolgreich / Bestätigungs-E-Mail wie bisher
+
+D) Nach Anmeldung
+→ Vorname und Nutzername werden angezeigt
+
+E) Seite neu laden
+→ Vorname und Nutzername bleiben erhalten
+
+F) Abmelden und erneut anmelden
+→ Vorname und Nutzername bleiben erhalten
+
+G) Bestehende Login-Funktion funktioniert weiterhin.
+
+9. TEST-ONLY
+
+Nur TEST ändern.
+main/Produktion NICHT verändern.
+
+Nach Abschluss berichten:
+
+- geänderte Dateien
+- ob eine Migration erforderlich war
+- Commit
+- Test-Deploy
+- GitHub-Actions-Run
+- wo Vorname/Nutzername gespeichert werden
+- Ergebnis der Registrierungs- und Login-Tests
+- Bestätigung, dass main unverändert blieb.
