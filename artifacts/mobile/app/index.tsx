@@ -54,6 +54,7 @@ import { useColors } from '@/hooks/useColors';
 import { useSinceLastVisit } from '@/hooks/useSinceLastVisit';
 import RheinKarte from '@/components/RheinKarte';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useGauges } from '@/hooks/useGauges';
 import { useUserGaugeSettings } from '@/hooks/useUserGaugeSettings';
@@ -286,11 +287,14 @@ export default function HomeScreen() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [authFirstName, setAuthFirstName] = useState('');
+  const [authUsername, setAuthUsername] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
   // ── Supabase Auth + User Settings + Gauges ──────────────────────────────
   const { user, signIn, signUp, signOut } = useAuth();
+  const { profile: userProfile, displayName: profileDisplayName, displayUsername: profileDisplayUsername } = useProfile(user);
   const { settings, updateSettings } = useUserSettings(user?.id);
   const { gauges } = useGauges();
   const { getGaugeSetting, updateGaugeSetting } = useUserGaugeSettings(user?.id);
@@ -1770,6 +1774,56 @@ export default function HomeScreen() {
                     ))}
                   </View>
 
+                  {/* Vorname + Nutzername (nur bei Registrierung) */}
+                  {authMode === 'register' && (
+                    <>
+                      <View style={{ gap: 6 }}>
+                        <Text style={{
+                          fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium',
+                          color: colors.mutedForeground, letterSpacing: 0.5,
+                        }}>
+                          Vorname
+                        </Text>
+                        <TextInput
+                          value={authFirstName}
+                          onChangeText={v => { setAuthFirstName(v); setAuthError(null); }}
+                          autoCapitalize="words"
+                          autoCorrect={false}
+                          placeholder="Max"
+                          placeholderTextColor={colors.mutedForeground}
+                          style={{
+                            fontSize: 14, fontFamily: 'SpaceGrotesk_400Regular',
+                            color: colors.foreground, backgroundColor: colors.muted,
+                            borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+                            borderWidth: 1, borderColor: colors.border,
+                          }}
+                        />
+                      </View>
+                      <View style={{ gap: 6 }}>
+                        <Text style={{
+                          fontSize: 11, fontFamily: 'SpaceGrotesk_500Medium',
+                          color: colors.mutedForeground, letterSpacing: 0.5,
+                        }}>
+                          Nutzername
+                        </Text>
+                        <TextInput
+                          value={authUsername}
+                          onChangeText={v => { setAuthUsername(v); setAuthError(null); }}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          placeholder="maxrhein"
+                          placeholderTextColor={colors.mutedForeground}
+                          style={{
+                            fontSize: 14, fontFamily: 'SpaceGrotesk_400Regular',
+                            color: colors.foreground, backgroundColor: colors.muted,
+                            borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+                            borderWidth: 1, borderColor: colors.border,
+                          }}
+                        />
+                      </View>
+                    </>
+                  )}
+
                   {/* E-Mail */}
                   <View style={{ gap: 6 }}>
                     <Text style={{
@@ -1840,21 +1894,45 @@ export default function HomeScreen() {
                     activeOpacity={0.8}
                     disabled={authLoading}
                     onPress={async () => {
-                      if (!authEmail.trim() || !authPassword) {
-                        setAuthError('Bitte E-Mail und Passwort eingeben.');
+                      // Validierung
+                      if (authMode === 'register') {
+                        if (!authFirstName.trim()) {
+                          setAuthError('Bitte Vorname eingeben.');
+                          return;
+                        }
+                        if (!authUsername.trim()) {
+                          setAuthError('Bitte Nutzername eingeben.');
+                          return;
+                        }
+                      }
+                      if (!authEmail.trim()) {
+                        setAuthError('Bitte E-Mail eingeben.');
+                        return;
+                      }
+                      if (!authPassword) {
+                        setAuthError('Bitte Passwort eingeben.');
                         return;
                       }
                       setAuthLoading(true);
                       setAuthError(null);
                       Keyboard.dismiss();
-                      const fn = authMode === 'login' ? signIn : signUp;
-                      const { error } = await fn(authEmail.trim(), authPassword);
+                      let error;
+                      if (authMode === 'login') {
+                        ({ error } = await signIn(authEmail.trim(), authPassword));
+                      } else {
+                        ({ error } = await signUp(authEmail.trim(), authPassword, {
+                          firstName: authFirstName.trim(),
+                          username: authUsername.trim(),
+                        }));
+                      }
                       setAuthLoading(false);
                       if (error) {
                         setAuthError(error.message);
                       } else {
                         setAuthEmail('');
                         setAuthPassword('');
+                        setAuthFirstName('');
+                        setAuthUsername('');
                         if (authMode === 'register') {
                           setAuthError('Bestätigungs-E-Mail gesendet. Bitte prüfe deinen Posteingang.');
                         }
@@ -1895,17 +1973,31 @@ export default function HomeScreen() {
                       <Feather name="user" size={17} color={colors.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{
-                        fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold',
-                        color: colors.foreground,
-                      }} numberOfLines={1}>
-                        {user.email ?? 'Angemeldet'}
-                      </Text>
+                      {/* Vorname – aus profiles oder user_metadata */}
+                      {profileDisplayName ? (
+                        <Text style={{
+                          fontSize: 14, fontFamily: 'SpaceGrotesk_700Bold',
+                          color: colors.foreground,
+                        }} numberOfLines={1}>
+                          {profileDisplayName}
+                        </Text>
+                      ) : null}
+                      {/* Nutzername */}
+                      {profileDisplayUsername ? (
+                        <Text style={{
+                          fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium',
+                          color: colors.primary,
+                        }} numberOfLines={1}>
+                          {'@' + profileDisplayUsername}
+                        </Text>
+                      ) : null}
+                      {/* E-Mail immer sichtbar */}
                       <Text style={{
                         fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular',
                         color: colors.mutedForeground,
-                      }}>
-                        Supabase Auth
+                        marginTop: (profileDisplayName || profileDisplayUsername) ? 2 : 0,
+                      }} numberOfLines={1}>
+                        {user.email ?? 'Angemeldet'}
                       </Text>
                     </View>
                   </View>

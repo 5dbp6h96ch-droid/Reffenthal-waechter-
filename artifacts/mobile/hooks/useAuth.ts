@@ -28,7 +28,11 @@ export interface UseAuthResult {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: AuthError | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    meta?: { firstName?: string; username?: string },
+  ) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
 }
 
@@ -79,17 +83,40 @@ export function useAuth(): UseAuthResult {
     return { error };
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    meta?: { firstName?: string; username?: string },
+  ) => {
     if (!supabaseConfigured || !supabase) return notConfiguredError();
-    const { error } = await supabase.auth.signUp({
+    const client = supabase;
+    const { data, error } = await client.auth.signUp({
       email,
       password,
       options: {
         // Bestätigungs-Link leitet auf die GitHub-Pages-Test-URL zurück.
-        // Supabase hängt den Token als Fragment (#access_token=...) an.
         emailRedirectTo: 'https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/',
+        // Vorname + Nutzername in user_metadata – werden von useProfile
+        // beim ersten Login in public.profiles übertragen.
+        data: {
+          first_name: meta?.firstName ?? '',
+          username: (meta?.username ?? '').trim(),
+        },
       },
     });
+    // Falls der Nutzer sofort eine Session hat (E-Mail-Bestätigung deaktiviert),
+    // direkt in profiles schreiben. Andernfalls übernimmt useProfile beim Login.
+    if (!error && data.user && data.session) {
+      await client.from('profiles').upsert(
+        {
+          id: data.user.id,
+          full_name: meta?.firstName ?? null,
+          username: (meta?.username ?? '').trim() || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' },
+      );
+    }
     return { error };
   };
 
