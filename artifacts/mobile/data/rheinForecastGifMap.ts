@@ -17,16 +17,16 @@ const gif = (id: string) => `https://www.hvz.baden-wuerttemberg.de/gifs/${id}-20
  * fuer den Pegel verifiziert ist. Unbekannte UUIDs bleiben null.
  */
 export const RHEIN_FORECAST_GIF_MAP: RheinForecastGifEntry[] = [
-  { name: 'Basel Rheinhalle', pegelUuid: null, hvzId: '09012', forecastType: 'discharge-only', gifUrl: null },
-  { name: 'Rheinweiler', pegelUuid: null, hvzId: '09013', forecastType: 'unknown', gifUrl: null },
+  { name: 'Basel Rheinhalle', pegelUuid: '94f6eff1-4f3f-4850-82e0-a086198e9ffd', hvzId: '09012', forecastType: 'discharge-only', gifUrl: null },
+  { name: 'Rheinweiler', pegelUuid: '06b978dd-8c4d-48ac-a0c8-2c16681ed281', hvzId: '09013', forecastType: 'unknown', gifUrl: null },
   { name: 'Hartheim', pegelUuid: null, hvzId: '09135', forecastType: 'none', gifUrl: null },
   { name: 'KW Breisach', pegelUuid: null, hvzId: '09030', forecastType: 'discharge-only', gifUrl: null },
   { name: 'Breisach', pegelUuid: '9da1ad2b-88db-4cbb-8132-eddfab07d5ba', hvzId: '09029', forecastType: 'water-level', gifUrl: gif('09029') },
   { name: 'Kappel', pegelUuid: null, hvzId: '09066', forecastType: 'unknown', gifUrl: null },
-  { name: 'Ottenheim', pegelUuid: null, hvzId: '09141', forecastType: 'unknown', gifUrl: null },
+  { name: 'Ottenheim', pegelUuid: '787e5d63-61e2-48cc-acf0-633e2bf923f2', hvzId: '09141', forecastType: 'unknown', gifUrl: null },
   { name: 'Altenheim', pegelUuid: null, hvzId: null, forecastType: 'unknown', gifUrl: null },
-  { name: 'Kehl-Kronenhof', pegelUuid: null, hvzId: '09014', forecastType: 'discharge-only', gifUrl: null },
-  { name: 'Iffezheim', pegelUuid: null, hvzId: '09137', forecastType: 'water-level', gifUrl: gif('09137') },
+  { name: 'Kehl-Kronenhof', pegelUuid: '23af9b02-5c82-4f6e-acb8-f92a06e5e4da', hvzId: '09014', forecastType: 'discharge-only', gifUrl: null },
+  { name: 'Iffezheim', pegelUuid: 'b02be240-1364-4c97-8bb6-675d7d842332', hvzId: '09137', forecastType: 'water-level', gifUrl: gif('09137') },
   { name: 'Plittersdorf', pegelUuid: '6b774802-fcb5-49ae-8ecb-ecaf1a278b1c', hvzId: null, forecastType: 'unknown', gifUrl: null },
   { name: 'Lauterbourg', pegelUuid: null, hvzId: '09000', forecastType: 'none', gifUrl: null },
   { name: 'Maxau', pegelUuid: 'b6c6d5c8-e2d5-4469-8dd8-fa972ef7eaea', hvzId: '09016', forecastType: 'water-level', gifUrl: gif('09016') },
