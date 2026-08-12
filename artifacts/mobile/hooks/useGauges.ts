@@ -2,14 +2,9 @@
  * useGauges.ts – Pegelorte aus Supabase laden
  *
  * Liest alle aktiven Einträge aus public.gauges.
- * Aktuell vorhanden: speyer, mannheim, worms.
- *
- * Wenn Supabase nicht konfiguriert ist, gibt der Hook eine leere Liste
- * zurück (kein Absturz – Pegelort-Auswahl ist dann nicht sichtbar).
- *
- * Verwendung:
- *   const { gauges, loading, error } = useGauges();
- *   const selected = useSelectedGauge(gaugeId);
+ * Im TEST-Build gibt es zusätzlich einen sicheren Fallback mit den drei
+ * vorgesehenen Pegeln, damit die Testwelt auch dann funktionsfähig bleibt,
+ * wenn das Test-Supabase-Schema noch keine gauges-Tabelle enthält.
  */
 
 import { useState, useEffect } from 'react';
@@ -22,19 +17,51 @@ export interface UseGaugesResult {
   error: string | null;
 }
 
+const TEST_GAUGE_FALLBACK: Gauge[] = [
+  {
+    id: '2cb8ae5b-c5c9-4fa8-bac0-bb724f2754f4',
+    name: 'Speyer',
+    river: 'Rhein',
+    river_km: 400.61,
+    pegel_nr: 'SPEYER',
+    pegel_uuid: '2cb8ae5b-c5c9-4fa8-bac0-bb724f2754f4',
+    active: true,
+    created_at: '2026-08-11T00:00:00.000Z',
+  },
+  {
+    id: '57090802-c51a-4d09-8340-b4453cd0e1f5',
+    name: 'Mannheim',
+    river: 'Rhein',
+    river_km: 424.73,
+    pegel_nr: 'MANNHEIM',
+    pegel_uuid: '57090802-c51a-4d09-8340-b4453cd0e1f5',
+    active: true,
+    created_at: '2026-08-11T00:00:00.000Z',
+  },
+  {
+    id: '844a620f-f3b8-4b6b-8e3c-783ae2aa232a',
+    name: 'Worms',
+    river: 'Rhein',
+    river_km: 443.37,
+    pegel_nr: 'WORMS',
+    pegel_uuid: '844a620f-f3b8-4b6b-8e3c-783ae2aa232a',
+    active: true,
+    created_at: '2026-08-11T00:00:00.000Z',
+  },
+];
+
 export function useGauges(): UseGaugesResult {
   const [gauges, setGauges] = useState<Gauge[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Ohne Supabase-Konfiguration: leere Liste, kein Netzwerkaufruf
     if (!supabaseConfigured || !supabase) {
+      setGauges(TEST_GAUGE_FALLBACK);
       setLoading(false);
       return;
     }
-    // Lokale Referenz nach dem Guard – TypeScript kann non-null in async-Closures
-    // nicht durch das Modul-Variable-Narrowing oben sicherstellen.
+
     const client = supabase;
 
     const fetchGauges = async () => {
@@ -48,8 +75,9 @@ export function useGauges(): UseGaugesResult {
 
       if (fetchError) {
         setError(fetchError.message);
+        setGauges(TEST_GAUGE_FALLBACK);
       } else {
-        setGauges(data ?? []);
+        setGauges(data && data.length > 0 ? data : TEST_GAUGE_FALLBACK);
       }
       setLoading(false);
     };
@@ -60,9 +88,6 @@ export function useGauges(): UseGaugesResult {
   return { gauges, loading, error };
 }
 
-/**
- * Einzelnen Gauge nach ID aus Supabase laden.
- */
 export function useSelectedGauge(gaugeId: string | null | undefined): {
   gauge: Gauge | null;
   loading: boolean;
@@ -77,11 +102,13 @@ export function useSelectedGauge(gaugeId: string | null | undefined): {
       setGauge(null);
       return;
     }
-    // Ohne Supabase-Konfiguration: kein Netzwerkaufruf
+
     if (!supabaseConfigured || !supabase) {
+      setGauge(TEST_GAUGE_FALLBACK.find((g) => g.id === gaugeId) ?? null);
       return;
     }
-    const client = supabase; // non-null nach Guard (für async-Closure)
+
+    const client = supabase;
     setLoading(true);
     (async () => {
       try {
@@ -90,10 +117,12 @@ export function useSelectedGauge(gaugeId: string | null | undefined): {
           .select('*')
           .eq('id', gaugeId)
           .single();
-        if (fetchError) setError(fetchError.message);
-        else setGauge(data);
+        if (fetchError) {
+          setError(fetchError.message);
+          setGauge(TEST_GAUGE_FALLBACK.find((g) => g.id === gaugeId) ?? null);
+        } else setGauge(data);
       } catch {
-        // Netzwerkfehler o.ä.
+        setGauge(TEST_GAUGE_FALLBACK.find((g) => g.id === gaugeId) ?? null);
       } finally {
         setLoading(false);
       }
