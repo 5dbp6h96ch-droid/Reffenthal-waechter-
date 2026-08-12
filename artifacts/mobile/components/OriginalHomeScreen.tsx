@@ -778,7 +778,7 @@ export default function HomeScreen() {
             fontFamily: 'SpaceGrotesk_600SemiBold',
             color: colors.primaryForeground,
           }}>
-            Anmelden
+            Alle Funktionen freischalten
           </Text>
         </TouchableOpacity>
       )}
