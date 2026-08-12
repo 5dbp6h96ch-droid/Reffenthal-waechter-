@@ -1,0 +1,51 @@
+NUR TESTUMGEBUNG ÄNDERN. PRODUCTION / MAIN ABSOLUT NICHT ÄNDERN.
+
+Problem:
+Auf dem iPhone funktioniert die Bottom-Navigation vor dem Login korrekt.
+Nach erfolgreichem Login ist sie unten abgeschnitten bzw. liegt außerhalb des sichtbaren Bereichs.
+
+Screenshot zeigt:
+- Nach Login sind Konto / Preferences / Help unten nur teilweise sichtbar.
+- Die Navigation sitzt zu tief bzw. wird vom Viewport abgeschnitten.
+- Vor dem Login funktioniert die Darstellung.
+- Das Problem tritt insbesondere in der als PWA installierten iPhone-Version auf.
+
+WICHTIG:
+Nicht einfach weitere CSS-Werte ausprobieren.
+Zuerst den tatsächlich verwendeten Codepfad identifizieren.
+
+Aufgabe:
+1. Finde die Komponente, die die globale Bottom-Navigation
+   „Konto / Preferences / Help“ rendert.
+2. Prüfe, ob vor und nach Login unterschiedliche Layout-Container,
+   Wrapper, Heights, Overflow-Regeln oder Viewport-Einstellungen verwendet werden.
+3. Prüfe insbesondere:
+   - position: fixed / absolute
+   - height / min-height / 100vh / 100dvh
+   - overflow: hidden / auto / scroll
+   - transform auf Elterncontainern
+   - Safe-Area / env(safe-area-inset-bottom)
+   - PWA standalone display mode
+   - unterschiedliche Layouts für authenticated / unauthenticated
+4. Die Bottom-Navigation muss IMMER am sichtbaren unteren Bildschirmrand
+   des iPhones bleiben – unabhängig davon, ob der Benutzer angemeldet ist.
+5. Der eigentliche Seiteninhalt muss weiterhin scrollen können.
+6. Der Content muss unten ausreichend Padding erhalten, damit die Navigation
+   nichts überdeckt.
+7. Die Navigation soll über die komplette verfügbare Bildschirmbreite gehen.
+8. Die Größe und Position der Navigation sollen vor und nach Login identisch sein.
+9. Keine Änderung an Pegelkarte, Chart oder sonstigem UI.
+10. Keine Änderung an Authentifizierung oder Datenlogik.
+
+Besonders wichtig:
+Teste den Unterschied zwischen:
+- nicht angemeldet
+- angemeldet
+- Safari
+- installierter PWA auf iPhone
+
+Finde die tatsächliche Ursache und behebe sie sauber im bestehenden Layout-System.
+
+NUR TEST-BRANCH / TEST-DEPLOYMENT.
+KEIN MERGE NACH MAIN.
+KEIN PRODUCTION-DEPLOYMENT.
