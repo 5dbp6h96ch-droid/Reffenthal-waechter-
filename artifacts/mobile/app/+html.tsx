@@ -76,7 +76,7 @@ export default function Root({ children }: PropsWithChildren) {
             __html: `
 (function () {
   var installPrompt = null;
-  var seenKey = 'rheinschiffer-install-v3';
+  var seenKey = 'rheinschiffer-install-v4';
   var ua = window.navigator.userAgent || '';
   var isIOS = /iPhone|iPad|iPod/i.test(ua) ||
     (window.navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua));
@@ -142,7 +142,7 @@ export default function Root({ children }: PropsWithChildren) {
   }
 
   function showInstallButton() {
-    if (hasSeen() || document.getElementById('rheinschiffer-install-button')) return;
+    if (document.getElementById('rheinschiffer-install-button')) return;
 
     var button = document.createElement('button');
     button.id = 'rheinschiffer-install-button';
