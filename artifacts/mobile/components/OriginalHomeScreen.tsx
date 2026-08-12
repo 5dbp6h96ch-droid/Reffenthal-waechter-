@@ -270,7 +270,10 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === 'web' ? 0 : insets.top;
-  const botPad = Platform.OS === 'web' ? 0 : insets.bottom;
+  // Auf allen Plattformen (inkl. iOS-PWA im Web-Modus) den echten
+  // Safe-Area-Wert verwenden. useSafeAreaInsets() liefert auf der
+  // installierten iPhone-PWA den korrekten insets.bottom (≈34 px).
+  const botPad = insets.bottom;
 
   // ── Bottom-Navigation ────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<ActiveTab>(null);

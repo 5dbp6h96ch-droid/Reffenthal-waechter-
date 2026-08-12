@@ -49,15 +49,19 @@ export default function Root({ children }: PropsWithChildren) {
             max-width: 100%;
             margin: 0;
             padding: 0;
+            /* Jede Ebene muss explizit die Viewport-Höhe halten,
+               damit flex:1 im React-Native-Web-Baum funktioniert.
+               Ohne height:100% auf #root gibt es keinen Höhenanker
+               und der Baum kann über den Viewport hinauswachsen,
+               was die Bottom-Navigation aus dem Sichtbereich schiebt. */
+            height: 100%;
           }
           html {
-            height: 100%;
             overflow-x: hidden;
             -webkit-text-size-adjust: 100%;
             text-size-adjust: 100%;
           }
           body {
-            min-height: 100%;
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
           }
