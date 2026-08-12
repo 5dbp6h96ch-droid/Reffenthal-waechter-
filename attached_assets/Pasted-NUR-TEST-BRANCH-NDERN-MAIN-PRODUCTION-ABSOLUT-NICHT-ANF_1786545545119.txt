@@ -1,0 +1,177 @@
+NUR TEST-BRANCH ÄNDERN.
+MAIN/PRODUCTION ABSOLUT NICHT ANFASSEN.
+
+Repository:
+5dbp6h96ch-droid/Reffenthal-waechter-
+
+Branch:
+test
+
+DATEI:
+artifacts/mobile/components/OriginalHomeScreen.tsx
+
+ZIEL:
+Nur UI-/Layout-Änderungen durchführen. Keine Datenlogik und keine bestehende Funktionalität verändern.
+
+==================================================
+1. BOTTOM-NAVIGATION SCHMALER MACHEN
+==================================================
+
+Die feste Bottom-Navigation mit:
+
+Konto | Preferences | Help
+
+ist aktuell zu hoch.
+
+Sie soll deutlich kompakter und niedriger werden.
+
+Bitte:
+- BOTTOM_NAV_HEIGHT von aktuell 60 auf ca. 44 reduzieren.
+- Die Safe-Area unten weiterhin korrekt berücksichtigen.
+- paddingTop der einzelnen Navigationselemente von 6 auf ca. 2–3 reduzieren.
+- Icon-Container von ca. 36x28 auf ca. 32x24 reduzieren.
+- Icon-Größe von 18 auf ca. 16 reduzieren.
+- Beschriftung kann bei 10 bleiben oder auf 9 reduziert werden.
+- Die drei Buttons weiterhin gleichmäßig über die gesamte Breite verteilen.
+- Die Navigation muss weiterhin vollständig anklickbar bleiben.
+
+==================================================
+2. DEN SCHWEBENDEN „KONTO“-BUTTON OBEN RECHTS
+   ENTFERNEN
+==================================================
+
+Es gibt aktuell zusätzlich einen „Konto“-Button oben rechts,
+der über der eigentlichen Oberfläche bzw. dem normalen Content liegt.
+
+Diesen Button vollständig entfernen.
+
+WICHTIG:
+- Nur diesen zusätzlichen, oben rechts schwebenden Konto-Button entfernen.
+- Die „Konto“-Funktion in der unteren Bottom-Navigation NICHT entfernen.
+- Der Tab „Konto“ in der Bottom-Navigation muss weiterhin vollständig funktionieren.
+- Keine andere Funktion des Home-Bereichs verändern.
+- Keine Abstände oder Inhalte unnötig verändern.
+
+Bitte im Code die Stelle suchen, an der dieser oben rechts positionierte/schwebende Konto-Button gerendert wird, und ausschließlich diesen UI-Bestandteil entfernen.
+
+==================================================
+3. PREFERENCES – „MEIN PEGELORT“ EINKLAPPBAR
+==================================================
+
+Im Tab „Preferences“ gibt es den Bereich:
+
+MEIN PEGELORT
+
+Dort werden aktuell alle Pegel direkt als Liste angezeigt.
+
+Ändern:
+
+- Der gesamte Bereich „Mein Pegelort“ soll einklappbar werden.
+- Standardzustand beim Öffnen von Preferences:
+  → EINGEKLAPPT.
+- Im eingeklappten Zustand nur die Überschrift „Mein Pegelort“
+  und ein Chevron anzeigen.
+- Durch Tippen auf die Überschrift kann die Liste aufgeklappt werden.
+- Beim Aufklappen werden die vorhandenen Pegel exakt wie bisher angezeigt.
+- Die Auswahl eines Pegels muss weiterhin genauso funktionieren.
+- Keine Änderung an der Pegeldatenquelle.
+- Keine Änderung an selectGauge().
+- Keine Änderung an der Forecast-Logik.
+
+Chevron:
+- eingeklappt → chevron-down
+- aufgeklappt → chevron-up
+
+==================================================
+4. PREFERENCES – „MEINE PEGELWARNUNGEN /
+   SCHWELLENWERTE“ EINKLAPPBAR
+==================================================
+
+Der Bereich:
+
+MEINE PEGELWARNUNGEN
+
+bzw. die darin enthaltenen persönlichen Schwellenwerte soll ebenfalls
+einklappbar werden.
+
+Standardzustand:
+→ EINGEKLAPPT.
+
+Verhalten:
+- Überschrift bleibt sichtbar.
+- Chevron rechts anzeigen.
+- Tippen auf die Überschrift klappt den Bereich auf/zu.
+- Im aufgeklappten Zustand bleiben die bestehenden
+  Schwellenwert-Einstellungen vollständig erhalten.
+- Schwellenwerte, Speicherung, Slider/Input, Warnlogik und
+  Login-Verhalten NICHT verändern.
+- Nur die Darstellung/Ein- und Ausklappbarkeit ändern.
+
+Chevron:
+- eingeklappt → chevron-down
+- aufgeklappt → chevron-up
+
+==================================================
+5. WICHTIG – KEINE FUNKTIONSÄNDERUNGEN
+==================================================
+
+NICHT verändern:
+
+- Forecast-GIF-Logik
+- rheinForecastGifMap.ts
+- Pegel-UUID-Zuordnung
+- PEGELONLINE-Abfragen
+- Pegelauswahl
+- selectGauge()
+- Schwellenwert-Logik
+- Authentifizierung
+- Supabase
+- Karte
+- Home-Bereich
+- Vorhersage
+- Navigation-Funktionalität
+
+Nur die ausdrücklich genannten UI-/Layout-Änderungen durchführen.
+
+==================================================
+6. STANDARDZUSTAND
+==================================================
+
+Beim Öffnen des Preferences-Tabs:
+
+MEIN PEGELORT
+→ eingeklappt
+
+MEINE PEGELWARNUNGEN / SCHWELLENWERTE
+→ eingeklappt
+
+Die beiden Bereiche sollen unabhängig voneinander auf- und zuklappbar sein.
+
+Die Zustände müssen nicht dauerhaft gespeichert werden.
+Es reicht, wenn sie während der aktuellen Ansicht funktionieren.
+
+==================================================
+7. SICHERHEIT
+==================================================
+
+Nur test ändern.
+
+Kein:
+- Merge test → main
+- Rebase
+- Reset
+- Force-Push
+- Production-Deployment
+
+Vor dem Commit:
+1. TypeScript prüfen.
+2. Build prüfen.
+3. Diff prüfen.
+4. Sicherstellen, dass ausschließlich
+   artifacts/mobile/components/OriginalHomeScreen.tsx
+   geändert wurde.
+
+Commit ausschließlich auf test.
+
+Nach Abschluss bitte Commit-SHA und kurze Zusammenfassung
+der Änderungen ausgeben.
