@@ -2342,8 +2342,8 @@ export default function HomeScreen() {
 
         {/* Aktueller Pegelstand */}
         <HelpSection icon="droplet" title="Aktueller Pegelstand">
-          <HelpText text="Die Pegelstand-Kachel zeigt den aktuellen Wasserstand in Zentimetern (cm) direkt von PEGELONLINE / WSV. Die Angabe enthält Pegelname, Rheinkilometer, Messzeitpunkt und den aktuellen Wert in cm." />
-          <HelpText text="Verfügbare Pegelorte: Speyer (km 400,57), Mannheim (km 424,73), Worms (km 443,37)." />
+          <HelpText text="Hier siehst du den aktuellen Pegelstand für den unter Preferences ausgewählten Pegel." />
+          <HelpText text="Die Pegelstand-Kachel zeigt den aktuellen Wasserstand in Zentimetern (cm) direkt von PEGELONLINE / WSV." />
         </HelpSection>
 
         {/* Verlauf */}
