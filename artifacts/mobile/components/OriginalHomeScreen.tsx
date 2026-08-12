@@ -109,7 +109,7 @@ const CARD_PADDING = 16;
 const CHART_W = SCREEN_W - CARD_PADDING * 2 - 32;
 const CHART_H = 140;
 const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
-const BOTTOM_NAV_HEIGHT = 44;
+const BOTTOM_NAV_HEIGHT = 38;
 
 // ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
 
@@ -2453,19 +2453,19 @@ export default function HomeScreen() {
                 flex: 1,
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 2,
-                paddingTop: 2,
+                gap: 1,
+                paddingTop: 0,
               }}
             >
               <View style={{
-                width: 32, height: 24,
+                width: 28, height: 22,
                 alignItems: 'center', justifyContent: 'center',
-                borderRadius: 12,
+                borderRadius: 11,
                 backgroundColor: isActive ? colors.primary + '18' : 'transparent',
               }}>
                 <Feather
                   name={icon}
-                  size={16}
+                  size={15}
                   color={isActive ? colors.primary : colors.mutedForeground}
                 />
               </View>
