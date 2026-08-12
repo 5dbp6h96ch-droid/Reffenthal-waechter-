@@ -109,7 +109,7 @@ const CARD_PADDING = 16;
 const CHART_W = SCREEN_W - CARD_PADDING * 2 - 32;
 const CHART_H = 140;
 const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
-const BOTTOM_NAV_HEIGHT = 60;
+const BOTTOM_NAV_HEIGHT = 44;
 
 // ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
 
@@ -288,6 +288,9 @@ export default function HomeScreen() {
   const [mapOpen, setMapOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
   const [waechterOpen, setWaechterOpen] = useState(false);
+  // Preferences: einklappbare Bereiche (Standard: zugeklappt)
+  const [gaugeListOpen, setGaugeListOpen] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
 
   // ── Auth-Formular-Zustand (Konto-Tab) ────────────────────────────────────
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -753,49 +756,7 @@ export default function HomeScreen() {
       {/* Pegelstand-Kachel */}
       {renderPegelCard()}
 
-      {/* Gastmodus: CTA zur Anmeldung */}
-      {!user && (
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => handleTabPress('konto')}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            backgroundColor: colors.card,
-            borderRadius: colors.radius,
-            borderWidth: 1,
-            borderColor: colors.primary + '40',
-            paddingHorizontal: 16,
-            paddingVertical: 14,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{
-              width: 34, height: 34, borderRadius: 17,
-              backgroundColor: colors.primary + '18',
-              alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Feather name="lock" size={16} color={colors.primary} />
-            </View>
-            <View style={{ gap: 2 }}>
-              <Text style={{
-                fontSize: 14, fontFamily: 'SpaceGrotesk_600SemiBold',
-                color: colors.foreground,
-              }}>
-                Alle Funktionen freischalten
-              </Text>
-              <Text style={{
-                fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
-                color: colors.mutedForeground,
-              }}>
-                Verlauf, Vorhersage, Warnungen & mehr
-              </Text>
-            </View>
-          </View>
-          <Feather name="chevron-right" size={18} color={colors.primary} />
-        </TouchableOpacity>
-      )}
+      {/* Gastmodus: CTA entfernt – Konto über Bottom-Navigation erreichbar */}
 
       {/* Angemeldeter Bereich: Verlauf + Akkordeon-Menü */}
       {user && (
@@ -2071,93 +2032,117 @@ export default function HomeScreen() {
         Preferences
       </Text>
 
-      {/* MEIN PEGELORT */}
+      {/* MEIN PEGELORT – einklappbar */}
       <View style={{ gap: 10 }}>
-        <Text style={{
-          fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold',
-          color: colors.mutedForeground,
-          letterSpacing: 2, textTransform: 'uppercase',
-        }}>
-          Mein Pegelort
-        </Text>
-
-        {gauges.length === 0 ? (
-          <ActivityIndicator size="small" color={colors.primary} style={{ alignSelf: 'flex-start' }} />
-        ) : (
-          <View style={{
-            backgroundColor: colors.card, borderRadius: 12,
-            borderWidth: 1, borderColor: colors.border,
-            overflow: 'hidden',
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setGaugeListOpen(o => !o)}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <Text style={{
+            fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold',
+            color: colors.mutedForeground,
+            letterSpacing: 2, textTransform: 'uppercase',
           }}>
-            {gauges.map((g, idx) => {
-              const isSelected = selectedGauge?.id === g.id;
-              const isLast = idx === gauges.length - 1;
-              return (
-                <TouchableOpacity
-                  key={g.id}
-                  activeOpacity={0.75}
-                  onPress={() => selectGauge(g.id)}
-                  style={{
-                    flexDirection: 'row', alignItems: 'center',
-                    justifyContent: 'space-between',
-                    paddingHorizontal: 16, paddingVertical: 14,
-                    borderBottomWidth: isLast ? 0 : 1,
-                    borderBottomColor: colors.border,
-                    backgroundColor: isSelected ? colors.primary + '08' : 'transparent',
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={{
-                      width: 32, height: 32, borderRadius: 16,
-                      backgroundColor: isSelected ? colors.primary + '20' : colors.muted,
-                      alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <Feather
-                        name="anchor"
-                        size={14}
-                        color={isSelected ? colors.primary : colors.mutedForeground}
-                      />
-                    </View>
-                    <View style={{ gap: 1 }}>
-                      <Text style={{
-                        fontSize: 15,
-                        fontFamily: isSelected ? 'SpaceGrotesk_700Bold' : 'SpaceGrotesk_500Medium',
-                        color: isSelected ? colors.primary : colors.foreground,
+            Mein Pegelort
+          </Text>
+          <Feather
+            name={gaugeListOpen ? 'chevron-up' : 'chevron-down'}
+            size={14}
+            color={colors.mutedForeground}
+          />
+        </TouchableOpacity>
+
+        {gaugeListOpen && (
+          gauges.length === 0 ? (
+            <ActivityIndicator size="small" color={colors.primary} style={{ alignSelf: 'flex-start' }} />
+          ) : (
+            <View style={{
+              backgroundColor: colors.card, borderRadius: 12,
+              borderWidth: 1, borderColor: colors.border,
+              overflow: 'hidden',
+            }}>
+              {gauges.map((g, idx) => {
+                const isSelected = selectedGauge?.id === g.id;
+                const isLast = idx === gauges.length - 1;
+                return (
+                  <TouchableOpacity
+                    key={g.id}
+                    activeOpacity={0.75}
+                    onPress={() => selectGauge(g.id)}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingHorizontal: 16, paddingVertical: 14,
+                      borderBottomWidth: isLast ? 0 : 1,
+                      borderBottomColor: colors.border,
+                      backgroundColor: isSelected ? colors.primary + '08' : 'transparent',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{
+                        width: 32, height: 32, borderRadius: 16,
+                        backgroundColor: isSelected ? colors.primary + '20' : colors.muted,
+                        alignItems: 'center', justifyContent: 'center',
                       }}>
-                        {g.name}
-                      </Text>
-                      {(g.river != null || g.river_km != null) && (
+                        <Feather
+                          name="anchor"
+                          size={14}
+                          color={isSelected ? colors.primary : colors.mutedForeground}
+                        />
+                      </View>
+                      <View style={{ gap: 1 }}>
                         <Text style={{
-                          fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
-                          color: colors.mutedForeground,
+                          fontSize: 15,
+                          fontFamily: isSelected ? 'SpaceGrotesk_700Bold' : 'SpaceGrotesk_500Medium',
+                          color: isSelected ? colors.primary : colors.foreground,
                         }}>
-                          {[g.river, g.river_km != null ? `km ${g.river_km}` : null]
-                            .filter(Boolean).join(' · ')}
+                          {g.name}
                         </Text>
-                      )}
+                        {(g.river != null || g.river_km != null) && (
+                          <Text style={{
+                            fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
+                            color: colors.mutedForeground,
+                          }}>
+                            {[g.river, g.river_km != null ? `km ${g.river_km}` : null]
+                              .filter(Boolean).join(' · ')}
+                          </Text>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                  {isSelected && (
-                    <Feather name="check-circle" size={20} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    {isSelected && (
+                      <Feather name="check-circle" size={20} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )
         )}
       </View>
 
-      {/* MEINE PEGELWARNUNGEN */}
+      {/* MEINE PEGELWARNUNGEN – einklappbar */}
       <View style={{ gap: 10 }}>
-        <Text style={{
-          fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold',
-          color: colors.mutedForeground,
-          letterSpacing: 2, textTransform: 'uppercase',
-        }}>
-          Meine Pegelwarnungen
-        </Text>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setAlertsOpen(o => !o)}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <Text style={{
+            fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold',
+            color: colors.mutedForeground,
+            letterSpacing: 2, textTransform: 'uppercase',
+          }}>
+            Meine Pegelwarnungen
+          </Text>
+          <Feather
+            name={alertsOpen ? 'chevron-up' : 'chevron-down'}
+            size={14}
+            color={colors.mutedForeground}
+          />
+        </TouchableOpacity>
 
-        {user == null ? (
+        {alertsOpen && (user == null ? (
           /* Nicht angemeldet: Hinweis */
           <TouchableOpacity
             activeOpacity={0.8}
@@ -2211,7 +2196,7 @@ export default function HomeScreen() {
               />
             ))}
           </View>
-        )}
+        ))}
       </View>
     </ScrollView>
   );
@@ -2468,24 +2453,24 @@ export default function HomeScreen() {
                 flex: 1,
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 3,
-                paddingTop: 6,
+                gap: 2,
+                paddingTop: 2,
               }}
             >
               <View style={{
-                width: 36, height: 28,
+                width: 32, height: 24,
                 alignItems: 'center', justifyContent: 'center',
-                borderRadius: 14,
+                borderRadius: 12,
                 backgroundColor: isActive ? colors.primary + '18' : 'transparent',
               }}>
                 <Feather
                   name={icon}
-                  size={18}
+                  size={16}
                   color={isActive ? colors.primary : colors.mutedForeground}
                 />
               </View>
               <Text style={{
-                fontSize: 10,
+                fontSize: 9,
                 fontFamily: isActive ? 'SpaceGrotesk_600SemiBold' : 'SpaceGrotesk_400Regular',
                 color: isActive ? colors.primary : colors.mutedForeground,
                 letterSpacing: 0.2,
