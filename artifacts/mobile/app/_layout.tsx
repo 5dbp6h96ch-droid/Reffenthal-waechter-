@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import TestAuthPanel from '@/components/TestAuthPanel';
 import {
   SpaceGrotesk_400Regular,
   SpaceGrotesk_500Medium,
@@ -15,8 +16,6 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl } from '@workspace/api-client-react';
-// Background-task *registration* (the task *definition* lives in index.js so it
-// runs even on cold-start OS background launches without mounting any views).
 import {
   registerNfbBackgroundFetch,
   saveApiBaseUrl,
@@ -24,15 +23,11 @@ import {
 
 SplashScreen.preventAutoHideAsync();
 
-// ── Konfiguration ─────────────────────────────────────────────────────────────
 const STATIC_MODE = process.env.EXPO_PUBLIC_STATIC_DATA === 'true';
 
 const GITHUB_RAW =
   'https://raw.githubusercontent.com/5dbp6h96ch-droid/Reffenthal-waechter-/main/reffenthal-waechter';
 
-// ── Statischer Modus: fetch-Interceptor ──────────────────────────────────────
-// Leitet API-Pfade auf die öffentlichen JSON-Dateien auf GitHub um.
-// Kein API-Server erforderlich. seen.json ist ein Array von Strings.
 if (STATIC_MODE) {
   const _origFetch = globalThis.fetch.bind(globalThis);
 
@@ -48,24 +43,14 @@ if (STATIC_MODE) {
           ? input.toString()
           : (input as Request).url;
 
-    // Hilfsfunktion: GitHub Raw fetchen ohne AbortSignal weiterzugeben.
-    // React Query's AbortController darf nicht an interne Fetches propagiert
-    // werden – ein früher Abort würde sonst den Catch-Block triggern und
-    // leere Daten liefern statt einen Fehler zu werfen.
     const rawFetch = (rawUrl: string) => _origFetch(rawUrl);
 
-    // /api/waechter/state → state.json + Pegelonline aktueller Wert + 30-Tage-Verlauf
     if (url.endsWith('/api/waechter/state')) {
       try {
         const r = await rawFetch(`${GITHUB_RAW}/state.json`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json();
-
-        // Pegelonline: 30 Tage Messwerte direkt laden (client-seitig, kein Server nötig)
         let history: { cm: number; ts: string }[] = Array.isArray(raw?.history) ? raw.history : [];
-
-        // Aktuellen Messwert direkt von Pegelonline holen – unabhängig davon ob der
-        // Wächter läuft oder state.json veraltet ist.
         let livePegelCm: number | null = raw?.last_pegel_cm ?? null;
         let livePegelTime: string | null = raw?.last_pegel_time ?? null;
         try {
@@ -79,10 +64,7 @@ if (STATIC_MODE) {
               livePegelTime = cm.timestamp;
             }
           }
-        } catch {
-          // Pegelonline nicht erreichbar – state.json-Wert als Fallback
-        }
-
+        } catch {}
         try {
           const pegelR = await rawFetch(
             'https://pegelonline.wsv.de/webservices/rest-api/v2/stations/SPEYER/W/measurements.json?start=P30D',
@@ -94,7 +76,6 @@ if (STATIC_MODE) {
                 cm: Math.round(m.value),
                 ts: m.timestamp,
               }));
-              // Merge: Pegelonline liefert die Basis, state.json-Einträge füllen neuere Lücken
               const pegelLastMs = pegelHistory.length > 0
                 ? new Date(pegelHistory[pegelHistory.length - 1].ts).getTime()
                 : 0;
@@ -102,10 +83,7 @@ if (STATIC_MODE) {
               history = [...pegelHistory, ...stateNewer];
             }
           }
-        } catch {
-          // Pegelonline nicht erreichbar – state.json-Verlauf reicht als Fallback
-        }
-
+        } catch {}
         return new Response(
           JSON.stringify({
             last_pegel_cm: livePegelCm,
@@ -117,7 +95,6 @@ if (STATIC_MODE) {
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         );
       } catch (err) {
-        // AbortError neu werfen damit React Query es korrekt behandelt
         if (err instanceof Error && err.name === 'AbortError') throw err;
         return new Response(
           JSON.stringify({ last_pegel_cm: null, last_pegel_time: null, last_daily_report_date: null, history: [], threshold_cm: 225 }),
@@ -126,7 +103,6 @@ if (STATIC_MODE) {
       }
     }
 
-    // /api/waechter/treffer → seen.json (Array von Strings, HTTP-URLs filtern)
     if (url.endsWith('/api/waechter/treffer')) {
       try {
         const r = await rawFetch(`${GITHUB_RAW}/seen.json`);
@@ -148,22 +124,20 @@ if (STATIC_MODE) {
       }
     }
 
-    // /api/waechter/clubs → clubs_seen.json + statische known_clubs Liste
     if (url.endsWith('/api/waechter/clubs')) {
       const KNOWN_CLUBS = [
-        { name: '1. MBC Speyer',                       icon: '⚓', url: 'https://mbc-speyer.de/' },
-        { name: 'Yachthafen Speyer',                   icon: '🚢', url: 'https://yachthafen-speyer.de/' },
+        { name: '1. MBC Speyer', icon: '⚓', url: 'https://mbc-speyer.de/' },
+        { name: 'Yachthafen Speyer', icon: '🚢', url: 'https://yachthafen-speyer.de/' },
         { name: 'YC Otterstadt (Angelhofer Altrhein)', icon: '⛵', url: 'https://ycoa.de/' },
-        { name: 'MYCL Kiefweiher',                    icon: '🚤', url: 'https://www.mycl.de/' },
-        { name: 'WCC Kiefweiher',                     icon: '🏕️', url: 'http://www.wcc-kiefweiher.de/' },
-        { name: 'MCK Kurpfalz Mannheim',              icon: '🏙️', url: 'https://www.mck-mannheim.de/' },
+        { name: 'MYCL Kiefweiher', icon: '🚤', url: 'https://www.mycl.de/' },
+        { name: 'WCC Kiefweiher', icon: '🏕️', url: 'http://www.wcc-kiefweiher.de/' },
+        { name: 'MCK Kurpfalz Mannheim', icon: '🏙️', url: 'https://www.mck-mannheim.de/' },
       ];
       try {
         const r = await rawFetch(`${GITHUB_RAW}/clubs_seen.json`);
         const raw = await r.json();
         const clubsArr = Array.isArray(raw) ? raw : [];
-        const data = { clubs: clubsArr, count: clubsArr.length, known_clubs: KNOWN_CLUBS };
-        return new Response(JSON.stringify(data), {
+        return new Response(JSON.stringify({ clubs: clubsArr, count: clubsArr.length, known_clubs: KNOWN_CLUBS }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -176,10 +150,8 @@ if (STATIC_MODE) {
       }
     }
 
-    // /api/nfb?km_von=X&km_bis=Y → nfb.json auf GitHub, client-seitig filtern
     const nfbUrlMatch = url.match(/\/api\/nfb(\?.*)?$/);
     if (nfbUrlMatch) {
-      // km-Bereich aus Query-Params lesen
       let kmVon: number | null = null;
       let kmBis: number | null = null;
       if (nfbUrlMatch[1]) {
@@ -193,17 +165,14 @@ if (STATIC_MODE) {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json();
         let meldungen: unknown[] = Array.isArray(raw?.meldungen) ? raw.meldungen : [];
-
         const NfB_NEW_WINDOW_MS = 24 * 60 * 60 * 1000;
-        // Client-seitig nach km filtern wenn Bereich angegeben
         if (kmVon !== null && kmBis !== null) {
           meldungen = meldungen.filter((m: unknown) => {
             const entry = m as { km_von?: number | null; km_bis?: number | null };
-            if (entry.km_von == null || entry.km_bis == null) return true; // Allgemeine Meldungen immer zeigen
+            if (entry.km_von == null || entry.km_bis == null) return true;
             return entry.km_von <= kmBis! && entry.km_bis >= kmVon!;
           });
         }
-        // is_new-Flag ergänzen falls nicht bereits vom Server gesetzt
         const now = Date.now();
         const withIsNew = meldungen.map((m) => {
           const entry = m as { is_new?: boolean; first_seen?: string };
@@ -230,7 +199,6 @@ if (STATIC_MODE) {
       }
     }
 
-    // /api/waechter/status → run_status.json (404-Fallback wenn nicht committed)
     if (url.endsWith('/api/waechter/status')) {
       try {
         const r = await rawFetch(`${GITHUB_RAW}/run_status.json`);
@@ -242,7 +210,6 @@ if (STATIC_MODE) {
         });
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') throw err;
-        // run_status.json noch nicht committed oder nicht erreichbar → leeren Fallback
         const fallback = { last_run_at: null, rss_new_count: 0, last_error: null };
         return new Response(JSON.stringify(fallback), {
           status: 200,
@@ -251,7 +218,6 @@ if (STATIC_MODE) {
       }
     }
 
-    // /api/mck → mck.json (MCK Kurpfalz Mannheim Tankstellenpreise)
     if (url.endsWith('/api/mck')) {
       try {
         const r = await rawFetch(`${GITHUB_RAW}/mck.json`);
@@ -278,7 +244,6 @@ if (STATIC_MODE) {
       }
     }
 
-    // Alle anderen Fetches → normaler Browser-Fetch
     return _origFetch(input, init);
   };
 }
@@ -294,21 +259,17 @@ const queryClient = new QueryClient({
   },
 });
 
-// ── Navigation ────────────────────────────────────────────────────────────────
 function RootLayoutNav() {
   return (
     <Stack>
-      {/* Produktion – niemals direkt für Feature-Entwicklung ändern */}
-      <Stack.Screen name="index"    options={{ headerShown: false }} />
-      {/* Testumgebung – 1:1-Kopie + TEST-Banner, URL: /test/ */}
-      <Stack.Screen name="test"     options={{ headerShown: false }} />
-      {/* Früherer Design-Versuch */}
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="test" options={{ headerShown: false }} />
       <Stack.Screen name="redesign" options={{ headerShown: false }} />
+      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
     </Stack>
   );
 }
 
-// ── Root Layout ───────────────────────────────────────────────────────────────
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     SpaceGrotesk_400Regular,
@@ -324,10 +285,6 @@ export default function RootLayout() {
   }, [fontsLoaded, fontError]);
 
   useEffect(() => {
-    // Register the NfB background fetch task once the layout mounts and
-    // persist the API base URL so the background task can reach the server
-    // even when no React tree is mounted. Errors are swallowed — background
-    // fetch is optional.
     void registerNfbBackgroundFetch();
     void saveApiBaseUrl(apiBase);
   }, []);
@@ -341,6 +298,7 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <RootLayoutNav />
+              {STATIC_MODE && <TestAuthPanel />}
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>
