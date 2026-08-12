@@ -29,6 +29,7 @@ import {
   Linking,
   Platform,
   Dimensions,
+  useWindowDimensions,
   ActivityIndicator,
   Animated,
   Switch,
@@ -270,6 +271,10 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === 'web' ? 0 : insets.top;
+  // Auf Web (inkl. iOS-PWA) liefert windowHeight die echte Viewport-Höhe
+  // in Pixel, unabhängig von der CSS-Flex-Kette. Das ist zuverlässiger
+  // als flex:1 auf einem #root ohne garantierten Höhenanker.
+  const { height: windowHeight } = useWindowDimensions();
   // Auf allen Plattformen (inkl. iOS-PWA im Web-Modus) den echten
   // Safe-Area-Wert verwenden. useSafeAreaInsets() liefert auf der
   // installierten iPhone-PWA den korrekten insets.bottom (≈34 px).
@@ -2513,8 +2518,16 @@ export default function HomeScreen() {
   };
 
   // ── RENDER ────────────────────────────────────────────────────────────────
+  // Auf Web (inkl. iOS-PWA) setzen wir eine absolute Pixelhöhe statt flex:1,
+  // weil Expo-Router-Web Wrapper-Divs ohne height erzeugt, die die
+  // flex:1-Kette unterbrechen und den Inhalt über den Viewport hinauswachsen
+  // lassen – dadurch verschwindet die Bottom-Navigation nach unten.
+  const rootStyle = Platform.OS === 'web'
+    ? { height: windowHeight, backgroundColor: colors.background }
+    : { flex: 1 as const, backgroundColor: colors.background };
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={rootStyle}>
       {/* Inhalt – je nach aktivem Tab */}
       <View style={{ flex: 1 }}>
         {activeTab === null && renderHome()}
