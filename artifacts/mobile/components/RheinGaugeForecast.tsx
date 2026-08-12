@@ -18,7 +18,6 @@ export default function RheinGaugeForecast({ stationId, stationName }: RheinGaug
   }
 
   // PEGELONLINE uses the UUID as the unique station identifier.
-  // The forecast chart is generated directly from the selected UUID.
   const chartUrl = `${PEGELONLINE_CHART}?pegeluuid=${encodeURIComponent(stationId)}&dauer=48;48&imgLinien=2&imgBreite=900&imgHoehe=420&anzeigeVorhersagen=true&anzeigeUeberschrift=false&anzeigeDatenquelle=true&anzeigeKilometer=true`;
   const openChart = () => void Linking.openURL(chartUrl);
 
