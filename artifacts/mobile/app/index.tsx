@@ -5,13 +5,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { useGauges } from '@/hooks/useGauges';
 import { useUserSettings } from '@/hooks/useUserSettings';
 
-// PEGELONLINE UUID -> eindeutige HVZ-BW-Pegel-ID.
-// Die Zuordnung erfolgt bewusst NICHT über den Pegelnamen.
+// PEGELONLINE UUID -> official HVZ-BW station ID.
+// The UUID is the only app-side key; the HVZ ID is the target GIF identifier.
 const HVZ_GIF_BY_PEGEL_UUID: Record<string, string> = {
-  'b6c6d5c8-e2d5-4469-8dd8-fa972ef7eaea': '09016', // Maxau
-  '2cb8ae5b-c5c9-4fa8-bac0-bb724f2754f4': '09017', // Speyer
-  '57090802-c51a-4d09-8340-b4453cd0e1f5': '09001', // Mannheim
-  '844a620f-f3b8-4b6b-8e3c-783ae2aa232a': '09018', // Worms
+  'b6c6d5c8-e2d5-4469-8dd8-fa972ef7eaea': '09016', // Maxau / Rhein
+  '2cb8ae5b-c5c9-4fa8-bac0-bb724f2754f4': '09017', // Speyer / Rhein
+  '57090802-c51a-4d09-8340-b4453cd0e1f5': '09001', // Mannheim / Rhein
+  '844a620f-f3b8-4b6b-8e3c-783ae2aa232a': '09018', // Worms / Rhein
 };
 
 const HVZ_GIF_BASE = 'https://www.hvz.baden-wuerttemberg.de/gifs/';
@@ -40,33 +40,34 @@ function ForecastDomBridge({ stationId }: { stationId: string | null }) {
     };
 
     const replaceForecast = () => {
-      // Bereits vorhandenes HVZ-GIF immer auf den zum UUID gehörenden Pegel setzen.
-      const images = Array.from(document.images).filter((img) =>
-        img.src.includes('hvz.baden-wuerttemberg.de/gifs/') ||
-        img.getAttribute('data-rhein-hvz-forecast') === 'true',
-      );
+      // Replace only our forecast image, never arbitrary images on the page.
+      const images = Array.from(document.querySelectorAll('img[data-rhein-hvz-forecast="true"]'));
+      for (const img of images) img.setAttribute('src', gifUrl);
 
-      for (const img of images) {
+      // Replace an existing HVZ GIF only when it is already inside the forecast area.
+      const hvzImages = Array.from(document.images).filter((img) =>
+        img.src.includes('hvz.baden-wuerttemberg.de/gifs/') &&
+        img.closest('[data-rhein-forecast-area="true"]'),
+      );
+      for (const img of hvzImages) {
         img.src = gifUrl;
         img.setAttribute('data-rhein-hvz-forecast', 'true');
       }
 
-      // Bei Pegeln, die im bisherigen Code als "nicht verfügbar" erscheinen,
-      // das korrekte HVZ-GIF einsetzen. Damit bekommt z.B. Maxau nicht mehr
-      // versehentlich die Grafik eines anderen Pegels.
+      // If the existing UI says no HVZ forecast is available, replace that forecast area.
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       const targets: HTMLElement[] = [];
       while (walker.nextNode()) {
         const node = walker.currentNode as Text;
         if (node.data.includes('nicht im HVZ-BW-Gebiet verfügbar.')) {
           const el = node.parentElement;
-          if (el && !el.querySelector('[data-rhein-hvz-forecast="true"]')) targets.push(el);
+          if (el && !el.closest('[data-rhein-forecast-area="true"]')) targets.push(el);
         }
       }
-
       for (const target of targets) {
         const parent = target.parentElement;
         if (!parent) continue;
+        parent.setAttribute('data-rhein-forecast-area', 'true');
         parent.replaceChildren(createForecastImage());
       }
     };
@@ -74,7 +75,6 @@ function ForecastDomBridge({ stationId }: { stationId: string | null }) {
     const observer = new MutationObserver(replaceForecast);
     observer.observe(document.body, { childList: true, subtree: true });
     replaceForecast();
-
     return () => observer.disconnect();
   }, [stationId]);
 
