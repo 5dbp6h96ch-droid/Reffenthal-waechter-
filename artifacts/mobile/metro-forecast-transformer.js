@@ -28,7 +28,7 @@ function patchForecastUi(src, filename) {
                     onPress={() => {
                       if (selectedGauge?.pegel_uuid) {
                         void Linking.openURL(
-                          \\`https://pegelonline.wsv.de/webservices/rest-api/v2/stations/\\${selectedGauge.pegel_uuid}.json?includeForecastTimeseries=true\\`,
+                          'https://pegelonline.wsv.de/webservices/rest-api/v2/stations/' + selectedGauge.pegel_uuid + '.json?includeForecastTimeseries=true',
                         );
                       }
                     }}
