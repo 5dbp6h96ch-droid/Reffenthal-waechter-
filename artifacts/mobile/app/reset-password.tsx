@@ -5,9 +5,6 @@ import { useRouter } from 'expo-router';
 import { supabase, supabaseConfigured } from '@/app/utils/supabase';
 import { useColors } from '@/hooks/useColors';
 
-const TEST_RESET_ORIGIN = 'https://rheinschiffer-test.pages.dev';
-const TEST_RESET_PATH = '/reset-password';
-
 function parseAuthParams(url: string): { access_token: string; refresh_token: string } | null {
   const hash = url.split('#')[1] ?? '';
   const query = hash || url.split('?')[1] || '';
@@ -93,10 +90,6 @@ export default function ResetPasswordScreen() {
     setTimeout(() => router.replace('/'), 900);
   };
 
-  const requestNewLink = async () => {
-    router.replace('/');
-  };
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', padding: 20 }}>
       <View style={{ backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 20, gap: 16 }}>
@@ -141,7 +134,7 @@ export default function ResetPasswordScreen() {
         ) : (
           <>
             {message && <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive, lineHeight: 19 }}>{message}</Text>}
-            <TouchableOpacity onPress={requestNewLink} style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 13, alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => router.replace('/')} style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 13, alignItems: 'center' }}>
               <Text style={{ fontSize: 14, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.primaryForeground }}>Zur Test-App</Text>
             </TouchableOpacity>
           </>
