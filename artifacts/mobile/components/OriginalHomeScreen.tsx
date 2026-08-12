@@ -64,6 +64,7 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 import { useGauges } from '@/hooks/useGauges';
 import { useUserGaugeSettings } from '@/hooks/useUserGaugeSettings';
 import { GaugeAlertRow } from '@/components/GaugeAlertRow';
+import { getRheinForecastGif, RHEIN_FORECAST_GIF_MAP } from '@/data/rheinForecastGifMap';
 
 // ─── Typen ───────────────────────────────────────────────────────────────────
 
@@ -109,13 +110,6 @@ const CHART_W = SCREEN_W - CARD_PADDING * 2 - 32;
 const CHART_H = 140;
 const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
 const BOTTOM_NAV_HEIGHT = 60;
-
-// HVZ Baden-Württemberg Vorhersage-IDs (Schlüssel = pegel_nr Großbuchstaben)
-const HVZ_BW_IDS: Record<string, string> = {
-  SPEYER: '09017',
-  MANNHEIM: '09001',
-  WORMS: '09018',
-};
 
 // ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
 
@@ -942,12 +936,12 @@ export default function HomeScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <TouchableOpacity
                         onPress={() => {
-                          const hvzId = selectedGauge?.pegel_nr
-                            ? (HVZ_BW_IDS[selectedGauge.pegel_nr.toUpperCase()] ?? null)
-                            : null;
+                          const mapEntry = RHEIN_FORECAST_GIF_MAP.find(
+                            e => e.pegelUuid === (selectedGauge?.pegel_uuid ?? null),
+                          );
                           void Linking.openURL(
-                            hvzId
-                              ? `https://www.hvz.baden-wuerttemberg.de/pegel.html?id=${hvzId}`
+                            mapEntry?.hvzId
+                              ? `https://www.hvz.baden-wuerttemberg.de/pegel.html?id=${mapEntry.hvzId}`
                               : 'https://www.hvz.baden-wuerttemberg.de/',
                           );
                         }}
@@ -975,10 +969,8 @@ export default function HomeScreen() {
                   {hvzOpen && (
                     <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 8 }}>
                       {(() => {
-                        const hvzId = selectedGauge?.pegel_nr
-                          ? (HVZ_BW_IDS[selectedGauge.pegel_nr.toUpperCase()] ?? null)
-                          : null;
-                        if (!hvzId) {
+                        const gifUrl = getRheinForecastGif(selectedGauge?.pegel_uuid ?? null);
+                        if (!gifUrl) {
                           return (
                             <View style={{ alignItems: 'center', paddingVertical: 24, gap: 8 }}>
                               <Feather name="info" size={18} color={colors.mutedForeground} />
@@ -986,16 +978,14 @@ export default function HomeScreen() {
                                 fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
                                 color: colors.mutedForeground, textAlign: 'center',
                               }}>
-                                {'Vorhersage für ' + (selectedGauge?.name ?? 'diesen Pegel') + '\nnicht im HVZ-BW-Gebiet verfügbar.'}
+                                {'Vorhersage für ' + (selectedGauge?.name ?? 'diesen Pegel') + '\nnicht verfügbar.'}
                               </Text>
                             </View>
                           );
                         }
                         return (
                           <Image
-                            source={{
-                              uri: `https://www.hvz.baden-wuerttemberg.de/gifs/${hvzId}-2001.GIF?t=${hvzTs}`,
-                            }}
+                            source={{ uri: `${gifUrl}?t=${hvzTs}` }}
                             style={{ width: imgW, height: imgH, borderRadius: 8, alignSelf: 'center' }}
                             resizeMode="contain"
                           />
