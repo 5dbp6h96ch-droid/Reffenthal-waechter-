@@ -131,6 +131,7 @@ export function useAuth(): UseAuthResult {
     user: session?.user ?? null,
     loading,
     signIn,
+    signUp,
     signOut,
   };
 }
