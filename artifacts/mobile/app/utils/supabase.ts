@@ -2,47 +2,50 @@
  * supabase.ts – Zentraler Supabase-Client für R(h)einschiffer
  *
  * Verwendet @supabase/supabase-js v2 mit AsyncStorage-Session-Persistenz.
- * Konfiguration ausschließlich über EXPO_PUBLIC_*-Umgebungsvariablen –
- * niemals service_role oder Secret Keys hier verwenden.
- *
- * Defensiv: Fehlt EXPO_PUBLIC_SUPABASE_URL oder EXPO_PUBLIC_SUPABASE_KEY,
- * wird createClient NICHT aufgerufen. Die App lädt weiterhin; Auth-Funktionen
- * sind dann im Gastmodus deaktiviert. Kein App-Absturz bei fehlendem Secret.
+ * Es werden ausschließlich öffentliche Publishable/anon Keys verwendet.
  */
 
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Database } from '../types/database';
 
-// Trailing slash entfernen falls vorhanden
-const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY ?? '';
+const rawSupabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
+let supabaseUrl = rawSupabaseUrl.replace(/\.supabase\.cc$/i, '.supabase.co');
 
-/**
- * true wenn beide Supabase-Umgebungsvariablen beim Build vorhanden waren.
- * Alle Hooks prüfen diesen Wert, bevor sie den Client verwenden.
- */
+const configuredKey =
+  process.env.EXPO_PUBLIC_SUPABASE_KEY ??
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
+  '';
+
+// TEST-ONLY: Der Cloudflare-Test-Build verwendet immer das kanonische
+// TEST-Supabase-Projekt. Dadurch sind Tippfehler/alte Werte in Cloudflare
+// Pages-Variablen ausgeschlossen. Diese Datei wird ausschließlich im
+// Branch "test" geändert; Production/main bleibt unverändert.
+const TEST_SUPABASE_URL = 'https://azssnqabyefqplnoehty.supabase.co';
+const TEST_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Dvhyq-ZL_5lPpkiPXN_fuQ_37eLGSv6';
+
+// Im TEST-Build ausschließlich die kanonischen TEST-Werte verwenden.
+// Die EXPO_PUBLIC_* Variablen bleiben als Dokumentation/Fallback für andere
+// Builds vorhanden, dürfen den TEST-Build aber nicht auf ein anderes Projekt
+// lenken.
+supabaseUrl = TEST_SUPABASE_URL;
+const supabaseAnonKey = TEST_SUPABASE_PUBLISHABLE_KEY || configuredKey;
+
 export const supabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
 if (!supabaseConfigured) {
   console.warn(
-    '[Supabase] EXPO_PUBLIC_SUPABASE_URL oder EXPO_PUBLIC_SUPABASE_KEY fehlt – ' +
-    'Auth-Funktionen sind deaktiviert (Gastmodus).',
+    '[Supabase] EXPO_PUBLIC_SUPABASE_URL oder öffentlicher Supabase-Key fehlt – ' +
+      'Auth-Funktionen sind deaktiviert (Gastmodus).',
   );
 }
 
-/**
- * Supabase-Client-Instanz oder null wenn nicht konfiguriert.
- * Hooks verwenden supabaseConfigured als Guard und casten sicher auf non-null.
- */
 export const supabase = supabaseConfigured
   ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
-        // AsyncStorage: funktioniert auf iOS, Android und Web (GitHub Pages PWA)
         storage: AsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
-        // detectSessionInUrl: false ist erforderlich für React Native / Expo
         detectSessionInUrl: false,
       },
     })
