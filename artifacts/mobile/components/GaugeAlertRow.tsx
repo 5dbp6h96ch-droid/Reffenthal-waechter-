@@ -15,12 +15,23 @@ export interface GaugeAlertRowProps {
   onSaveThreshold: (cm: number) => Promise<{ error: string | null }>;
 }
 
+type ForecastInfo = {
+  loading: boolean;
+  available: boolean;
+  value: number | null;
+  timestamp: string | null;
+};
+
+const PEGELONLINE_BASE = 'https://pegelonline.wsv.de/webservices/rest-api/v2';
+
 /**
  * Eine Zeile der Preferences-Liste.
  *
  * Jeder Rheinpegel kann unabhängig als persönliche Preference ausgewählt werden.
  * Die Auswahl wird in public.user_preferred_gauges gespeichert. Die Warnschwelle
  * bleibt davon getrennt und wird wie bisher in user_gauge_settings gespeichert.
+ * Für jeden ausgewählten Pegel wird zusätzlich die PEGELONLINE-WV-Vorhersage
+ * direkt an diesen Pegel gekoppelt, sofern eine WV-Zeitreihe vorhanden ist.
  */
 export function GaugeAlertRow({ gauge, setting, onToggle, onSaveThreshold }: GaugeAlertRowProps) {
   const colors = useColors();
@@ -31,6 +42,9 @@ export function GaugeAlertRow({ gauge, setting, onToggle, onSaveThreshold }: Gau
     setting?.alert_threshold_cm != null ? String(setting.alert_threshold_cm) : '',
   );
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [forecast, setForecast] = useState<ForecastInfo>({
+    loading: false, available: false, value: null, timestamp: null,
+  });
 
   useEffect(() => {
     if (setting?.alert_threshold_cm != null) setInputValue(String(setting.alert_threshold_cm));
@@ -64,6 +78,53 @@ export function GaugeAlertRow({ gauge, setting, onToggle, onSaveThreshold }: Gau
     void load();
     return () => { cancelled = true; };
   }, [gauge.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!selected) {
+      setForecast({ loading: false, available: false, value: null, timestamp: null });
+      return;
+    }
+    setForecast({ loading: true, available: false, value: null, timestamp: null });
+    void (async () => {
+      try {
+        const stationRes = await fetch(
+          `${PEGELONLINE_BASE}/stations/${encodeURIComponent(gauge.pegel_uuid)}.json?includeForecastTimeseries=true`,
+        );
+        if (!stationRes.ok) throw new Error(`HTTP ${stationRes.status}`);
+        const station = await stationRes.json() as {
+          timeseries?: Array<{ shortname?: string }>;
+        };
+        const hasWv = (station.timeseries ?? []).some((t) => t.shortname === 'WV');
+        if (!hasWv) {
+          if (!cancelled) setForecast({ loading: false, available: false, value: null, timestamp: null });
+          return;
+        }
+
+        const forecastRes = await fetch(
+          `${PEGELONLINE_BASE}/stations/${encodeURIComponent(gauge.pegel_uuid)}/WV/measurements.json`,
+        );
+        if (!forecastRes.ok) throw new Error(`HTTP ${forecastRes.status}`);
+        const rows = await forecastRes.json() as Array<{ value?: number; timestamp?: string }>;
+        const now = Date.now();
+        const next = rows
+          .filter((r) => r.timestamp && new Date(r.timestamp).getTime() >= now)
+          .sort((a, b) => new Date(a.timestamp!).getTime() - new Date(b.timestamp!).getTime())[0];
+
+        if (!cancelled) {
+          setForecast({
+            loading: false,
+            available: true,
+            value: next?.value != null ? Math.round(next.value) : null,
+            timestamp: next?.timestamp ?? null,
+          });
+        }
+      } catch {
+        if (!cancelled) setForecast({ loading: false, available: false, value: null, timestamp: null });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [gauge.pegel_uuid, selected]);
 
   const toggleSelected = async () => {
     if (!supabaseConfigured || !supabase) {
@@ -181,6 +242,20 @@ export function GaugeAlertRow({ gauge, setting, onToggle, onSaveThreshold }: Gau
               thumbColor={setting?.alert_enabled ? colors.primary : colors.mutedForeground}
             />
           </View>
+          <View style={styles.forecastRow}>
+            <Feather name="trending-up" size={13} color={forecast.available ? colors.safe : colors.mutedForeground} />
+            {forecast.loading ? (
+              <Text style={[styles.forecastText, { color: colors.mutedForeground }]}>Vorhersage wird geprüft …</Text>
+            ) : forecast.available ? (
+              <Text style={[styles.forecastText, { color: colors.safe }]}>
+                {forecast.value != null
+                  ? `Vorhersage: ${forecast.value} cm${forecast.timestamp ? ` · ${new Date(forecast.timestamp).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}`
+                  : 'Vorhersage verfügbar'}
+              </Text>
+            ) : (
+              <Text style={[styles.forecastText, { color: colors.mutedForeground }]}>Keine Vorhersage verfügbar</Text>
+            )}
+          </View>
           <Text style={[styles.selectedHint, { color: colors.mutedForeground }]}>Pegel ausgewählt · Warnung {setting?.alert_enabled ? 'AN' : 'AUS'}</Text>
         </>
       )}
@@ -202,6 +277,8 @@ const styles = StyleSheet.create({
   thresholdLabel: { fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular', flex: 1 },
   thresholdInput: { fontSize: 14, fontFamily: 'SpaceGrotesk_500Medium', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 7, borderWidth: 1, minWidth: 70, textAlign: 'center' },
   thresholdUnit: { fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular' },
+  forecastRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 34 },
+  forecastText: { fontSize: 10, fontFamily: 'SpaceGrotesk_500Medium', flex: 1 },
   selectedHint: { fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', paddingLeft: 34 },
   errorText: { fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular' },
 });
