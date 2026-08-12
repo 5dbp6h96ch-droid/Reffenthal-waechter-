@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Platform, View, Text, TouchableOpacity } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -261,6 +261,93 @@ const queryClient = new QueryClient({
   },
 });
 
+function InstallPrompt() {
+  const [visible, setVisible] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  const installPromptRef = React.useRef<any>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const nav = window.navigator as Navigator & { standalone?: boolean; maxTouchPoints?: number };
+    const ua = nav.userAgent || '';
+    const mobile = /iPhone|iPad|iPod|Android/i.test(ua) ||
+      ((nav.maxTouchPoints || 0) > 1 && window.innerWidth < 900);
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || nav.standalone === true;
+    if (!mobile || standalone) return;
+    setVisible(true);
+
+    const onBeforeInstallPrompt = (event: any) => {
+      event.preventDefault();
+      installPromptRef.current = event;
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+  }, []);
+
+  if (!visible || Platform.OS !== 'web') return null;
+
+  const ios = /iPhone|iPad|iPod/i.test(window.navigator.userAgent || '');
+
+  const handlePress = async () => {
+    const prompt = installPromptRef.current;
+    if (prompt) {
+      try {
+        await prompt.prompt();
+        await prompt.userChoice;
+        installPromptRef.current = null;
+        setVisible(false);
+        return;
+      } catch {}
+    }
+    setShowInfo(true);
+  };
+
+  return (
+    <>
+      <View style={{ position: 'absolute', left: 18, right: 18, bottom: 150, zIndex: 10000 }}>
+        <TouchableOpacity
+          onPress={handlePress}
+          activeOpacity={0.85}
+          style={{
+            backgroundColor: '#007AFF', borderRadius: 16, paddingVertical: 14,
+            paddingHorizontal: 18, alignItems: 'center',
+            shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 10, elevation: 8,
+          }}
+        >
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
+            Auf Smartphone installieren
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {showInfo && (
+        <View style={{
+          position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.32)', zIndex: 10001,
+          justifyContent: 'flex-end', padding: 18,
+        }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 24, padding: 22 }}>
+            <Text style={{ fontSize: 21, fontWeight: '700', color: '#111', marginBottom: 12 }}>
+              Auf dem Home-Bildschirm installieren
+            </Text>
+            <Text style={{ fontSize: 16, lineHeight: 24, color: '#555', marginBottom: 20 }}>
+              {ios
+                ? 'iPhone / iPad\n\n1. Tippe in Safari auf das Teilen-Symbol.\n2. Wähle „Zum Home-Bildschirm“.\n3. Tippe oben rechts auf „Hinzufügen“. '
+                : 'Android\n\n1. Öffne das Browser-Menü ⋮.\n2. Wähle „App installieren“ oder „Zum Startbildschirm hinzufügen“.\n3. Bestätige die Installation.'}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowInfo(false)}
+              style={{ backgroundColor: '#007AFF', borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}
+            >
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Verstanden</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </>
+  );
+}
+
 function RootLayoutNav() {
   return (
     <Stack>
@@ -303,6 +390,7 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <RootLayoutNav />
+              <InstallPrompt />
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>
