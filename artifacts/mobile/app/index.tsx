@@ -4,6 +4,15 @@ import { Feather } from '@expo/vector-icons';
 import OriginalHomeScreen from '@/components/OriginalHomeScreen';
 import { useAuth } from '@/hooks/useAuth';
 
+function clickExistingBottomTab(label: string) {
+  if (typeof document === 'undefined') return;
+  const candidates = Array.from(document.querySelectorAll<HTMLElement>('div,span,p'))
+    .filter((el) => el.textContent?.trim() === label)
+    .filter((el) => el.getBoundingClientRect().bottom > window.innerHeight - 140);
+  candidates.sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top);
+  candidates[0]?.click();
+}
+
 function LoggedInBottomNavOverlay() {
   const { user } = useAuth();
 
@@ -34,10 +43,7 @@ function LoggedInBottomNavOverlay() {
         }}
       >
         <TouchableOpacity
-          onPress={() => {
-            const el = document.querySelector('[data-rheinschiffer-tab="konto"]') as HTMLElement | null;
-            el?.click();
-          }}
+          onPress={() => clickExistingBottomTab('Konto')}
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 }}
         >
           <Feather name="user" size={26} color="#8E8E93" />
@@ -45,10 +51,7 @@ function LoggedInBottomNavOverlay() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => {
-            const el = document.querySelector('[data-rheinschiffer-tab="preferences"]') as HTMLElement | null;
-            el?.click();
-          }}
+          onPress={() => clickExistingBottomTab('Preferences')}
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 }}
         >
           <Feather name="sliders" size={26} color="#8E8E93" />
@@ -56,10 +59,7 @@ function LoggedInBottomNavOverlay() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => {
-            const el = document.querySelector('[data-rheinschiffer-tab="help"]') as HTMLElement | null;
-            el?.click();
-          }}
+          onPress={() => clickExistingBottomTab('Help')}
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 }}
         >
           <Feather name="help-circle" size={26} color="#8E8E93" />
