@@ -94,8 +94,8 @@ export function useAuth(): UseAuthResult {
       email,
       password,
       options: {
-        // Bestätigungs-Link leitet auf die GitHub-Pages-Test-URL zurück.
-        emailRedirectTo: 'https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/test/',
+        // Bestätigungs-Link leitet auf die echte Production-URL zurück.
+        emailRedirectTo: 'https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/',
         // Vorname + Nutzername in user_metadata – werden von useProfile
         // beim ersten Login in public.profiles übertragen.
         data: {
