@@ -1,0 +1,170 @@
+NUR TEST-BRANCH ÄNDERN.
+MAIN/PRODUCTION ABSOLUT NICHT ANFASSEN.
+
+Repository:
+5dbp6h96ch-droid/Reffenthal-waechter-
+
+Branch:
+test
+
+Datei:
+artifacts/mobile/components/OriginalHomeScreen.tsx
+
+WICHTIG:
+Es geht ausschließlich um diese beiden UI-Änderungen.
+Keine Daten-, Forecast-, Pegel-, Auth- oder sonstige Logik ändern.
+
+==================================================
+1. BOTTOM-NAVIGATION
+==================================================
+
+Aktuell ist der weiße Bereich der Bottom-Navigation deutlich zu hoch.
+
+ZIEL:
+Der weiße untere Bereich soll VIEL SCHMALER werden.
+
+Gleichzeitig sollen die drei Buttons:
+- Konto
+- Preferences
+- Help
+
+GRÖSSER und gut bedienbar bleiben.
+
+Die Button-/Icon-Größe NICHT wieder verkleinern.
+
+Gewünschtes Erscheinungsbild:
+- schlanke moderne App-Tab-Bar
+- große, gut erkennbare Icons
+- Labels gut lesbar
+- praktisch kein leerer Raum oberhalb oder unterhalb der Buttons
+- weißer Container nur so hoch wie unbedingt notwendig
+
+Aktuelle Button-Größe ungefähr beibehalten:
+- Icon ca. 18 px
+- Label ca. 10 px
+- Icon-Container ca. 36 × 28 px
+
+Aber:
+- äußere Bottom-Bar deutlich schmaler machen
+- unnötige Höhe des äußeren Containers entfernen
+- keine doppelte Safe-Area-Höhe
+- Safe-Area am unteren Rand weiterhin korrekt berücksichtigen
+
+WICHTIG:
+Nicht einfach nur BOTTOM_NAV_HEIGHT verändern.
+
+Untersuche zuerst die tatsächlich sichtbare View.
+
+Aktuell gibt es sinngemäß:
+
+height: BOTTOM_NAV_HEIGHT + botPad
+paddingBottom: botPad
+
+Prüfe, ob botPad dadurch doppelt berücksichtigt wird.
+
+Die sichtbare Navigation soll ungefähr nur aus:
+Button-Höhe + minimal notwendigem Abstand + tatsächlicher Safe-Area
+bestehen.
+
+Die drei Buttons müssen vollständig anklickbar bleiben.
+
+Die ScrollViews müssen weiterhin genügend bottom padding haben, damit
+Content nicht unter der Navigation verschwindet.
+
+==================================================
+2. GASTUSER – „ANMELDEN“-BUTTON VERSCHIEBEN
+==================================================
+
+Aktuell befindet sich oben rechts im Header ein schwebender:
+
+„Anmelden“
+
+Button.
+
+Diesen Button NICHT mehr oben rechts über dem Header anzeigen.
+
+Bei einem Gastbenutzer soll der „Anmelden“-Button stattdessen:
+
+DIREKT UNTERHALB DER PEGELSTAND-KACHEL
+
+angezeigt werden.
+
+Reihenfolge im Gastmodus:
+
+Logo / Titel
+↓
+Pegelstand-Kachel
+↓
+Anmelden-Button
+
+Der Anmelden-Button soll dabei sauber in das normale Layout integriert
+sein und NICHT über der Oberfläche schweben.
+
+WICHTIG:
+- Nur bei Gastbenutzern anzeigen.
+- Bei angemeldeten Benutzern nicht anzeigen.
+- Der Button muss weiterhin die bestehende Login-/Konto-Funktion auslösen.
+- Bestehende Auth-Logik NICHT ändern.
+- Nur die Position/Einbindung des vorhandenen Buttons ändern.
+
+Der Button soll optisch zur App passen:
+- unterhalb der Pegelkachel
+- horizontal sinnvoll ausgerichtet
+- ausreichender Abstand zur Kachel
+- keine absolute Positionierung über dem Header
+
+==================================================
+3. NICHT VERÄNDERN
+==================================================
+
+NICHT verändern:
+
+- PEGELONLINE
+- Pegel-UUIDs
+- Pegelauswahl
+- Forecast-GIFs
+- rheinForecastGifMap.ts
+- Vorhersage
+- Pegeltabelle
+- Preferences
+- „Mein Pegelort“
+- „Meine Pegelwarnungen“
+- Schwellenwerte
+- Karte
+- Supabase
+- Auth-Logik
+- Login-/Registrierungslogik
+- Bottom-Navigation-Funktionalität
+
+Nur das UI/Layout ändern.
+
+==================================================
+4. TEST-SICHERHEIT
+==================================================
+
+Vor Änderung:
+- tatsächliche Rendering-Stellen prüfen
+- nicht blind weitere Konstanten verändern
+
+Nach Änderung:
+1. TypeScript prüfen.
+2. Build prüfen.
+3. Diff prüfen.
+4. Sicherstellen, dass ausschließlich
+   artifacts/mobile/components/OriginalHomeScreen.tsx
+   geändert wurde.
+
+Nur auf test committen.
+
+KEIN:
+- Merge test → main
+- Rebase
+- Reset
+- Force-Push
+- Production-Deployment
+
+Nach Abschluss bitte:
+- Commit-SHA nennen
+- die tatsächlich verwendete Höhe der Bottom-Bar nennen
+- bestätigen, dass der Gast-„Anmelden“-Button jetzt direkt unterhalb
+  der Pegelstand-Kachel sitzt.
