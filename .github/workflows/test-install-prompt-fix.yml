@@ -1,0 +1,35 @@
+name: Test install prompt fix
+
+on:
+  push:
+    branches:
+      - test
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bump install prompt version key
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('artifacts/mobile/app/+html.tsx')
+          s = p.read_text()
+          old = 'rheinschiffer-install-v2'
+          new = 'rheinschiffer-install-v3'
+          if old not in s:
+              raise SystemExit('install prompt key not found')
+          p.write_text(s.replace(old, new))
+          PY
+      - name: Commit change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/mobile/app/+html.tsx
+          git commit -m 'chore(test): bump install prompt key'
+          git push origin test
