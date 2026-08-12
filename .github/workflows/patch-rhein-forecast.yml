@@ -1,4 +1,4 @@
-name: TEST patch Rhein forecast
+name: TEST patch Rhein forecast v2
 
 on:
   push:
