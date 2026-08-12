@@ -70,6 +70,110 @@ export default function Root({ children }: PropsWithChildren) {
 
         <ScrollViewStyleReset />
 
+        {/* Erstinstallation / Home-Bildschirm-Hinweis – nur Test/Web */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+(function () {
+  var installPrompt = null;
+  var installSeenKey = 'rheinschiffer-install-prompt-seen';
+  var isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+  var ua = window.navigator.userAgent || '';
+  var isMobile = /iPhone|iPad|iPod|Android/i.test(ua) ||
+    (window.navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua));
+
+  if (!isMobile || isStandalone) return;
+
+  window.addEventListener('beforeinstallprompt', function (event) {
+    event.preventDefault();
+    installPrompt = event;
+  });
+
+  function markSeen() {
+    try { localStorage.setItem(installSeenKey, '1'); } catch (_) {}
+  }
+
+  function alreadySeen() {
+    try { return localStorage.getItem(installSeenKey) === '1'; } catch (_) { return false; }
+  }
+
+  function showInstallPrompt() {
+    if (alreadySeen() || document.getElementById('rheinschiffer-install')) return;
+
+    var backdrop = document.createElement('div');
+    backdrop.id = 'rheinschiffer-install';
+    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.32);z-index:100000;display:flex;align-items:flex-end;justify-content:center;padding:18px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;';
+
+    var card = document.createElement('div');
+    card.style.cssText = 'width:min(100%,420px);background:#fff;border-radius:24px;padding:24px 20px 20px;box-shadow:0 12px 40px rgba(0,0,0,.24);box-sizing:border-box;';
+
+    var title = document.createElement('div');
+    title.textContent = 'R(h)einschiffer auf dem Smartphone';
+    title.style.cssText = 'font-size:21px;font-weight:700;color:#111;margin-bottom:8px;';
+
+    var text = document.createElement('div');
+    text.textContent = 'Installiere R(h)einschiffer auf deinem Home-Bildschirm für einen schnellen Zugriff.';
+    text.style.cssText = 'font-size:15px;line-height:1.45;color:#666;margin-bottom:18px;';
+
+    var installBtn = document.createElement('button');
+    installBtn.type = 'button';
+    installBtn.textContent = 'Auf Smartphone installieren';
+    installBtn.style.cssText = 'width:100%;border:0;background:#007AFF;color:#fff;border-radius:14px;padding:14px 16px;font-size:16px;font-weight:700;cursor:pointer;';
+
+    var laterBtn = document.createElement('button');
+    laterBtn.type = 'button';
+    laterBtn.textContent = 'Später';
+    laterBtn.style.cssText = 'width:100%;border:0;background:transparent;color:#777;border-radius:14px;padding:12px 16px 4px;font-size:15px;font-weight:500;cursor:pointer;';
+
+    function showInstructions() {
+      title.textContent = 'Auf dem Home-Bildschirm installieren';
+      if (/iPhone|iPad|iPod/i.test(ua) || (window.navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua))) {
+        text.innerHTML = '<b>iPhone / iPad:</b><br>1. Tippe in Safari auf das <b>Teilen-Symbol</b>.<br>2. Wähle <b>„Zum Home-Bildschirm“</b>.<br>3. Tippe oben rechts auf <b>„Hinzufügen“</b>.';
+      } else {
+        text.innerHTML = '<b>Android:</b><br>1. Öffne das Browser-Menü <b>⋮</b>.<br>2. Wähle <b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“</b>.<br>3. Bestätige die Installation.';
+      }
+      installBtn.remove();
+    }
+
+    installBtn.addEventListener('click', function () {
+      if (installPrompt) {
+        installPrompt.prompt();
+        installPrompt.userChoice.then(function () {
+          installPrompt = null;
+          markSeen();
+          backdrop.remove();
+        }).catch(function () {
+          installPrompt = null;
+          showInstructions();
+        });
+      } else {
+        showInstructions();
+      }
+    });
+
+    laterBtn.addEventListener('click', function () {
+      markSeen();
+      backdrop.remove();
+    });
+
+    card.appendChild(title);
+    card.appendChild(text);
+    card.appendChild(installBtn);
+    card.appendChild(laterBtn);
+    backdrop.appendChild(card);
+    document.body.appendChild(backdrop);
+  }
+
+  window.addEventListener('load', function () {
+    window.setTimeout(showInstallPrompt, 700);
+  });
+})();
+`,
+          }}
+        />
+
         {/* Service-Worker-Registrierung – nur im Browser (Web-Build) */}
         {/* eslint-disable-next-line @typescript-eslint/naming-convention */}
         <script
@@ -115,7 +219,7 @@ export default function Root({ children }: PropsWithChildren) {
     bar.id  = 'sw-update-bar';
     bar.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#007AFF;color:#fff;padding:12px 18px;border-radius:14px;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:14px;font-weight:500;z-index:99999;display:flex;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,0.28);white-space:nowrap;';
     var label = document.createElement('span');
-    label.textContent = '\uD83D\uDD04\u2009Neue Version verf\u00FCgbar';
+    label.textContent = '\\uD83D\\uDD04\\u2009Neue Version verf\\u00FCgbar';
     var btn = document.createElement('button');
     btn.textContent   = 'Aktualisieren';
     btn.style.cssText = 'background:rgba(255,255,255,0.22);border:none;color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;';
