@@ -1,9 +1,9 @@
 /**
  * useUserSettings.ts – Lesen und Schreiben von user_settings in Supabase
  *
- * Im TEST-Build wird die Auswahl zusätzlich lokal gespiegelt. Dadurch bleibt
- * die Pegelauswahl nach einem Reload erhalten, auch wenn das Test-Supabase-
- * Schema user_settings noch nicht bereitstellt.
+ * Die zuletzt gewählte Pegel-ID wird lokal gespiegelt und beim Laden
+ * vorrangig verwendet. Dadurch bleibt die Auswahl auch nach einem
+ * Reload/App-Neustart erhalten.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -51,10 +51,14 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
       setSettings(null);
       return;
     }
+
+    const localSettings = await readLocalSettings(userId);
+
     if (!supabaseConfigured || !supabase) {
-      setSettings(await readLocalSettings(userId));
+      setSettings(localSettings);
       return;
     }
+
     setLoading(true);
     setError(null);
     const { data, error: fetchError } = await supabase
@@ -65,9 +69,12 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
 
     if (fetchError) {
       setError(fetchError.message);
-      setSettings(await readLocalSettings(userId));
+      setSettings(localSettings);
+    } else if (localSettings?.selected_gauge_id) {
+      // Lokale Auswahl hat Vorrang vor einem veralteten Server-Default.
+      setSettings({ ...data, ...localSettings, user_id: userId });
     } else {
-      setSettings(data ?? await readLocalSettings(userId));
+      setSettings(data ?? null);
     }
     setLoading(false);
   }, [userId, readLocalSettings]);
@@ -78,6 +85,7 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
 
   const updateSettings = useCallback(async (update: UserSettingsUpdate) => {
     if (!userId) return { error: 'Kein Nutzer angemeldet' };
+
     if (update.selected_gauge_id) {
       try {
         await AsyncStorage.setItem(LOCAL_SELECTED_GAUGE_KEY, update.selected_gauge_id);
@@ -85,6 +93,7 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
         // Lokaler Fallback darf den eigentlichen Auswahlvorgang nicht blockieren.
       }
     }
+
     if (!supabaseConfigured || !supabase) return { error: null };
 
     const payload = {
@@ -100,11 +109,13 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
       .single() as unknown as Promise<{ data: UserSettings | null; error: { message: string } | null }>);
 
     if (upsertError) {
-      const local = await readLocalSettings(userId);
-      setSettings(local);
+      setSettings(await readLocalSettings(userId));
       return { error: upsertError.message };
     }
-    setSettings(data);
+
+    // Die gerade ausgewählte Pegel-ID bleibt lokal maßgeblich.
+    const local = await readLocalSettings(userId);
+    setSettings(local ? { ...data, ...local, user_id: userId } : data);
     return { error: null };
   }, [userId, readLocalSettings]);
 
