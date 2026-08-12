@@ -15,13 +15,6 @@ type ForecastPoint = {
   type?: 'forecast' | 'estimate' | string;
 };
 
-type Station = {
-  uuid?: string;
-  number?: string;
-  shortname?: string;
-  timeseries?: Array<{ shortname?: string }>;
-};
-
 const BASE = 'https://pegelonline.wsv.de/webservices/rest-api/v2';
 
 function formatForecastTime(iso: string): string {
@@ -35,31 +28,13 @@ async function fetchJson<T>(url: string): Promise<T> {
   return await res.json() as T;
 }
 
-async function resolveStation(stationId: string, stationName: string | null): Promise<string> {
-  // Normalfall: die aus PEGELONLINE stammende UUID direkt verwenden.
-  try {
-    await fetchJson(`${BASE}/stations/${encodeURIComponent(stationId)}.json`);
-    return stationId;
-  } catch {
-    // TEST-Fallback: unsere lokale Fallback-Liste kann eine andere UUID enthalten.
-  }
-
-  if (!stationName) throw new Error('Pegelstation konnte nicht aufgeloest werden');
-  const stations = await fetchJson<Station[]>(
-    `${BASE}/stations.json?waters=RHEIN&includeTimeseries=true&search=${encodeURIComponent(stationName)}`,
+async function loadForecast(stationId: string) {
+  // PEGELONLINE UUID ist die eindeutige, unveränderliche Stations-ID.
+  // Es gibt bewusst KEINEN Fallback über den Pegelnamen.
+  const raw = await fetchJson<ForecastPoint[]>(
+    `${BASE}/stations/${encodeURIComponent(stationId)}/WV/measurements.json`,
   );
-  const wanted = stationName.trim().toLowerCase();
-  const match = stations.find(s =>
-    typeof s.uuid === 'string' && typeof s.shortname === 'string' && s.shortname.trim().toLowerCase() === wanted,
-  ) ?? stations.find(s => typeof s.uuid === 'string' && typeof s.shortname === 'string');
 
-  if (!match?.uuid) throw new Error('Pegelstation bei PEGELONLINE nicht gefunden');
-  return match.uuid;
-}
-
-async function loadForecast(stationId: string, stationName: string | null) {
-  const resolvedId = await resolveStation(stationId, stationName);
-  const raw = await fetchJson<ForecastPoint[]>(`${BASE}/stations/${encodeURIComponent(resolvedId)}/WV/measurements.json`);
   const data = raw
     .filter(p => p && typeof p.timestamp === 'string')
     .map(p => ({ ...p, value: Number(p.value) }))
@@ -67,24 +42,24 @@ async function loadForecast(stationId: string, stationName: string | null) {
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
     .filter(p => new Date(p.timestamp).getTime() >= Date.now() - 60 * 60 * 1000)
     .slice(0, 10);
-  return { data, resolvedId };
+
+  return { data, resolvedId: stationId };
 }
 
 export default function RheinGaugeForecast({ stationId, stationName }: RheinGaugeForecastProps) {
   const colors = useColors();
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['rheingauge-forecast', stationId, stationName],
+    queryKey: ['rheingauge-forecast', stationId],
     enabled: stationId != null,
-    queryFn: () => loadForecast(stationId as string, stationName),
+    queryFn: () => loadForecast(stationId as string),
     staleTime: 5 * 60_000,
     refetchInterval: 15 * 60_000,
     retry: 1,
   });
 
   const openPegelOnline = () => {
-    const id = data?.resolvedId ?? stationId;
-    if (!id) return;
-    void Linking.openURL(`${BASE}/stations/${encodeURIComponent(id)}.json?includeForecastTimeseries=true`);
+    if (!stationId) return;
+    void Linking.openURL(`${BASE}/stations/${encodeURIComponent(stationId)}.json?includeForecastTimeseries=true`);
   };
 
   if (!stationId) {
