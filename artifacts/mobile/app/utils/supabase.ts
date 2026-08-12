@@ -14,8 +14,13 @@ import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Database } from '../types/database';
 
-// Trailing slash entfernen falls vorhanden
-const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
+// Trailing slash entfernen falls vorhanden.
+// TEST-FIX: In der Cloudflare-Test-Umgebung wurde die Supabase-Domain einmal
+// mit .supabase.cc statt .supabase.co hinterlegt. Supabase-Projekt-URLs
+// verwenden .supabase.co; die Korrektur bleibt hier bewusst defensiv und
+// betrifft ausschließlich eine fehlerhafte Endung der öffentlichen URL.
+const rawSupabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
+const supabaseUrl = rawSupabaseUrl.replace(/\.supabase\.cc$/i, '.supabase.co');
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY ?? '';
 
 /**
