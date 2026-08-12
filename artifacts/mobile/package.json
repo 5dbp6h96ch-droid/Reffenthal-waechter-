@@ -15,7 +15,7 @@
     "@expo/cli": "54.0.23",
     "@expo/ngrok": "^4.1.0",
     "@expo/vector-icons": "^15.0.3",
-    "@stardazed/streams-text-encoding": "^1.0.0",
+    "@stardazed/streams-text-encoding": "^1.0.2",
     "@tanstack/react-query": "catalog:",
     "@types/leaflet": "^1.9.22",
     "@types/react": "~19.1.10",
