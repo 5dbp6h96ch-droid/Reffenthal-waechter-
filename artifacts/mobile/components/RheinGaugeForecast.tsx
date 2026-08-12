@@ -11,52 +11,88 @@ export interface RheinGaugeForecastProps {
 
 type ForecastPoint = {
   timestamp: string;
-  value: number;
+  value: number | string;
   type?: 'forecast' | 'estimate' | string;
-  initialized?: string;
 };
 
-const BASE = 'https://pegelonline.wsv.de/webservices/rest-api/v2/stations';
+type Station = {
+  uuid?: string;
+  number?: string;
+  shortname?: string;
+  timeseries?: Array<{ shortname?: string }>;
+};
+
+const BASE = 'https://pegelonline.wsv.de/webservices/rest-api/v2';
 
 function formatForecastTime(iso: string): string {
   const d = new Date(iso);
   return `${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} · ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`PEGELONLINE HTTP ${res.status}`);
+  return await res.json() as T;
+}
+
+async function resolveStation(stationId: string, stationName: string | null): Promise<string> {
+  // Normalfall: die aus PEGELONLINE stammende UUID direkt verwenden.
+  try {
+    await fetchJson(`${BASE}/stations/${encodeURIComponent(stationId)}.json`);
+    return stationId;
+  } catch {
+    // TEST-Fallback: unsere lokale Fallback-Liste kann eine andere UUID enthalten.
+  }
+
+  if (!stationName) throw new Error('Pegelstation konnte nicht aufgeloest werden');
+  const stations = await fetchJson<Station[]>(
+    `${BASE}/stations.json?waters=RHEIN&includeTimeseries=true&search=${encodeURIComponent(stationName)}`,
+  );
+  const wanted = stationName.trim().toLowerCase();
+  const match = stations.find(s =>
+    typeof s.uuid === 'string' && typeof s.shortname === 'string' && s.shortname.trim().toLowerCase() === wanted,
+  ) ?? stations.find(s => typeof s.uuid === 'string' && typeof s.shortname === 'string');
+
+  if (!match?.uuid) throw new Error('Pegelstation bei PEGELONLINE nicht gefunden');
+  return match.uuid;
+}
+
+async function loadForecast(stationId: string, stationName: string | null) {
+  const resolvedId = await resolveStation(stationId, stationName);
+  const raw = await fetchJson<ForecastPoint[]>(`${BASE}/stations/${encodeURIComponent(resolvedId)}/WV/measurements.json`);
+  const data = raw
+    .filter(p => p && typeof p.timestamp === 'string')
+    .map(p => ({ ...p, value: Number(p.value) }))
+    .filter(p => Number.isFinite(p.value))
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    .filter(p => new Date(p.timestamp).getTime() >= Date.now() - 60 * 60 * 1000)
+    .slice(0, 10);
+  return { data, resolvedId };
+}
+
 export default function RheinGaugeForecast({ stationId, stationName }: RheinGaugeForecastProps) {
   const colors = useColors();
-
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['rheingauge-forecast', stationId],
+    queryKey: ['rheingauge-forecast', stationId, stationName],
     enabled: stationId != null,
-    queryFn: async () => {
-      const res = await fetch(`${BASE}/${stationId}/WV/measurements.json`);
-      if (!res.ok) throw new Error(`PEGELONLINE WV HTTP ${res.status}`);
-      const raw = await res.json() as ForecastPoint[];
-      return raw
-        .filter(p => p && typeof p.timestamp === 'string' && typeof p.value === 'number')
-        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-        .filter(p => new Date(p.timestamp).getTime() >= Date.now() - 60 * 60 * 1000)
-        .slice(0, 10);
-    },
+    queryFn: () => loadForecast(stationId as string, stationName),
     staleTime: 5 * 60_000,
     refetchInterval: 15 * 60_000,
     retry: 1,
   });
 
   const openPegelOnline = () => {
-    if (!stationId) return;
-    void Linking.openURL(`${BASE}/${stationId}.json?includeForecastTimeseries=true`);
+    const id = data?.resolvedId ?? stationId;
+    if (!id) return;
+    void Linking.openURL(`${BASE}/stations/${encodeURIComponent(id)}.json?includeForecastTimeseries=true`);
   };
 
   if (!stationId) {
     return <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>Kein Pegel ausgewählt.</Text>;
   }
-
   if (isLoading) {
     return <ActivityIndicator color={colors.primary} style={{ paddingVertical: 20 }} />;
   }
-
   if (isError) {
     return (
       <View style={{ alignItems: 'center', gap: 8, paddingVertical: 18 }}>
@@ -64,23 +100,21 @@ export default function RheinGaugeForecast({ stationId, stationName }: RheinGaug
         <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: 'center' }}>
           Für {stationName ?? 'diesen Pegel'} ist derzeit keine PEGELONLINE-Wasserstandvorhersage verfügbar.
         </Text>
-        <TouchableOpacity onPress={openPegelOnline} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+        <TouchableOpacity onPress={openPegelOnline} activeOpacity={0.7}>
           <Text style={{ color: colors.primary, fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium' }}>PEGELONLINE öffnen</Text>
-          <Feather name="external-link" size={12} color={colors.primary} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => void refetch()} activeOpacity={0.7} style={{ marginTop: 2 }}>
+        <TouchableOpacity onPress={() => void refetch()} activeOpacity={0.7}>
           <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>Erneut prüfen</Text>
         </TouchableOpacity>
       </View>
     );
   }
-
-  if (!data?.length) {
+  if (!data?.data.length) {
     return (
       <View style={{ alignItems: 'center', gap: 8, paddingVertical: 18 }}>
         <Feather name="clock" size={18} color={colors.mutedForeground} />
         <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: 'center' }}>
-          Vorhersage für {stationName ?? 'diesen Pegel'} vorhanden, aber aktuell ohne zukünftige Werte.
+          Für {stationName ?? 'diesen Pegel'} sind aktuell keine zukünftigen Vorhersagewerte vorhanden.
         </Text>
         <TouchableOpacity onPress={openPegelOnline} activeOpacity={0.7}>
           <Text style={{ color: colors.primary, fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium' }}>PEGELONLINE öffnen</Text>
@@ -101,7 +135,7 @@ export default function RheinGaugeForecast({ stationId, stationName }: RheinGaug
         </TouchableOpacity>
       </View>
       <View style={{ gap: 6 }}>
-        {data.map((p, i) => (
+        {data.data.map((p, i) => (
           <View key={`${p.timestamp}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.muted, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
               <Feather name={p.type === 'estimate' ? 'help-circle' : 'trending-up'} size={13} color={colors.primary} />
@@ -114,7 +148,6 @@ export default function RheinGaugeForecast({ stationId, stationName }: RheinGaug
       <Text style={{ color: colors.mutedForeground, fontSize: 9, opacity: 0.8 }}>
         Quelle: PEGELONLINE · WV (Wasserstandvorhersage)
       </Text>
-      {/* test trigger */}
     </View>
   );
 }
