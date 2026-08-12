@@ -1,0 +1,78 @@
+NUR TEST-BRANCH ÄNDERN.
+MAIN/PRODUCTION ABSOLUT NICHT ANFASSEN.
+
+Repository:
+5dbp6h96ch-droid/Reffenthal-waechter-
+
+Branch:
+test
+
+Datei:
+artifacts/mobile/components/OriginalHomeScreen.tsx
+
+ÄNDERUNG:
+Die Bottom-Navigation mit „Konto“, „Preferences“ und „Info/Help“ soll optisch neu ausbalanciert werden.
+
+AKTUELL:
+Die Bottom-Bar ist zwar bereits auf 38 px reduziert, aber die drei Buttons wirken dadurch zu klein.
+
+ZIEL:
+Die drei Buttons/Tab-Elemente sollen wieder etwas größer und besser bedienbar sein, während der gesamte untere Bereich trotzdem möglichst schmal bleibt.
+
+Bitte ungefähr diese Werte verwenden:
+
+- BOTTOM_NAV_HEIGHT: ca. 42 px
+- paddingTop: 0
+- Icon-Container: ca. 34 × 26 px
+- Icon-Größe: ca. 17–18 px
+- Label-Schriftgröße: 9–10 px
+- Abstand Icon → Label: 1–2 px
+- Keine unnötigen vertikalen Leerflächen.
+- Der untere Balken soll nur so hoch sein, dass die drei Buttons sauber und komfortabel hineinpassen.
+- Safe-Area unten unbedingt erhalten.
+- Alle drei Tabs müssen vollständig anklickbar bleiben.
+- Konto, Preferences und Info/Help bleiben funktional.
+
+OPTISCHES ZIEL:
+Nicht wieder einen hohen, dicken unteren Block erzeugen.
+Die Navigation soll wie eine schlanke moderne App-Tab-Bar wirken:
+größere Buttons/Icons, aber möglichst wenig leerer Raum darüber und darunter.
+
+WICHTIG:
+Nur die Bottom-Navigation optisch ändern.
+
+NICHT verändern:
+- Forecast-GIF-Logik
+- Pegel
+- Pegeltabelle
+- rheinForecastGifMap.ts
+- PEGELONLINE
+- Preferences-Inhalte
+- Mein Pegelort
+- Meine Pegelwarnungen
+- Schwellenwert-Logik
+- Supabase
+- Authentifizierung
+- Karte
+- Home-Funktionalität
+- Navigation-Funktionalität
+
+Vor dem Commit:
+1. TypeScript prüfen.
+2. Build prüfen.
+3. Diff prüfen.
+4. Sicherstellen, dass ausschließlich
+   artifacts/mobile/components/OriginalHomeScreen.tsx
+   geändert wurde.
+
+Nur auf test committen.
+
+KEIN:
+- Merge test → main
+- Rebase
+- Reset
+- Force-Push
+- Production-Deployment
+
+Nach Abschluss bitte Commit-SHA und die tatsächlich verwendeten Werte für
+BOTTOM_NAV_HEIGHT, Icon-Größe und Icon-Container ausgeben.
