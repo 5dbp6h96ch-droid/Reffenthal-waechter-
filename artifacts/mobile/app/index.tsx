@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Image as RNImage, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import OriginalHomeScreen from '@/components/OriginalHomeScreen';
 import { useAuth } from '@/hooks/useAuth';
 import { useGauges } from '@/hooks/useGauges';
