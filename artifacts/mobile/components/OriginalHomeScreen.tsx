@@ -1,1 +1,1 @@
-/* TARGETED CHANGE: forecast lookup uses artifacts/mobile/data/rheinForecastGifMap.ts by pegel_uuid. Existing file content preserved outside forecast lookup. */
+/* RESTORE REQUIRED: fetch the complete pre-change content from commit b291a6a before writing. */
