@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { supabase, supabaseConfigured } from '@/app/utils/supabase';
 import { useColors } from '@/hooks/useColors';
 
-const TEST_ORIGIN = 'https://rheinschiffer-test.pages.dev';
+const TEST_RESET_URL = 'https://rheinschiffer-test.pages.dev/reset-password';
 const PUSH_TOKEN_TABLE = 'push_tokens';
 
 async function registerPushToken(userId: string): Promise<string | null> {
@@ -40,7 +40,8 @@ async function registerPushToken(userId: string): Promise<string | null> {
   if (!expoPushToken) return null;
 
   const platform = Platform.OS === 'ios' ? 'ios' : 'android';
-  const { error } = await supabase.from(PUSH_TOKEN_TABLE).upsert(
+  const client = supabase as any; // test-only table is not in the production Database type
+  const { error } = await client.from(PUSH_TOKEN_TABLE).upsert(
     {
       user_id: userId,
       expo_push_token: expoPushToken,
@@ -60,6 +61,7 @@ export default function TestAuthPanel() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
@@ -109,13 +111,34 @@ export default function TestAuthPanel() {
     }
   };
 
+  const sendReset = async () => {
+    if (!supabaseConfigured || !supabase) {
+      setMessage('Test-Supabase ist in diesem Build nicht konfiguriert.');
+      return;
+    }
+    if (!email.trim()) {
+      setMessage('Bitte zuerst die registrierte E-Mail-Adresse eingeben.');
+      return;
+    }
+    setResetLoading(true);
+    setMessage(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: TEST_RESET_URL,
+    });
+    setResetLoading(false);
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    setMessage('Reset-Mail wurde an die angegebene E-Mail-Adresse gesendet. Bitte Posteingang und Spam prüfen.');
+  };
+
   const logout = async () => {
     if (supabase) await supabase.auth.signOut();
     setUserEmail(null);
   };
 
-  const sendReset = () => {
-    setOpen(false);
+  const openResetPage = () => {
     router.push('/reset-password');
   };
 
@@ -205,14 +228,14 @@ export default function TestAuthPanel() {
                   />
                 </View>
 
-                <TouchableOpacity onPress={sendReset} activeOpacity={0.7} style={{ alignSelf: 'flex-start' }}>
+                <TouchableOpacity onPress={() => void sendReset()} activeOpacity={0.7} disabled={resetLoading} style={{ alignSelf: 'flex-start' }}>
                   <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.primary }}>
-                    Passwort vergessen?
+                    {resetLoading ? 'Reset-Mail wird gesendet …' : 'Passwort vergessen?'}
                   </Text>
                 </TouchableOpacity>
 
                 {message && (
-                  <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular', color: colors.destructive }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular', color: message.includes('gesendet') ? colors.safe : colors.destructive }}>
                     {message}
                   </Text>
                 )}
@@ -221,6 +244,12 @@ export default function TestAuthPanel() {
                   {loading ? <ActivityIndicator color={colors.primaryForeground} /> : <Text style={{ fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.primaryForeground }}>Anmelden</Text>}
                 </TouchableOpacity>
               </>
+            )}
+
+            {!userEmail && message?.includes('gesendet') && (
+              <TouchableOpacity onPress={openResetPage} style={{ alignSelf: 'center', padding: 4 }}>
+                <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium', color: colors.mutedForeground }}>Reset-Seite öffnen</Text>
+              </TouchableOpacity>
             )}
           </View>
         </View>
