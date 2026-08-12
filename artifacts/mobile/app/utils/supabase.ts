@@ -17,22 +17,25 @@ const configuredKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
   '';
 
-// TEST-ONLY fallback: Die Cloudflare-Testvariablen enthalten aktuell eine
-// falsche Projekt-URL bzw. einen unvollständigen Publishable Key. Der echte
-// Test-Projekt-Ref lautet azssnqabyefqplnoehty. Diese Werte sind öffentlich
-// und ersetzen niemals einen service_role/Secret Key.
+// TEST-ONLY fallback: Der Cloudflare-Test-Build darf ausschließlich das
+// bekannte TEST-Supabase-Projekt verwenden. Damit bleibt der Test-Build
+// funktionsfähig, selbst wenn in Cloudflare eine alte/falsch eingetragene
+// Test-URL oder ein alter öffentlicher Key hinterlegt ist.
 const TEST_SUPABASE_URL = 'https://azssnqabyefqplnoehty.supabase.co';
 const TEST_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Dvhyq-ZL_5lPpkiPXN_fuQ_37eLGSv6';
 
-const looksLikeBrokenTestUrl =
+const isTestProjectUrl =
   /azssnqabyefq(?:pinoeht|plnoehty)\.supabase\.co$/i.test(supabaseUrl) ||
   /azssnqabyefq(?:pinoeht|plnoehty)\.supabase\.cc$/i.test(rawSupabaseUrl);
 
-if (looksLikeBrokenTestUrl) {
+// Bei einem erkennbaren TEST-Projekt immer die kanonischen TEST-Werte nutzen.
+// Das verhindert insbesondere "Load failed" durch einen alten/abgeschnittenen
+// Publishable Key in den Cloudflare-Variablen.
+if (isTestProjectUrl) {
   supabaseUrl = TEST_SUPABASE_URL;
 }
 
-const supabaseAnonKey = looksLikeBrokenTestUrl
+const supabaseAnonKey = isTestProjectUrl
   ? TEST_SUPABASE_PUBLISHABLE_KEY
   : configuredKey;
 
