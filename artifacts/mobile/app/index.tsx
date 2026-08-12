@@ -6,7 +6,7 @@ import { useGauges } from '@/hooks/useGauges';
 import { useUserSettings } from '@/hooks/useUserSettings';
 
 // PEGELONLINE UUID -> official HVZ-BW station ID.
-// The UUID is the only app-side key; the HVZ ID is the target GIF identifier.
+// Only these four stations have a verified direct HVZ GIF mapping in TEST.
 const HVZ_GIF_BY_PEGEL_UUID: Record<string, string> = {
   'b6c6d5c8-e2d5-4469-8dd8-fa972ef7eaea': '09016', // Maxau / Rhein
   '2cb8ae5b-c5c9-4fa8-bac0-bb724f2754f4': '09017', // Speyer / Rhein
@@ -26,9 +26,10 @@ function ForecastDomBridge({ stationId }: { stationId: string | null }) {
       : null;
 
     const createForecastImage = () => {
+      if (!gifUrl) return null;
       const img = document.createElement('img');
       img.setAttribute('data-rhein-hvz-forecast', 'true');
-      img.src = gifUrl!;
+      img.src = gifUrl;
       img.alt = 'Wasserstand Vorhersage';
       img.style.width = '100%';
       img.style.height = 'auto';
@@ -46,56 +47,40 @@ function ForecastDomBridge({ stationId }: { stationId: string | null }) {
       wrapper.style.textAlign = 'center';
       wrapper.style.color = '#999';
       wrapper.style.fontSize = '16px';
-      wrapper.textContent = 'Für diesen Pegel ist derzeit keine HVZ-Vorhersage hinterlegt.';
+      wrapper.textContent = 'Für diesen Pegel ist derzeit keine direkte HVZ-Vorhersage hinterlegt.';
       return wrapper;
     };
 
-    const clearPreviousForecast = () => {
+    const replaceForecastAreas = () => {
       const areas = Array.from(
         document.querySelectorAll<HTMLElement>('[data-rhein-forecast-area="true"]'),
       );
       for (const area of areas) {
-        area.replaceChildren(gifUrl ? createForecastImage() : createUnavailableMessage());
+        const image = createForecastImage();
+        area.replaceChildren(image ?? createUnavailableMessage());
       }
 
-      // Also remove any previously injected forecast image that is not inside a marked area.
-      if (!gifUrl) {
-        const images = Array.from(
-          document.querySelectorAll('img[data-rhein-hvz-forecast="true"]'),
-        );
-        for (const img of images) img.replaceWith(createUnavailableMessage());
-      }
-    };
-
-    const replaceForecast = () => {
-      // No mapping: never leave the previous station's GIF visible.
-      if (!gifUrl) {
-        clearPreviousForecast();
-        return;
-      }
-
-      // Replace only our forecast image, never arbitrary images on the page.
+      // Remove every previously injected forecast image when the selected UUID
+      // has no verified mapping. Never let Maxau (or any other station) survive.
       const images = Array.from(
         document.querySelectorAll<HTMLImageElement>('img[data-rhein-hvz-forecast="true"]'),
       );
-      for (const img of images) img.setAttribute('src', gifUrl);
-
-      // Replace an existing HVZ GIF only when it is already inside the forecast area.
-      const hvzImages = Array.from(document.images).filter((img) =>
-        img.src.includes('hvz.baden-wuerttemberg.de/gifs/') &&
-        img.closest('[data-rhein-forecast-area="true"]'),
-      );
-      for (const img of hvzImages) {
-        img.src = gifUrl;
-        img.setAttribute('data-rhein-hvz-forecast', 'true');
+      if (!gifUrl) {
+        for (const img of images) img.replaceWith(createUnavailableMessage());
+      } else {
+        for (const img of images) img.src = gifUrl;
       }
+    };
 
-      // If the existing UI says no HVZ forecast is available, replace that forecast area.
+    const markAndReplaceExistingForecastMessage = () => {
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       const targets: HTMLElement[] = [];
       while (walker.nextNode()) {
         const node = walker.currentNode as Text;
-        if (node.data.includes('nicht im HVZ-BW-Gebiet verfügbar.')) {
+        if (
+          node.data.includes('nicht im HVZ-BW-Gebiet verfügbar.') ||
+          node.data.includes('keine HVZ-Vorhersage')
+        ) {
           const el = node.parentElement;
           if (el && !el.closest('[data-rhein-forecast-area="true"]')) targets.push(el);
         }
@@ -104,18 +89,21 @@ function ForecastDomBridge({ stationId }: { stationId: string | null }) {
         const parent = target.parentElement;
         if (!parent) continue;
         parent.setAttribute('data-rhein-forecast-area', 'true');
-        parent.replaceChildren(createForecastImage());
+        const image = createForecastImage();
+        parent.replaceChildren(image ?? createUnavailableMessage());
       }
     };
 
-    // Clear/replace immediately when the selected PEGELONLINE UUID changes,
-    // before observing further DOM mutations. This prevents the previous station
-    // (e.g. Maxau) from being shown for the newly selected station.
-    clearPreviousForecast();
+    // IMPORTANT: do not scan or replace arbitrary images. On station changes,
+    // first clear our own forecast nodes so a previous station can never remain.
+    replaceForecastAreas();
+    markAndReplaceExistingForecastMessage();
 
-    const observer = new MutationObserver(replaceForecast);
+    const observer = new MutationObserver(() => {
+      replaceForecastAreas();
+      markAndReplaceExistingForecastMessage();
+    });
     observer.observe(document.body, { childList: true, subtree: true });
-    replaceForecast();
     return () => observer.disconnect();
   }, [stationId]);
 
