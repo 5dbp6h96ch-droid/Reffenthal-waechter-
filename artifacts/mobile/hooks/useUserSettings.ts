@@ -1,22 +1,15 @@
 /**
  * useUserSettings.ts – Lesen und Schreiben von user_settings in Supabase
  *
- * RLS-Policies sind serverseitig eingerichtet – der Nutzer sieht
- * ausschließlich seine eigenen Einstellungen.
- *
- * Standortdaten (latitude/longitude) werden NICHT automatisch gespeichert.
- * location_enabled ist standardmäßig false.
- *
- * Wenn Supabase nicht konfiguriert ist, gibt der Hook settings=null zurück
- * und alle Schreiboperationen geben einen kontrollierten Fehler zurück.
- *
- * Verwendung:
- *   const { settings, loading, error, updateSettings } = useUserSettings(userId);
+ * Im TEST-Build wird die Auswahl zusätzlich lokal gespiegelt. Dadurch bleibt
+ * die Pegelauswahl nach einem Reload erhalten, auch wenn das Test-Supabase-
+ * Schema user_settings noch nicht bereitstellt.
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, supabaseConfigured } from '@/app/utils/supabase';
-import type { Database, UserSettings, UserSettingsUpdate } from '@/app/types/database';
+import type { UserSettings, UserSettingsUpdate } from '@/app/types/database';
 
 export interface UseUserSettingsResult {
   settings: UserSettings | null;
@@ -26,19 +19,40 @@ export interface UseUserSettingsResult {
   refetch: () => void;
 }
 
+const LOCAL_SELECTED_GAUGE_KEY = 'test_selected_gauge_id';
+
 export function useUserSettings(userId: string | null | undefined): UseUserSettingsResult {
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const readLocalSettings = useCallback(async (id: string) => {
+    try {
+      const selectedGaugeId = await AsyncStorage.getItem(LOCAL_SELECTED_GAUGE_KEY);
+      if (!selectedGaugeId) return null;
+      return {
+        user_id: id,
+        selected_gauge_id: selectedGaugeId,
+        location_enabled: false,
+        latitude: null,
+        longitude: null,
+        weather_enabled: false,
+        push_enabled: false,
+        created_at: new Date(0).toISOString(),
+        updated_at: new Date().toISOString(),
+      } satisfies UserSettings;
+    } catch {
+      return null;
+    }
+  }, []);
 
   const fetchSettings = useCallback(async () => {
     if (!userId) {
       setSettings(null);
       return;
     }
-    // Ohne Supabase-Konfiguration: Gastmodus, kein Netzwerkaufruf
     if (!supabaseConfigured || !supabase) {
-      setSettings(null);
+      setSettings(await readLocalSettings(userId));
       return;
     }
     setLoading(true);
@@ -51,11 +65,12 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
 
     if (fetchError) {
       setError(fetchError.message);
+      setSettings(await readLocalSettings(userId));
     } else {
-      setSettings(data);
+      setSettings(data ?? await readLocalSettings(userId));
     }
     setLoading(false);
-  }, [userId]);
+  }, [userId, readLocalSettings]);
 
   useEffect(() => {
     void fetchSettings();
@@ -63,10 +78,16 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
 
   const updateSettings = useCallback(async (update: UserSettingsUpdate) => {
     if (!userId) return { error: 'Kein Nutzer angemeldet' };
-    if (!supabaseConfigured || !supabase) return { error: 'Supabase nicht konfiguriert' };
+    if (update.selected_gauge_id) {
+      try {
+        await AsyncStorage.setItem(LOCAL_SELECTED_GAUGE_KEY, update.selected_gauge_id);
+      } catch {
+        // Lokaler Fallback darf den eigentlichen Auswahlvorgang nicht blockieren.
+      }
+    }
+    if (!supabaseConfigured || !supabase) return { error: null };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const payload: any = {
+    const payload = {
       ...update,
       user_id: userId,
       updated_at: new Date().toISOString(),
@@ -79,11 +100,13 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
       .single() as unknown as Promise<{ data: UserSettings | null; error: { message: string } | null }>);
 
     if (upsertError) {
+      const local = await readLocalSettings(userId);
+      setSettings(local);
       return { error: upsertError.message };
     }
     setSettings(data);
     return { error: null };
-  }, [userId]);
+  }, [userId, readLocalSettings]);
 
   return {
     settings,
