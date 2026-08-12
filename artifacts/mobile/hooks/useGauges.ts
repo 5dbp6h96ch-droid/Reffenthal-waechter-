@@ -9,7 +9,10 @@ import type { Gauge } from '@/app/types/database';
 
 const PEGELONLINE_URL = 'https://pegelonline.wsv.de/webservices/rest-api/v2/stations.json?waters=RHEIN&includeTimeseries=true&includeForecastTimeseries=true';
 
+// TEST fallback: keep the currently supported Rhein forecast stations available
+// even when PEGELONLINE is temporarily unreachable. IDs are PEGELONLINE UUIDs.
 const TEST_GAUGE_FALLBACK: Gauge[] = [
+  { id: 'b6c6d5c8-e2d5-4469-8dd8-fa972ef7eaea', name: 'Maxau', river: 'Rhein', river_km: 362.327, pegel_nr: '23700200', pegel_uuid: 'b6c6d5c8-e2d5-4469-8dd8-fa972ef7eaea', active: true, created_at: '2026-08-11T00:00:00.000Z' },
   { id: '2cb8ae5b-c5c9-4fa8-bac0-bb724f2754f4', name: 'Speyer', river: 'Rhein', river_km: 400.61, pegel_nr: 'SPEYER', pegel_uuid: '2cb8ae5b-c5c9-4fa8-bac0-bb724f2754f4', active: true, created_at: '2026-08-11T00:00:00.000Z' },
   { id: '57090802-c51a-4d09-8340-b4453cd0e1f5', name: 'Mannheim', river: 'Rhein', river_km: 424.73, pegel_nr: 'MANNHEIM', pegel_uuid: '57090802-c51a-4d09-8340-b4453cd0e1f5', active: true, created_at: '2026-08-11T00:00:00.000Z' },
   { id: '844a620f-f3b8-4b6b-8e3c-783ae2aa232a', name: 'Worms', river: 'Rhein', river_km: 443.37, pegel_nr: 'WORMS', pegel_uuid: '844a620f-f3b8-4b6b-8e3c-783ae2aa232a', active: true, created_at: '2026-08-11T00:00:00.000Z' },
@@ -34,10 +37,8 @@ function mapStation(s: PegelOnlineStation): Gauge | null {
     name: s.shortname,
     river: 'Rhein',
     river_km: typeof s.km === 'number' ? s.km : null,
-    // Forecast-Zuordnung in der Test-App erfolgt über den Pegelnamen
-    // (SPEYER / MANNHEIM / WORMS). PEGELONLINE `number` ist eine numerische
-    // Stationskennung und darf deshalb nicht als HVZ-Schlüssel verwendet werden.
-    pegel_nr: s.shortname,
+    // PEGELONLINE UUID is the only stable station key used by the app.
+    pegel_nr: s.number ?? s.shortname,
     pegel_uuid: s.uuid,
     active: true,
     created_at: new Date().toISOString(),
