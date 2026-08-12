@@ -14,6 +14,8 @@ import type { UserSettings, UserSettingsUpdate } from '@/app/types/database';
 export interface UseUserSettingsResult {
   settings: UserSettings | null;
   loading: boolean;
+  /** true, sobald der erste Ladeversuch abgeschlossen ist (Erfolg, Fehler oder kein User). */
+  loaded: boolean;
   error: string | null;
   updateSettings: (update: UserSettingsUpdate) => Promise<{ error: string | null }>;
   refetch: () => void;
@@ -24,6 +26,7 @@ const LOCAL_SELECTED_GAUGE_KEY = 'test_selected_gauge_id';
 export function useUserSettings(userId: string | null | undefined): UseUserSettingsResult {
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const readLocalSettings = useCallback(async (id: string) => {
@@ -47,8 +50,12 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
   }, []);
 
   const fetchSettings = useCallback(async () => {
+    // loaded zurücksetzen, damit Konsumenten den neuen Ladevorgang erkennen.
+    setLoaded(false);
+
     if (!userId) {
       setSettings(null);
+      setLoaded(true); // Kein User → sofort fertig; kein Gauge zu laden.
       return;
     }
 
@@ -56,6 +63,7 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
 
     if (!supabaseConfigured || !supabase) {
       setSettings(localSettings);
+      setLoaded(true);
       return;
     }
 
@@ -77,6 +85,7 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
       setSettings(data ?? null);
     }
     setLoading(false);
+    setLoaded(true);
   }, [userId, readLocalSettings]);
 
   useEffect(() => {
@@ -122,6 +131,7 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
   return {
     settings,
     loading,
+    loaded,
     error,
     updateSettings,
     refetch: () => void fetchSettings(),

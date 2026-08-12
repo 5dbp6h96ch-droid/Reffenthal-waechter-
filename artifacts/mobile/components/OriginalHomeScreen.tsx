@@ -312,23 +312,37 @@ export default function HomeScreen() {
   // ── Supabase Auth + User Settings + Gauges ──────────────────────────────
   const { user, signIn, signUp, signOut } = useAuth();
   const { profile: userProfile, displayName: profileDisplayName, displayUsername: profileDisplayUsername } = useProfile(user);
-  const { settings, updateSettings } = useUserSettings(user?.id);
+  const { settings, loaded: settingsLoaded, updateSettings } = useUserSettings(user?.id);
   const { gauges } = useGauges();
   const { getGaugeSetting, updateGaugeSetting } = useUserGaugeSettings(user?.id);
 
   // ── Ausgewählter Pegelort ────────────────────────────────────────────────
   // localGaugeId = sofortiger lokaler State (reagiert ohne Netzwerk-Roundtrip).
-  // Priorität: localGaugeId → settings?.selected_gauge_id (Supabase, für Reload) → null
+  // Priorität: localGaugeId → null (settings wird im Init-Effect angewendet)
   const [localGaugeId, setLocalGaugeId] = useState<string | null>(null);
-  const selectedGaugeId = localGaugeId ?? settings?.selected_gauge_id ?? null;
+  const selectedGaugeId = localGaugeId ?? null;
   const selectedGauge = gauges.find(g => g.id === selectedGaugeId) ?? gauges[0] ?? null;
 
+  // Beim User-Wechsel (Login/Logout) localGaugeId zurücksetzen, damit der
+  // Init-Effect die gespeicherte Auswahl des neuen Nutzers anwenden kann.
+  const prevUserIdRef = useRef<string | undefined>(user?.id);
   useEffect(() => {
-    if (gauges.length > 0 && localGaugeId == null) {
+    if (prevUserIdRef.current !== user?.id) {
+      prevUserIdRef.current = user?.id;
+      setLocalGaugeId(null);
+    }
+  }, [user?.id]);
+
+  // Init-Effect: erst ausführen, wenn settingsLoaded === true, damit keine
+  // Race-Condition entsteht (gauges laden oft schneller als useUserSettings).
+  // Vorher: gauges[0] wurde sofort als Default gesetzt, bevor die gespeicherte
+  // Auswahl aus AsyncStorage/Supabase ankam → Speyer wurde zu KONSTANZ.
+  useEffect(() => {
+    if (gauges.length > 0 && localGaugeId == null && settingsLoaded) {
       const initial = settings?.selected_gauge_id ?? gauges[0].id;
       setLocalGaugeId(initial);
     }
-  }, [gauges, localGaugeId, settings?.selected_gauge_id]);
+  }, [gauges, localGaugeId, settings?.selected_gauge_id, settingsLoaded]);
 
   const selectGauge = useCallback((id: string) => {
     setLocalGaugeId(id);
