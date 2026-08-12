@@ -285,6 +285,9 @@ export default function RootLayout() {
   }, [fontsLoaded, fontError]);
 
   useEffect(() => {
+    if (apiBase !== 'https://undefined') {
+      setBaseUrl(apiBase);
+    }
     void registerNfbBackgroundFetch();
     void saveApiBaseUrl(apiBase);
   }, []);
