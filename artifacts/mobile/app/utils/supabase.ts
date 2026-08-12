@@ -5,7 +5,7 @@
  * Konfiguration ausschließlich über EXPO_PUBLIC_*-Umgebungsvariablen –
  * niemals service_role oder Secret Keys hier verwenden.
  *
- * Defensiv: Fehlt EXPO_PUBLIC_SUPABASE_URL oder EXPO_PUBLIC_SUPABASE_KEY,
+ * Defensiv: Fehlt EXPO_PUBLIC_SUPABASE_URL oder ein öffentlicher Supabase-Key,
  * wird createClient NICHT aufgerufen. Die App lädt weiterhin; Auth-Funktionen
  * sind dann im Gastmodus deaktiviert. Kein App-Absturz bei fehlendem Secret.
  */
@@ -15,13 +15,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Database } from '../types/database';
 
 // Trailing slash entfernen falls vorhanden.
-// TEST-FIX: In der Cloudflare-Test-Umgebung wurde die Supabase-Domain einmal
+// TEST-FIX: Die Cloudflare-Test-Umgebung hatte die Supabase-Domain einmal
 // mit .supabase.cc statt .supabase.co hinterlegt. Supabase-Projekt-URLs
-// verwenden .supabase.co; die Korrektur bleibt hier bewusst defensiv und
-// betrifft ausschließlich eine fehlerhafte Endung der öffentlichen URL.
+// verwenden .supabase.co; die Korrektur bleibt defensiv.
 const rawSupabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
 const supabaseUrl = rawSupabaseUrl.replace(/\.supabase\.cc$/i, '.supabase.co');
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY ?? '';
+
+// Unterstütze beide üblichen Namen. Cloudflare kann je nach bisheriger
+// Konfiguration EXPO_PUBLIC_SUPABASE_KEY oder EXPO_PUBLIC_SUPABASE_ANON_KEY
+// enthalten. Beide sind für den Client öffentliche Publishable/anon Keys.
+const supabaseAnonKey =
+  process.env.EXPO_PUBLIC_SUPABASE_KEY ??
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
+  '';
 
 /**
  * true wenn beide Supabase-Umgebungsvariablen beim Build vorhanden waren.
@@ -31,7 +37,7 @@ export const supabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
 if (!supabaseConfigured) {
   console.warn(
-    '[Supabase] EXPO_PUBLIC_SUPABASE_URL oder EXPO_PUBLIC_SUPABASE_KEY fehlt – ' +
+    '[Supabase] EXPO_PUBLIC_SUPABASE_URL oder öffentlicher Supabase-Key fehlt – ' +
     'Auth-Funktionen sind deaktiviert (Gastmodus).',
   );
 }
