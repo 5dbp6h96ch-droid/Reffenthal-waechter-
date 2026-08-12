@@ -23,7 +23,10 @@ import {
 
 SplashScreen.preventAutoHideAsync();
 
-const STATIC_MODE = process.env.EXPO_PUBLIC_STATIC_DATA === 'true';
+// TEST: Datenquellen bewusst über die stabile statische Daten-Schicht laden.
+// Die Cloudflare-Variable EXPO_PUBLIC_STATIC_DATA darf dafür nicht versehentlich
+// auf false stehen, sonst gehen die relativen API-Aufrufe an den falschen Host.
+const STATIC_MODE = true;
 
 const GITHUB_RAW =
   'https://raw.githubusercontent.com/5dbp6h96ch-droid/Reffenthal-waechter-/main/reffenthal-waechter';
