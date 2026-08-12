@@ -18,17 +18,17 @@ const HVZ_GIF_BASE = 'https://www.hvz.baden-wuerttemberg.de/gifs/';
 
 function ForecastDomBridge({ stationId }: { stationId: string | null }) {
   useEffect(() => {
-    if (Platform.OS !== 'web' || !stationId || typeof document === 'undefined') return;
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
 
-    const hvzId = HVZ_GIF_BY_PEGEL_UUID[stationId];
-    if (!hvzId) return;
-
-    const gifUrl = `${HVZ_GIF_BASE}${hvzId}-2001.GIF?t=${Date.now()}`;
+    const hvzId = stationId ? HVZ_GIF_BY_PEGEL_UUID[stationId] : undefined;
+    const gifUrl = hvzId
+      ? `${HVZ_GIF_BASE}${hvzId}-2001.GIF?t=${Date.now()}`
+      : null;
 
     const createForecastImage = () => {
       const img = document.createElement('img');
       img.setAttribute('data-rhein-hvz-forecast', 'true');
-      img.src = gifUrl;
+      img.src = gifUrl!;
       img.alt = 'Wasserstand Vorhersage';
       img.style.width = '100%';
       img.style.height = 'auto';
@@ -39,9 +39,45 @@ function ForecastDomBridge({ stationId }: { stationId: string | null }) {
       return img;
     };
 
+    const createUnavailableMessage = () => {
+      const wrapper = document.createElement('div');
+      wrapper.setAttribute('data-rhein-hvz-unavailable', 'true');
+      wrapper.style.padding = '28px 16px';
+      wrapper.style.textAlign = 'center';
+      wrapper.style.color = '#999';
+      wrapper.style.fontSize = '16px';
+      wrapper.textContent = 'Für diesen Pegel ist derzeit keine HVZ-Vorhersage hinterlegt.';
+      return wrapper;
+    };
+
+    const clearPreviousForecast = () => {
+      const areas = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-rhein-forecast-area="true"]'),
+      );
+      for (const area of areas) {
+        area.replaceChildren(gifUrl ? createForecastImage() : createUnavailableMessage());
+      }
+
+      // Also remove any previously injected forecast image that is not inside a marked area.
+      if (!gifUrl) {
+        const images = Array.from(
+          document.querySelectorAll('img[data-rhein-hvz-forecast="true"]'),
+        );
+        for (const img of images) img.replaceWith(createUnavailableMessage());
+      }
+    };
+
     const replaceForecast = () => {
+      // No mapping: never leave the previous station's GIF visible.
+      if (!gifUrl) {
+        clearPreviousForecast();
+        return;
+      }
+
       // Replace only our forecast image, never arbitrary images on the page.
-      const images = Array.from(document.querySelectorAll('img[data-rhein-hvz-forecast="true"]'));
+      const images = Array.from(
+        document.querySelectorAll<HTMLImageElement>('img[data-rhein-hvz-forecast="true"]'),
+      );
       for (const img of images) img.setAttribute('src', gifUrl);
 
       // Replace an existing HVZ GIF only when it is already inside the forecast area.
@@ -71,6 +107,11 @@ function ForecastDomBridge({ stationId }: { stationId: string | null }) {
         parent.replaceChildren(createForecastImage());
       }
     };
+
+    // Clear/replace immediately when the selected PEGELONLINE UUID changes,
+    // before observing further DOM mutations. This prevents the previous station
+    // (e.g. Maxau) from being shown for the newly selected station.
+    clearPreviousForecast();
 
     const observer = new MutationObserver(replaceForecast);
     observer.observe(document.body, { childList: true, subtree: true });
