@@ -17,27 +17,19 @@ const configuredKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
   '';
 
-// TEST-ONLY fallback: Der Cloudflare-Test-Build darf ausschließlich das
-// bekannte TEST-Supabase-Projekt verwenden. Damit bleibt der Test-Build
-// funktionsfähig, selbst wenn in Cloudflare eine alte/falsch eingetragene
-// Test-URL oder ein alter öffentlicher Key hinterlegt ist.
+// TEST-ONLY: Der Cloudflare-Test-Build verwendet immer das kanonische
+// TEST-Supabase-Projekt. Dadurch sind Tippfehler/alte Werte in Cloudflare
+// Pages-Variablen ausgeschlossen. Diese Datei wird ausschließlich im
+// Branch "test" geändert; Production/main bleibt unverändert.
 const TEST_SUPABASE_URL = 'https://azssnqabyefqplnoehty.supabase.co';
 const TEST_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Dvhyq-ZL_5lPpkiPXN_fuQ_37eLGSv6';
 
-const isTestProjectUrl =
-  /azssnqabyefq(?:pinoeht|plnoehty)\.supabase\.co$/i.test(supabaseUrl) ||
-  /azssnqabyefq(?:pinoeht|plnoehty)\.supabase\.cc$/i.test(rawSupabaseUrl);
-
-// Bei einem erkennbaren TEST-Projekt immer die kanonischen TEST-Werte nutzen.
-// Das verhindert insbesondere "Load failed" durch einen alten/abgeschnittenen
-// Publishable Key in den Cloudflare-Variablen.
-if (isTestProjectUrl) {
-  supabaseUrl = TEST_SUPABASE_URL;
-}
-
-const supabaseAnonKey = isTestProjectUrl
-  ? TEST_SUPABASE_PUBLISHABLE_KEY
-  : configuredKey;
+// Im TEST-Build ausschließlich die kanonischen TEST-Werte verwenden.
+// Die EXPO_PUBLIC_* Variablen bleiben als Dokumentation/Fallback für andere
+// Builds vorhanden, dürfen den TEST-Build aber nicht auf ein anderes Projekt
+// lenken.
+supabaseUrl = TEST_SUPABASE_URL;
+const supabaseAnonKey = TEST_SUPABASE_PUBLISHABLE_KEY || configuredKey;
 
 export const supabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
