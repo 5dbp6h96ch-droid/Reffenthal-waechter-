@@ -34,7 +34,10 @@ function mapStation(s: PegelOnlineStation): Gauge | null {
     name: s.shortname,
     river: 'Rhein',
     river_km: typeof s.km === 'number' ? s.km : null,
-    pegel_nr: s.number ?? s.shortname,
+    // Forecast-Zuordnung in der Test-App erfolgt über den Pegelnamen
+    // (SPEYER / MANNHEIM / WORMS). PEGELONLINE `number` ist eine numerische
+    // Stationskennung und darf deshalb nicht als HVZ-Schlüssel verwendet werden.
+    pegel_nr: s.shortname,
     pegel_uuid: s.uuid,
     active: true,
     created_at: new Date().toISOString(),
