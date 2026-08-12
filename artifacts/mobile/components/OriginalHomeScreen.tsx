@@ -109,7 +109,7 @@ const CARD_PADDING = 16;
 const CHART_W = SCREEN_W - CARD_PADDING * 2 - 32;
 const CHART_H = 140;
 const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
-const BOTTOM_NAV_HEIGHT = 52;
+const BOTTOM_NAV_HEIGHT = 48;
 
 // ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
 
@@ -270,7 +270,7 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === 'web' ? 0 : insets.top;
-  const botPad = Platform.OS === 'web' ? 34 : insets.bottom;
+  const botPad = Platform.OS === 'web' ? 0 : insets.bottom;
 
   // ── Bottom-Navigation ────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<ActiveTab>(null);
@@ -756,7 +756,32 @@ export default function HomeScreen() {
       {/* Pegelstand-Kachel */}
       {renderPegelCard()}
 
-      {/* Gastmodus: CTA entfernt – Konto über Bottom-Navigation erreichbar */}
+      {/* Gastmodus: Anmelden-Button direkt unterhalb der Pegelkachel */}
+      {!user && (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => handleTabPress('konto')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            backgroundColor: colors.primary,
+            borderRadius: colors.radius,
+            paddingVertical: 14,
+            paddingHorizontal: 20,
+          }}
+        >
+          <Feather name="log-in" size={16} color={colors.primaryForeground} />
+          <Text style={{
+            fontSize: 15,
+            fontFamily: 'SpaceGrotesk_600SemiBold',
+            color: colors.primaryForeground,
+          }}>
+            Anmelden
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Angemeldeter Bereich: Verlauf + Akkordeon-Menü */}
       {user && (
