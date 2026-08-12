@@ -62,27 +62,30 @@ export default function Root({ children }: PropsWithChildren) {
         {/* iOS Home Screen Icon */}
         <link rel="apple-touch-icon" href={ICON_URL} />
 
-        {/* Web App Manifest – erforderlich für Android-PWA-Updates */}
-        <link rel="manifest" href="/Reffenthal-waechter-/manifest.webmanifest" />
+        {/* Web App Manifest */}
+        <link rel="manifest" href="/manifest.webmanifest" />
 
-        {/* Leaflet CSS – für die Rhein-Karte; lokal gehostet damit der SW es cached */}
-        <link rel="stylesheet" href="/Reffenthal-waechter-/leaflet.css" />
+        {/* Leaflet CSS */}
+        <link rel="stylesheet" href="/leaflet.css" />
 
         <ScrollViewStyleReset />
 
-        {/* Erstinstallation / Home-Bildschirm-Hinweis – nur Test/Web */}
+        {/* Erstinstallation / Home-Bildschirm-Hinweis – nur Web/Smartphone */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
 (function () {
   var installPrompt = null;
-  var installSeenKey = 'rheinschiffer-install-prompt-seen';
+  var seenKey = 'rheinschiffer-install-v2';
+  var ua = window.navigator.userAgent || '';
+  var isIOS = /iPhone|iPad|iPod/i.test(ua) ||
+    (window.navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua));
+  var isAndroid = /Android/i.test(ua);
+  var isMobile = isIOS || isAndroid ||
+    (window.navigator.maxTouchPoints > 1 && window.innerWidth < 900);
   var isStandalone =
     window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
-  var ua = window.navigator.userAgent || '';
-  var isMobile = /iPhone|iPad|iPod|Android/i.test(ua) ||
-    (window.navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua));
 
   if (!isMobile || isStandalone) return;
 
@@ -91,59 +94,69 @@ export default function Root({ children }: PropsWithChildren) {
     installPrompt = event;
   });
 
+  function hasSeen() {
+    try { return localStorage.getItem(seenKey) === '1'; } catch (_) { return false; }
+  }
+
   function markSeen() {
-    try { localStorage.setItem(installSeenKey, '1'); } catch (_) {}
+    try { localStorage.setItem(seenKey, '1'); } catch (_) {}
   }
 
-  function alreadySeen() {
-    try { return localStorage.getItem(installSeenKey) === '1'; } catch (_) { return false; }
-  }
-
-  function showInstallPrompt() {
-    if (alreadySeen() || document.getElementById('rheinschiffer-install')) return;
+  function showInstructions() {
+    var existing = document.getElementById('rheinschiffer-install-modal');
+    if (existing) existing.remove();
 
     var backdrop = document.createElement('div');
-    backdrop.id = 'rheinschiffer-install';
-    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.32);z-index:100000;display:flex;align-items:flex-end;justify-content:center;padding:18px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;';
+    backdrop.id = 'rheinschiffer-install-modal';
+    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.32);z-index:100001;display:flex;align-items:flex-end;justify-content:center;padding:18px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;';
 
     var card = document.createElement('div');
-    card.style.cssText = 'width:min(100%,420px);background:#fff;border-radius:24px;padding:24px 20px 20px;box-shadow:0 12px 40px rgba(0,0,0,.24);box-sizing:border-box;';
+    card.style.cssText = 'width:min(100%,430px);background:#fff;border-radius:24px;padding:24px 20px 20px;box-shadow:0 12px 40px rgba(0,0,0,.24);box-sizing:border-box;';
 
     var title = document.createElement('div');
-    title.textContent = 'R(h)einschiffer auf dem Smartphone';
-    title.style.cssText = 'font-size:21px;font-weight:700;color:#111;margin-bottom:8px;';
+    title.textContent = 'Auf dem Home-Bildschirm installieren';
+    title.style.cssText = 'font-size:21px;font-weight:700;color:#111;margin-bottom:12px;';
 
     var text = document.createElement('div');
-    text.textContent = 'Installiere R(h)einschiffer auf deinem Home-Bildschirm für einen schnellen Zugriff.';
-    text.style.cssText = 'font-size:15px;line-height:1.45;color:#666;margin-bottom:18px;';
-
-    var installBtn = document.createElement('button');
-    installBtn.type = 'button';
-    installBtn.textContent = 'Auf Smartphone installieren';
-    installBtn.style.cssText = 'width:100%;border:0;background:#007AFF;color:#fff;border-radius:14px;padding:14px 16px;font-size:16px;font-weight:700;cursor:pointer;';
-
-    var laterBtn = document.createElement('button');
-    laterBtn.type = 'button';
-    laterBtn.textContent = 'Später';
-    laterBtn.style.cssText = 'width:100%;border:0;background:transparent;color:#777;border-radius:14px;padding:12px 16px 4px;font-size:15px;font-weight:500;cursor:pointer;';
-
-    function showInstructions() {
-      title.textContent = 'Auf dem Home-Bildschirm installieren';
-      if (/iPhone|iPad|iPod/i.test(ua) || (window.navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua))) {
-        text.innerHTML = '<b>iPhone / iPad:</b><br>1. Tippe in Safari auf das <b>Teilen-Symbol</b>.<br>2. Wähle <b>„Zum Home-Bildschirm“</b>.<br>3. Tippe oben rechts auf <b>„Hinzufügen“</b>.';
-      } else {
-        text.innerHTML = '<b>Android:</b><br>1. Öffne das Browser-Menü <b>⋮</b>.<br>2. Wähle <b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“</b>.<br>3. Bestätige die Installation.';
-      }
-      installBtn.remove();
+    text.style.cssText = 'font-size:16px;line-height:1.55;color:#555;margin-bottom:20px;';
+    if (isIOS) {
+      text.innerHTML = '<b>iPhone / iPad</b><br><br>1. Tippe in Safari auf das <b>Teilen-Symbol</b>.<br>2. Wähle <b>„Zum Home-Bildschirm“</b>.<br>3. Tippe oben rechts auf <b>„Hinzufügen“</b>.';
+    } else {
+      text.innerHTML = '<b>Android</b><br><br>1. Öffne das Browser-Menü <b>⋮</b>.<br>2. Wähle <b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“</b>.<br>3. Bestätige die Installation.';
     }
 
-    installBtn.addEventListener('click', function () {
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = 'Verstanden';
+    close.style.cssText = 'width:100%;border:0;background:#007AFF;color:#fff;border-radius:14px;padding:14px 16px;font-size:16px;font-weight:700;cursor:pointer;';
+    close.addEventListener('click', function () {
+      markSeen();
+      backdrop.remove();
+    });
+
+    card.appendChild(title);
+    card.appendChild(text);
+    card.appendChild(close);
+    backdrop.appendChild(card);
+    document.body.appendChild(backdrop);
+  }
+
+  function showInstallButton() {
+    if (hasSeen() || document.getElementById('rheinschiffer-install-button')) return;
+
+    var button = document.createElement('button');
+    button.id = 'rheinschiffer-install-button';
+    button.type = 'button';
+    button.textContent = 'Auf Smartphone installieren';
+    button.style.cssText = 'position:fixed;left:18px;right:18px;bottom:96px;z-index:100000;width:calc(100% - 36px);border:0;border-radius:16px;background:#007AFF;color:#fff;padding:14px 18px;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:16px;font-weight:700;box-shadow:0 6px 22px rgba(0,122,255,.30);cursor:pointer;';
+
+    button.addEventListener('click', function () {
       if (installPrompt) {
         installPrompt.prompt();
         installPrompt.userChoice.then(function () {
           installPrompt = null;
           markSeen();
-          backdrop.remove();
+          button.remove();
         }).catch(function () {
           installPrompt = null;
           showInstructions();
@@ -153,22 +166,18 @@ export default function Root({ children }: PropsWithChildren) {
       }
     });
 
-    laterBtn.addEventListener('click', function () {
-      markSeen();
-      backdrop.remove();
-    });
-
-    card.appendChild(title);
-    card.appendChild(text);
-    card.appendChild(installBtn);
-    card.appendChild(laterBtn);
-    backdrop.appendChild(card);
-    document.body.appendChild(backdrop);
+    document.body.appendChild(button);
   }
 
-  window.addEventListener('load', function () {
-    window.setTimeout(showInstallPrompt, 700);
-  });
+  function init() {
+    window.setTimeout(showInstallButton, 1200);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
 `,
           }}
@@ -182,9 +191,6 @@ export default function Root({ children }: PropsWithChildren) {
 (function () {
   if (!('serviceWorker' in navigator)) return;
 
-  /* Auto-Reload bei controllerchange: wenn der SW via skipWaiting() + clients.claim()
-     die Kontrolle übernimmt, muss die Seite neu laden um das frische Bundle zu erhalten.
-     Anti-Loop: sessionStorage verhindert Endlosschleifen (reset beim Tab-Schließen). */
   var reloadKey = 'sw-ctrl-reloaded';
   navigator.serviceWorker.addEventListener('controllerchange', function () {
     if (!sessionStorage.getItem(reloadKey)) {
@@ -195,7 +201,7 @@ export default function Root({ children }: PropsWithChildren) {
 
   window.addEventListener('load', function () {
     navigator.serviceWorker
-      .register('/Reffenthal-waechter-/sw.js', { scope: '/Reffenthal-waechter-/' })
+      .register('/sw.js', { scope: '/' })
       .then(function (reg) {
         reg.addEventListener('updatefound', function () {
           var worker = reg.installing;
@@ -219,13 +225,12 @@ export default function Root({ children }: PropsWithChildren) {
     bar.id  = 'sw-update-bar';
     bar.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#007AFF;color:#fff;padding:12px 18px;border-radius:14px;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:14px;font-weight:500;z-index:99999;display:flex;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,0.28);white-space:nowrap;';
     var label = document.createElement('span');
-    label.textContent = '\\uD83D\\uDD04\\u2009Neue Version verf\\u00FCgbar';
+    label.textContent = '\\uD83D\\uDD04\\u2009Neue Version verfügbar';
     var btn = document.createElement('button');
-    btn.textContent   = 'Aktualisieren';
+    btn.textContent = 'Aktualisieren';
     btn.style.cssText = 'background:rgba(255,255,255,0.22);border:none;color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;';
     btn.addEventListener('click', function () {
       bar.remove();
-      pendingReload = true;
       worker.postMessage({ type: 'SKIP_WAITING' });
     });
     bar.appendChild(label);
