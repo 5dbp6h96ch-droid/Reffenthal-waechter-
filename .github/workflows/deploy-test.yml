@@ -1,0 +1,44 @@
+name: Deploy test to Cloudflare Pages
+
+on:
+  push:
+    branches:
+      - test
+    paths:
+      - 'artifacts/mobile/**'
+      - '.github/workflows/deploy-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: artifacts/mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: artifacts/mobile
+
+      - name: Build web app
+        run: npx expo export --platform web
+        working-directory: artifacts/mobile
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: rheinschiffer-test
+          directory: artifacts/mobile/dist
+          branch: test
