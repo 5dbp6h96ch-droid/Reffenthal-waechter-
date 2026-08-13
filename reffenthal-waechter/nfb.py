@@ -25,6 +25,8 @@ from typing import Any
 import requests
 from bs4 import BeautifulSoup
 
+from webpush import send_for_alert
+
 logger = logging.getLogger(__name__)
 
 BASE_URL          = "https://www.elwis.de/DE/dynamisch/Nfb"
@@ -263,6 +265,10 @@ def _send_telegram(text: str, token: str, chat_id: str) -> bool:
         )
         resp.raise_for_status()
         logger.info("NfB: Telegram-Alert gesendet (%d Z.).", len(text))
+        try:
+            send_for_alert(text)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("WebPush: unerwarteter Fehler: %s", exc)
         return True
     except requests.exceptions.RequestException as exc:
         logger.error("NfB: Telegram-Fehler: %s", exc)
