@@ -12,12 +12,6 @@ function base64UrlToUint8Array(value: string): Uint8Array {
   return Uint8Array.from(raw, (char) => char.charCodeAt(0));
 }
 
-function isStandaloneWebApp(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.matchMedia?.('(display-mode: standalone)').matches === true
-    || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-}
-
 async function waitForActiveServiceWorker(registration: ServiceWorkerRegistration): Promise<ServiceWorkerRegistration> {
   if (registration.active) return registration;
 
@@ -47,8 +41,6 @@ export function useWebPushPrompt(): void {
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !supabaseConfigured || !supabase || typeof window === 'undefined') return;
-    if (!isStandaloneWebApp()) return;
-    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
 
     let cancelled = false;
 
@@ -59,9 +51,14 @@ export function useWebPushPrompt(): void {
 
     const setupForUser = async (userId: string | null) => {
       removeButton();
-      if (cancelled || !userId) return;
+      if (cancelled) return;
 
-      const existing = await navigator.serviceWorker.getRegistration('/');
+      // The button is deliberately visible even before we know the auth state.
+      // On click we resolve the current user again, so a slow/restoring session
+      // cannot make the Push control disappear from the UI.
+      const existing = 'serviceWorker' in navigator
+        ? await navigator.serviceWorker.getRegistration('/')
+        : null;
       const subscription = existing ? await existing.pushManager.getSubscription() : null;
       if (subscription) return;
       if (document.getElementById(BUTTON_ID)) return;
@@ -74,7 +71,7 @@ export function useWebPushPrompt(): void {
         position: 'fixed',
         left: '18px',
         right: '18px',
-        bottom: '76px',
+        bottom: '112px',
         zIndex: '99999',
         border: '0',
         borderRadius: '12px',
@@ -90,6 +87,16 @@ export function useWebPushPrompt(): void {
         button.disabled = true;
         button.textContent = 'Push wird aktiviert …';
         try {
+          const { data: userData, error: userError } = await supabase.auth.getUser();
+          if (userError || !userData.user) {
+            throw new Error('Bitte zuerst anmelden, um Push-Nachrichten zu aktivieren.');
+          }
+          const currentUserId = userData.user.id;
+
+          if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+            throw new Error('Push-Nachrichten werden in diesem Browser nicht unterstützt.');
+          }
+
           const permission = await Notification.requestPermission();
           if (permission !== 'granted') throw new Error('Benachrichtigungen wurden nicht erlaubt.');
 
@@ -106,7 +113,7 @@ export function useWebPushPrompt(): void {
           }
 
           const { error: saveError } = await supabase.from('web_push_subscriptions').upsert({
-            user_id: userId,
+            user_id: currentUserId,
             endpoint: json.endpoint,
             p256dh: json.keys.p256dh,
             auth: json.keys.auth,
@@ -132,9 +139,7 @@ export function useWebPushPrompt(): void {
       document.body.appendChild(button);
     };
 
-    supabase.auth.getUser().then(({ data }) => {
-      void setupForUser(data.user?.id ?? null);
-    }).catch(() => {});
+    void setupForUser(null);
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       void setupForUser(session?.user?.id ?? null);
