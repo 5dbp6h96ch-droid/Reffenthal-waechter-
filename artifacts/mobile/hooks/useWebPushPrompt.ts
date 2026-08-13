@@ -28,9 +28,14 @@ export function useWebPushPrompt(): void {
 
     let cancelled = false;
 
-    const setup = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (cancelled || !data.user) return;
+    const removeButton = () => {
+      buttonRef.current?.remove();
+      buttonRef.current = null;
+    };
+
+    const setupForUser = async (userId: string | null) => {
+      removeButton();
+      if (cancelled || !userId) return;
 
       const existing = await navigator.serviceWorker.getRegistration('/');
       const subscription = existing ? await existing.pushManager.getSubscription() : null;
@@ -76,7 +81,7 @@ export function useWebPushPrompt(): void {
           }
 
           const { error: saveError } = await supabase.from('web_push_subscriptions').upsert({
-            user_id: data.user.id,
+            user_id: userId,
             endpoint: json.endpoint,
             p256dh: json.keys.p256dh,
             auth: json.keys.auth,
@@ -102,11 +107,18 @@ export function useWebPushPrompt(): void {
       document.body.appendChild(button);
     };
 
-    void setup();
+    supabase.auth.getUser().then(({ data }) => {
+      void setupForUser(data.user?.id ?? null);
+    }).catch(() => {});
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      void setupForUser(session?.user?.id ?? null);
+    });
+
     return () => {
       cancelled = true;
-      buttonRef.current?.remove();
-      buttonRef.current = null;
+      authListener.subscription.unsubscribe();
+      removeButton();
     };
   }, []);
 }
