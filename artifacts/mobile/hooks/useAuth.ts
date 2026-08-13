@@ -65,12 +65,19 @@ export function useAuth(): UseAuthResult {
       return;
     }
 
-    // Web: Recovery-Link direkt an der URL erkennen (type=recovery im Hash
-    // oder Query). Absicherung, falls das PASSWORD_RECOVERY-Event bereits
-    // vor der Listener-Registrierung gefeuert hat.
+    // Web: Recovery-Link direkt an der URL erkennen. Je nach Supabase-/Auth-
+    // Flow kann der Redirect entweder type=recovery im Hash/Query enthalten
+    // oder als PKCE-Auth-Code (?code=...) zurückkommen. Der Auth-Client
+    // tauscht den Code bei detectSessionInUrl=true automatisch gegen eine
+    // Session; der code-Check stellt sicher, dass die Recovery-Ansicht auch
+    // dann aktiviert wird, wenn das PASSWORD_RECOVERY-Event vor der
+    // Listener-Registrierung ausgelöst wurde.
     if (typeof window !== 'undefined' && typeof window.location !== 'undefined') {
       const loc = `${window.location.hash}${window.location.search}`;
-      if (loc.includes('type=recovery')) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const isRecoveryRedirect =
+        loc.includes('type=recovery') || searchParams.has('code');
+      if (isRecoveryRedirect) {
         setPasswordRecovery(true);
       }
     }
