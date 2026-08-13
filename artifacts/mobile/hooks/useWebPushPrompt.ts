@@ -1,9 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useState } from 'react';
 import { Platform } from 'react-native';
 import { supabase, supabaseConfigured } from '@/app/utils/supabase';
 
 const PUBLIC_VAPID_KEY = 'BBJUwBC0zY1yyKsocf0jrOspxf6mlVmWMUFxEDXFUFArZsmmIBDbCOQrsdWimn3iBxvoX8Rdz7e5eO6Ql2sshTY';
-const BUTTON_ID = 'rheinschiffer-web-push-test-button';
 
 function base64UrlToUint8Array(value: string): Uint8Array {
   const padding = '='.repeat((4 - (value.length % 4)) % 4);
@@ -14,10 +13,8 @@ function base64UrlToUint8Array(value: string): Uint8Array {
 
 async function waitForActiveServiceWorker(registration: ServiceWorkerRegistration): Promise<ServiceWorkerRegistration> {
   if (registration.active) return registration;
-
   const worker = registration.installing ?? registration.waiting;
   if (!worker) throw new Error('Service Worker konnte nicht gestartet werden.');
-
   await new Promise<void>((resolve, reject) => {
     const onStateChange = () => {
       if (worker.state === 'activated') {
@@ -31,124 +28,75 @@ async function waitForActiveServiceWorker(registration: ServiceWorkerRegistratio
     worker.addEventListener('statechange', onStateChange);
     onStateChange();
   });
-
   if (!registration.active) throw new Error('Service Worker ist nicht aktiv.');
   return registration;
 }
 
-export function useWebPushPrompt(): void {
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
+export function useWebPushPrompt() {
+  const [status, setStatus] = useState<'idle' | 'activating' | 'active'>('idle');
 
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !supabaseConfigured || !supabase || typeof window === 'undefined') return;
+  const activate = useCallback(async () => {
+    if (status === 'activating' || status === 'active') return;
+    setStatus('activating');
+    try {
+      if (Platform.OS !== 'web' || typeof window === 'undefined') {
+        throw new Error('Push-Nachrichten sind nur im Web verfügbar.');
+      }
+      if (!supabaseConfigured || !supabase) {
+        throw new Error('Push ist momentan nicht konfiguriert.');
+      }
 
-    let cancelled = false;
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        throw new Error('Bitte zuerst anmelden, um Push-Nachrichten zu aktivieren.');
+      }
+      const currentUserId = userData.user.id;
 
-    const removeButton = () => {
-      buttonRef.current?.remove();
-      buttonRef.current = null;
-    };
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        throw new Error('Push-Nachrichten werden in diesem Browser nicht unterstützt.');
+      }
 
-    const setupForUser = async (userId: string | null) => {
-      removeButton();
-      if (cancelled) return;
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        throw new Error('Benachrichtigungen wurden nicht erlaubt.');
+      }
 
-      // The button is deliberately visible even before we know the auth state.
-      // On click we resolve the current user again, so a slow/restoring session
-      // cannot make the Push control disappear from the UI.
-      const existing = 'serviceWorker' in navigator
-        ? await navigator.serviceWorker.getRegistration('/')
-        : null;
-      const subscription = existing ? await existing.pushManager.getSubscription() : null;
-      if (subscription) return;
-      if (document.getElementById(BUTTON_ID)) return;
-
-      const button = document.createElement('button');
-      button.id = BUTTON_ID;
-      button.type = 'button';
-      button.textContent = '🔔 Push-Nachrichten aktivieren';
-      Object.assign(button.style, {
-        position: 'fixed',
-        left: '18px',
-        right: '18px',
-        bottom: '112px',
-        zIndex: '99999',
-        border: '0',
-        borderRadius: '12px',
-        padding: '14px 18px',
-        background: '#0A84FF',
-        color: '#FFFFFF',
-        font: '600 15px -apple-system, BlinkMacSystemFont, sans-serif',
-        boxShadow: '0 6px 20px rgba(0,0,0,.18)',
-        cursor: 'pointer',
+      const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
+      const activeRegistration = await waitForActiveServiceWorker(registration);
+      const existing = await activeRegistration.pushManager.getSubscription();
+      const pushSubscription = existing ?? await activeRegistration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64UrlToUint8Array(PUBLIC_VAPID_KEY),
       });
 
-      button.addEventListener('click', async () => {
-        button.disabled = true;
-        button.textContent = 'Push wird aktiviert …';
-        try {
-          const { data: userData, error: userError } = await supabase.auth.getUser();
-          if (userError || !userData.user) {
-            throw new Error('Bitte zuerst anmelden, um Push-Nachrichten zu aktivieren.');
-          }
-          const currentUserId = userData.user.id;
+      const json = pushSubscription.toJSON();
+      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+        throw new Error('Push-Subscription ist unvollständig.');
+      }
 
-          if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-            throw new Error('Push-Nachrichten werden in diesem Browser nicht unterstützt.');
-          }
+      const { error: saveError } = await supabase.from('web_push_subscriptions').upsert({
+        user_id: currentUserId,
+        endpoint: json.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'endpoint' });
+      if (saveError) throw saveError;
 
-          const permission = await Notification.requestPermission();
-          if (permission !== 'granted') throw new Error('Benachrichtigungen wurden nicht erlaubt.');
+      const { error: testError } = await supabase.functions.invoke('send-test-push');
+      if (testError) throw testError;
 
-          const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
-          const activeRegistration = await waitForActiveServiceWorker(registration);
-          const pushSubscription = await activeRegistration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: base64UrlToUint8Array(PUBLIC_VAPID_KEY),
-          });
+      setStatus('active');
+    } catch (error) {
+      console.error('[WebPush]', error);
+      setStatus('idle');
+      window.alert(error instanceof Error ? error.message : 'Push konnte nicht aktiviert werden.');
+    }
+  }, [status]);
 
-          const json = pushSubscription.toJSON();
-          if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-            throw new Error('Push-Subscription ist unvollständig.');
-          }
-
-          const { error: saveError } = await supabase.from('web_push_subscriptions').upsert({
-            user_id: currentUserId,
-            endpoint: json.endpoint,
-            p256dh: json.keys.p256dh,
-            auth: json.keys.auth,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'endpoint' });
-          if (saveError) throw saveError;
-
-          const { error: testError } = await supabase.functions.invoke('send-test-push');
-          if (testError) throw testError;
-
-          button.textContent = '✓ Push-Nachrichten aktiviert';
-          button.style.background = '#34C759';
-          window.setTimeout(() => button.remove(), 2200);
-        } catch (error) {
-          console.error('[WebPush]', error);
-          button.disabled = false;
-          button.textContent = '🔔 Push-Nachrichten aktivieren';
-          window.alert(error instanceof Error ? error.message : 'Push konnte nicht aktiviert werden.');
-        }
-      });
-
-      buttonRef.current = button;
-      document.body.appendChild(button);
-    };
-
-    void setupForUser(null);
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      void setupForUser(session?.user?.id ?? null);
-    });
-
-    return () => {
-      cancelled = true;
-      authListener.subscription.unsubscribe();
-      removeButton();
-    };
-  }, []);
+  return {
+    visible: Platform.OS === 'web' && supabaseConfigured && !!supabase,
+    status,
+    activate,
+  };
 }
