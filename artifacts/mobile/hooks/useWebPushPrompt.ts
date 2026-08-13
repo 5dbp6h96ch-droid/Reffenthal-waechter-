@@ -39,7 +39,7 @@ export function useWebPushPrompt(): void {
 
       const existing = await navigator.serviceWorker.getRegistration('/');
       const subscription = existing ? await existing.pushManager.getSubscription() : null;
-      if (subscription || Notification.permission === 'granted') return;
+      if (subscription) return;
       if (document.getElementById(BUTTON_ID)) return;
 
       const button = document.createElement('button');
