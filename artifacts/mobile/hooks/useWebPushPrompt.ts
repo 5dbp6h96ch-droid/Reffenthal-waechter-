@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { supabase, supabaseConfigured } from '@/app/utils/supabase';
 
@@ -34,6 +34,33 @@ async function waitForActiveServiceWorker(registration: ServiceWorkerRegistratio
 
 export function useWebPushPrompt() {
   const [status, setStatus] = useState<'idle' | 'activating' | 'active'>('idle');
+
+  // Beim erneuten Öffnen der App den bereits vorhandenen Browser-Push erkennen.
+  // Die Push-Subscription lebt unabhängig vom React-State weiter.
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreExistingPush = async () => {
+      if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+      if (!supabaseConfigured || !supabase) return;
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+      if (Notification.permission !== 'granted') return;
+
+      try {
+        const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
+        const activeRegistration = await waitForActiveServiceWorker(registration);
+        const existing = await activeRegistration.pushManager.getSubscription();
+        if (existing && !cancelled) setStatus('active');
+      } catch (error) {
+        console.warn('[WebPush] Vorhandene Subscription konnte nicht wiederhergestellt werden:', error);
+      }
+    };
+
+    void restoreExistingPush();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const activate = useCallback(async () => {
     if (status === 'activating' || status === 'active') return;
