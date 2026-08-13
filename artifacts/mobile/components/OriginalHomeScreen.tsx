@@ -319,7 +319,16 @@ export default function HomeScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   // ── Supabase Auth + User Settings + Gauges ──────────────────────────────
-  const { user, signIn, signUp, signOut, resetPassword } = useAuth();
+  const {
+    user, signIn, signUp, signOut, resetPassword,
+    passwordRecovery, clearPasswordRecovery, updatePassword,
+  } = useAuth();
+  // „Neues Passwort festlegen"-Ansicht (nach Klick auf den Reset-Link)
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordRepeat, setNewPasswordRepeat] = useState('');
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [recoveryDone, setRecoveryDone] = useState(false);
   const { profile: userProfile, displayName: profileDisplayName, displayUsername: profileDisplayUsername } = useProfile(user);
   const { settings, loaded: settingsLoaded, updateSettings } = useUserSettings(user?.id);
   const { gauges } = useGauges();
@@ -2731,6 +2740,177 @@ export default function HomeScreen() {
   const rootStyle = Platform.OS === 'web'
     ? { height: windowHeight, backgroundColor: colors.background }
     : { flex: 1 as const, backgroundColor: colors.background };
+
+  // „Neues Passwort festlegen"-Ansicht nach Öffnen des Supabase-Reset-Links
+  if (passwordRecovery) {
+    return (
+      <View style={{
+        ...rootStyle,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+      }}>
+        <View style={{
+          width: '100%', maxWidth: 400,
+          backgroundColor: colors.card, borderRadius: 12,
+          borderWidth: 1, borderColor: colors.border,
+          padding: 16, gap: 14,
+        }}>
+          <Text style={{
+            fontSize: 18, fontFamily: 'SpaceGrotesk_700Bold',
+            color: colors.foreground,
+          }}>
+            Neues Passwort festlegen
+          </Text>
+
+          {recoveryDone ? (
+            <>
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                backgroundColor: colors.safe + '18',
+                borderRadius: 8, padding: 12,
+              }}>
+                <Feather name="check-circle" size={14} color={colors.safe} />
+                <Text style={{
+                  fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.safe, flex: 1,
+                }}>
+                  Passwort wurde erfolgreich geändert.
+                </Text>
+              </View>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={async () => {
+                  // Zurück zur Anmeldung: Recovery beenden und abmelden
+                  setNewPassword('');
+                  setNewPasswordRepeat('');
+                  setRecoveryDone(false);
+                  clearPasswordRecovery();
+                  await signOut();
+                  setAuthMode('login');
+                  setActiveTab('konto');
+                }}
+                style={{
+                  backgroundColor: colors.primary,
+                  borderRadius: 10, paddingVertical: 14,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{
+                  fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.primaryForeground,
+                }}>
+                  Zur Anmeldung
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={{ gap: 6 }}>
+                <Text style={{
+                  fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium',
+                  color: colors.mutedForeground, letterSpacing: 0.3,
+                }}>
+                  Neues Passwort
+                </Text>
+                <TextInput
+                  value={newPassword}
+                  onChangeText={v => { setNewPassword(v); setRecoveryError(null); }}
+                  secureTextEntry
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={{
+                    fontSize: 15, fontFamily: 'SpaceGrotesk_400Regular',
+                    color: colors.foreground, backgroundColor: colors.muted,
+                    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 11,
+                    borderWidth: 1, borderColor: colors.border,
+                  }}
+                />
+              </View>
+              <View style={{ gap: 6 }}>
+                <Text style={{
+                  fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium',
+                  color: colors.mutedForeground, letterSpacing: 0.3,
+                }}>
+                  Passwort wiederholen
+                </Text>
+                <TextInput
+                  value={newPasswordRepeat}
+                  onChangeText={v => { setNewPasswordRepeat(v); setRecoveryError(null); }}
+                  secureTextEntry
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={{
+                    fontSize: 15, fontFamily: 'SpaceGrotesk_400Regular',
+                    color: colors.foreground, backgroundColor: colors.muted,
+                    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 11,
+                    borderWidth: 1, borderColor: colors.border,
+                  }}
+                />
+              </View>
+
+              {recoveryError != null && (
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 8,
+                  backgroundColor: colors.destructive + '18',
+                  borderRadius: 8, padding: 12,
+                }}>
+                  <Feather name="alert-circle" size={14} color={colors.destructive} />
+                  <Text style={{
+                    fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+                    color: colors.destructive, flex: 1,
+                  }}>
+                    {recoveryError}
+                  </Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                disabled={recoveryLoading}
+                onPress={async () => {
+                  if (newPassword.length < 6) {
+                    setRecoveryError('Das Passwort muss mindestens 6 Zeichen lang sein.');
+                    return;
+                  }
+                  if (newPassword !== newPasswordRepeat) {
+                    setRecoveryError('Die Passwörter stimmen nicht überein.');
+                    return;
+                  }
+                  setRecoveryLoading(true);
+                  setRecoveryError(null);
+                  Keyboard.dismiss();
+                  const { error } = await updatePassword(newPassword);
+                  setRecoveryLoading(false);
+                  if (error) {
+                    setRecoveryError(error.message);
+                  } else {
+                    setRecoveryDone(true);
+                  }
+                }}
+                style={{
+                  backgroundColor: recoveryLoading ? colors.muted : colors.primary,
+                  borderRadius: 10, paddingVertical: 14,
+                  alignItems: 'center', marginTop: 2,
+                }}
+              >
+                {recoveryLoading ? (
+                  <ActivityIndicator size="small" color={colors.primaryForeground} />
+                ) : (
+                  <Text style={{
+                    fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold',
+                    color: colors.primaryForeground,
+                  }}>
+                    Passwort speichern
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </View>
+    );
+  }
 
   // „App beendet"-Ansicht nach Tippen auf Exit
   if (exited) {

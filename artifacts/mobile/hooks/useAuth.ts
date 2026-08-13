@@ -35,6 +35,10 @@ export interface UseAuthResult {
   ) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
+  /** true, wenn der Nutzer über einen Passwort-Reset-Link gekommen ist. */
+  passwordRecovery: boolean;
+  clearPasswordRecovery: () => void;
+  updatePassword: (password: string) => Promise<{ error: AuthError | null }>;
 }
 
 /** Hilfsfunktion: Erstellt einen AuthError-ähnlichen Dummy für den Gastmodus. */
@@ -52,12 +56,23 @@ function notConfiguredError(): { error: AuthError } {
 export function useAuth(): UseAuthResult {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(supabaseConfigured); // false wenn kein Supabase
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   useEffect(() => {
     // Ohne Supabase-Konfiguration: Gastmodus, kein Netzwerkaufruf
     if (!supabaseConfigured || !supabase) {
       setLoading(false);
       return;
+    }
+
+    // Web: Recovery-Link direkt an der URL erkennen (type=recovery im Hash
+    // oder Query). Absicherung, falls das PASSWORD_RECOVERY-Event bereits
+    // vor der Listener-Registrierung gefeuert hat.
+    if (typeof window !== 'undefined' && typeof window.location !== 'undefined') {
+      const loc = `${window.location.hash}${window.location.search}`;
+      if (loc.includes('type=recovery')) {
+        setPasswordRecovery(true);
+      }
     }
 
     // Bestehende Session beim Start wiederherstellen
@@ -70,8 +85,12 @@ export function useAuth(): UseAuthResult {
 
     // Auth-Zustandsänderungen beobachten (Login, Logout, Token-Refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      (event, newSession) => {
         setSession(newSession);
+        // Nutzer kam über einen Passwort-Reset-Link → Recovery-Ansicht zeigen
+        if (event === 'PASSWORD_RECOVERY') {
+          setPasswordRecovery(true);
+        }
       },
     );
 
@@ -130,6 +149,12 @@ export function useAuth(): UseAuthResult {
     return { error };
   };
 
+  const updatePassword = async (password: string) => {
+    if (!supabaseConfigured || !supabase) return notConfiguredError();
+    const { error } = await supabase.auth.updateUser({ password });
+    return { error };
+  };
+
   const signOut = async () => {
     if (!supabaseConfigured || !supabase) return notConfiguredError();
     const { error } = await supabase.auth.signOut();
@@ -144,5 +169,8 @@ export function useAuth(): UseAuthResult {
     signUp,
     signOut,
     resetPassword,
+    passwordRecovery,
+    clearPasswordRecovery: () => setPasswordRecovery(false),
+    updatePassword,
   };
 }

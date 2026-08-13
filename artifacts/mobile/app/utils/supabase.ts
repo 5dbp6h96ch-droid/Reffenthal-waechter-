@@ -6,6 +6,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Database } from '../types/database';
 
@@ -46,7 +47,10 @@ export const supabase = supabaseConfigured
         storage: AsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false,
+        // Auf Web muss der Supabase-Client die Tokens aus der URL lesen,
+        // damit Passwort-Reset-Links (PASSWORD_RECOVERY) funktionieren.
+        // Auf nativen Plattformen bleibt das Verhalten unverändert (false).
+        detectSessionInUrl: Platform.OS === 'web',
       },
     })
   : null;
