@@ -1,0 +1,93 @@
+name: Apply test gauge UI fix
+
+on:
+  push:
+    branches: [test]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test
+
+      - name: Fix selected gauge display
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('artifacts/mobile/components/OriginalHomeScreen.tsx')
+          s = p.read_text()
+
+          # Close the list immediately when a gauge is selected.
+          s = s.replace(
+              'onPress={() => selectGauge(g.id)}',
+              'onPress={() => { selectGauge(g.id); setGaugeListOpen(false); }}',
+              1,
+          )
+
+          # Show only the selected gauge when the list is collapsed.
+          if '{!gaugeListOpen && selectedGauge && (' not in s:
+              marker = "        </TouchableOpacity>\n\n        {gaugeListOpen && ("
+              block = """        </TouchableOpacity>
+
+        {!gaugeListOpen && selectedGauge && (
+          <View style={{
+            flexDirection: 'row', alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 16, paddingVertical: 14,
+            backgroundColor: colors.card, borderRadius: 12,
+            borderWidth: 1, borderColor: colors.border,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{
+                width: 32, height: 32, borderRadius: 16,
+                backgroundColor: colors.primary + '20',
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Feather name=\"anchor\" size={14} color={colors.primary} />
+              </View>
+              <View style={{ gap: 1 }}>
+                <Text style={{
+                  fontSize: 15, fontFamily: 'SpaceGrotesk_700Bold',
+                  color: colors.primary,
+                }}>
+                  {selectedGauge.name}
+                </Text>
+              </View>
+            </View>
+            <Feather name=\"check\" size={18} color={colors.primary} />
+          </View>
+        )}
+
+        {gaugeListOpen && ("""
+              if s.count(marker) != 1:
+                  raise SystemExit('Gauge list marker not found exactly once')
+              s = s.replace(marker, block, 1)
+
+          # Defensive synchronization after selectedGauge is declared.
+          if 'TEST: selected gauge closes the list' not in s:
+              lines = s.splitlines(True)
+              for i, line in enumerate(lines):
+                  if 'const selectedGauge =' in line:
+                      lines.insert(i + 1, "\n  // TEST: selected gauge closes the list\n  useEffect(() => {\n    if (selectedGauge) setGaugeListOpen(false);\n  }, [selectedGauge]);\n")
+                      s = ''.join(lines)
+                      break
+              else:
+                  raise SystemExit('selectedGauge declaration not found')
+
+          if '{!gaugeListOpen && selectedGauge && (' not in s:
+              raise SystemExit('Collapsed selected gauge was not inserted')
+
+          p.write_text(s)
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/mobile/components/OriginalHomeScreen.tsx
+          git commit -m "Fix test Meine Pegel selection collapse [skip ci]"
+          git push origin test
