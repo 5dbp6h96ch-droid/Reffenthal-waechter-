@@ -34,6 +34,27 @@ const supabaseAnonKey = TEST_SUPABASE_PUBLISHABLE_KEY || configuredKey;
 
 export const supabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
+// Der Supabase-Webclient verarbeitet einen Recovery-Link während seiner
+// Initialisierung und kann dabei Query/Hash aus der Browser-URL entfernen,
+// bevor useAuth seinen Effect ausführt. Deshalb markieren wir den Recovery-
+// Einstieg synchron beim Laden der Client-Datei. So geht der Hinweis nicht
+// verloren, auch wenn PASSWORD_RECOVERY vor der Listener-Registrierung feuert.
+export const PASSWORD_RECOVERY_STORAGE_KEY = 'rheinschiffer_password_recovery_pending';
+
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  try {
+    const url = `${window.location.hash}${window.location.search}`;
+    if (
+      url.includes('type=recovery') ||
+      new URLSearchParams(window.location.search).has('code')
+    ) {
+      window.sessionStorage.setItem(PASSWORD_RECOVERY_STORAGE_KEY, '1');
+    }
+  } catch {
+    // URL/sessionStorage können in speziellen WebView-Umgebungen fehlen.
+  }
+}
+
 if (!supabaseConfigured) {
   console.warn(
     '[Supabase] EXPO_PUBLIC_SUPABASE_URL oder öffentlicher Supabase-Key fehlt – ' +
