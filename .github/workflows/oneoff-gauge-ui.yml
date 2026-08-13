@@ -1,0 +1,25 @@
+name: One-off gauge UI fix
+
+on:
+  push:
+    branches: [test]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test
+      - name: Patch test UI
+        run: |
+          python3 -c 'from pathlib import Path; p=Path("artifacts/mobile/components/OriginalHomeScreen.tsx"); s=p.read_text(); s=s.replace("onPress={() => selectGauge(g.id)}", "onPress={() => { selectGauge(g.id); setGaugeListOpen(false); }}", 1); marker="        {gaugeListOpen && ("; insert="        {!gaugeListOpen && selectedGauge && (<View style={{padding:14, marginTop:8, backgroundColor:colors.card, borderRadius:12, borderWidth:1, borderColor:colors.border}}><Text style={{fontSize:15, fontFamily:\"SpaceGrotesk_700Bold\", color:colors.primary}}>{selectedGauge.name}</Text></View>)}\n\n        {gaugeListOpen && ("; s=s.replace(marker, insert, 1) if "{!gaugeListOpen && selectedGauge && (" not in s else s; p.write_text(s)'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/mobile/components/OriginalHomeScreen.tsx
+          git commit -m "Fix test Meine Pegel collapsed selection [skip ci]"
+          git push origin test
