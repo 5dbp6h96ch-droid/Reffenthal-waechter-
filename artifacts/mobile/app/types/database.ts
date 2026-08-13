@@ -44,7 +44,7 @@ export interface Database {
         Row: {
           id: string;
           name: string;
-          river: string | null;
+          river: string;
           river_km: number | null;
           pegel_nr: string | null;
           pegel_uuid: string | null;
@@ -54,7 +54,7 @@ export interface Database {
         Insert: {
           id?: string;
           name: string;
-          river?: string | null;
+          river: string;
           river_km?: number | null;
           pegel_nr?: string | null;
           pegel_uuid?: string | null;
@@ -63,7 +63,7 @@ export interface Database {
         };
         Update: {
           name?: string;
-          river?: string | null;
+          river?: string;
           river_km?: number | null;
           pegel_nr?: string | null;
           pegel_uuid?: string | null;
@@ -151,6 +151,32 @@ export interface Database {
           platform?: string | null;
         };
       };
+      web_push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          endpoint?: string;
+          p256dh?: string;
+          auth?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -158,7 +184,6 @@ export interface Database {
   };
 }
 
-// Abgeleitete Komfort-Typen
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Gauge = Database['public']['Tables']['gauges']['Row'];
 export type UserSettings = Database['public']['Tables']['user_settings']['Row'];
@@ -166,3 +191,4 @@ export type UserSettingsUpdate = Database['public']['Tables']['user_settings']['
 export type UserGaugeSetting = Database['public']['Tables']['user_gauge_settings']['Row'];
 export type UserGaugeSettingUpdate = Database['public']['Tables']['user_gauge_settings']['Update'];
 export type PushSubscription = Database['public']['Tables']['push_subscriptions']['Row'];
+export type WebPushSubscription = Database['public']['Tables']['web_push_subscriptions']['Row'];
