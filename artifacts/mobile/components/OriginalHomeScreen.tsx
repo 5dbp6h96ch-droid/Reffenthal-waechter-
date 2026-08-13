@@ -282,6 +282,9 @@ export default function HomeScreen() {
 
   // ── Bottom-Navigation ────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<ActiveTab>(null);
+  // Exit-Ansicht: rein im Speicher – beim erneuten Öffnen der PWA startet
+  // die App frisch und zeigt wieder den normalen Inhalt.
+  const [exited, setExited] = useState(false);
 
   const handleTabPress = useCallback((tab: NonNullable<ActiveTab>) => {
     setActiveTab(prev => prev === tab ? null : tab);
@@ -2528,11 +2531,7 @@ export default function HomeScreen() {
           );
         })}
         <TouchableOpacity
-          onPress={() => {
-            if (typeof history !== 'undefined') {
-              history.back();
-            }
-          }}
+          onPress={() => setExited(true)}
           activeOpacity={0.7}
           style={{
             flex: 1,
@@ -2575,6 +2574,42 @@ export default function HomeScreen() {
   const rootStyle = Platform.OS === 'web'
     ? { height: windowHeight, backgroundColor: colors.background }
     : { flex: 1 as const, backgroundColor: colors.background };
+
+  // „App beendet"-Ansicht nach Tippen auf Exit
+  if (exited) {
+    return (
+      <View style={{
+        ...rootStyle,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        gap: 12,
+      }}>
+        <Text style={{
+          fontSize: 22,
+          fontFamily: 'SpaceGrotesk_700Bold',
+          color: colors.foreground,
+        }}>
+          R(h)einschiffer
+        </Text>
+        <Text style={{
+          fontSize: 15,
+          fontFamily: 'SpaceGrotesk_600SemiBold',
+          color: colors.mutedForeground,
+        }}>
+          App beendet
+        </Text>
+        <Text style={{
+          fontSize: 13,
+          fontFamily: 'SpaceGrotesk_400Regular',
+          color: colors.mutedForeground,
+          textAlign: 'center',
+        }}>
+          Du kannst dieses Fenster jetzt schließen.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={rootStyle}>
