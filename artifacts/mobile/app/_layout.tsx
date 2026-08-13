@@ -19,6 +19,7 @@ import {
   registerNfbBackgroundFetch,
   saveApiBaseUrl,
 } from '@/tasks/nfbBackgroundFetch';
+import { useWebPushPrompt } from '@/hooks/useWebPushPrompt';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -348,6 +349,11 @@ function InstallPrompt() {
   );
 }
 
+function WebPushPrompt() {
+  useWebPushPrompt();
+  return null;
+}
+
 function RootLayoutNav() {
   return (
     <Stack>
@@ -391,6 +397,7 @@ export default function RootLayout() {
             <KeyboardProvider>
               <RootLayoutNav />
               <InstallPrompt />
+              <WebPushPrompt />
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>
