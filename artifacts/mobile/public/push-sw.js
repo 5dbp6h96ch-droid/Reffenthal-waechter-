@@ -7,7 +7,17 @@ self.addEventListener('push', (event) => {
 
   let data = fallback;
   try {
-    if (event.data) data = { ...fallback, ...event.data.json() };
+    if (event.data) {
+      const parsed = event.data.json();
+      const notification = parsed.notification || {};
+      data = {
+        ...fallback,
+        ...parsed,
+        title: notification.title || parsed.title || fallback.title,
+        body: notification.body || parsed.body || fallback.body,
+        url: notification.navigate || parsed.url || fallback.url,
+      };
+    }
   } catch {
     try {
       if (event.data) data.body = event.data.text();
@@ -17,8 +27,6 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: '/_expo/static/js/ios/bundle.js',
-      badge: '/_expo/static/js/ios/bundle.js',
       data: { url: data.url || '/' },
     }),
   );
@@ -30,9 +38,7 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       const existing = clients.find((client) => 'focus' in client);
-      if (existing) {
-        return existing.focus();
-      }
+      if (existing) return existing.focus();
       return self.clients.openWindow(target);
     }),
   );
