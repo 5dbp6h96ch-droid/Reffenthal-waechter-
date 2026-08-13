@@ -164,8 +164,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2300",
       "expired": false,
       "first_seen": "2026-08-10T12:16:22.204106+00:00"
+    },
+    {
+      "nfb_id": "2026/2323",
+      "titel": "Informationsservice wegen Bauarbeiten",
+      "km_von": 773.6,
+      "km_bis": 773.6,
+      "gueltig_ab": "31. Aug. 2026 00:00\n                                Uhr",
+      "gueltig_bis": "11. Sep. 2026 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2323",
+      "expired": false,
+      "first_seen": "2026-08-13T09:45:45.589763+00:00"
     }
   ],
-  "count": 15,
-  "updated_at": "2026-08-13T06:41:10.025798+00:00"
+  "count": 16,
+  "updated_at": "2026-08-13T09:45:52.472265+00:00"
 }
