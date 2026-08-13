@@ -2275,6 +2275,8 @@ export default function HomeScreen() {
           />
         </TouchableOpacity>
 
+        {!gaugeListOpen && selectedGauge && (<View style={{padding:14, marginTop:8, backgroundColor:colors.card, borderRadius:12, borderWidth:1, borderColor:colors.border}}><Text style={{fontSize:15, fontFamily:"SpaceGrotesk_700Bold", color:colors.primary}}>{selectedGauge.name}</Text></View>)}
+
         {gaugeListOpen && (
           gauges.length === 0 ? (
             <ActivityIndicator size="small" color={colors.primary} style={{ alignSelf: 'flex-start' }} />
