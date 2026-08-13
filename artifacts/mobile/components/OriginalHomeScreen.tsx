@@ -2529,8 +2529,8 @@ export default function HomeScreen() {
         })}
         <TouchableOpacity
           onPress={() => {
-            if (typeof window !== 'undefined') {
-              window.close();
+            if (typeof history !== 'undefined') {
+              history.back();
             }
           }}
           activeOpacity={0.7}
