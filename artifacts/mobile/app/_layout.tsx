@@ -19,7 +19,6 @@ import {
   registerNfbBackgroundFetch,
   saveApiBaseUrl,
 } from '@/tasks/nfbBackgroundFetch';
-import { useWebPushPrompt } from '@/hooks/useWebPushPrompt';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -134,16 +133,6 @@ function InstallPrompt() {
   </>;
 }
 
-function WebPushPrompt() {
-  const { visible, status, activate } = useWebPushPrompt();
-  if (!visible || Platform.OS !== 'web') return null;
-  return <View style={{ position: 'absolute', left: 18, right: 18, bottom: 108, zIndex: 20000 }}>
-    <TouchableOpacity onPress={activate} activeOpacity={0.85} disabled={status === 'activating' || status === 'active'} style={{ backgroundColor: status === 'active' ? '#34C759' : '#0A84FF', borderRadius: 16, paddingVertical: 15, paddingHorizontal: 18, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 }}>
-      <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{status === 'active' ? '✓ Push-Nachrichten aktiviert' : status === 'activating' ? 'Push wird aktiviert …' : '🔔 Push-Nachrichten aktivieren'}</Text>
-    </TouchableOpacity>
-  </View>;
-}
-
 function RootLayoutNav() {
   return <Stack><Stack.Screen name="index" options={{ headerShown: false }} /><Stack.Screen name="test" options={{ headerShown: false }} /><Stack.Screen name="redesign" options={{ headerShown: false }} /><Stack.Screen name="reset-password" options={{ headerShown: false }} /></Stack>;
 }
@@ -153,5 +142,5 @@ export default function RootLayout() {
   useEffect(() => { if (fontsLoaded || fontError) SplashScreen.hideAsync(); }, [fontsLoaded, fontError]);
   useEffect(() => { if (apiBase !== 'https://undefined') setBaseUrl(apiBase); void registerNfbBackgroundFetch(); void saveApiBaseUrl(apiBase); }, []);
   if (!fontsLoaded && !fontError) return null;
-  return <SafeAreaProvider><ErrorBoundary><QueryClientProvider client={queryClient}><GestureHandlerRootView style={{ flex: 1 }}><KeyboardProvider><RootLayoutNav /><InstallPrompt /><WebPushPrompt /></KeyboardProvider></GestureHandlerRootView></QueryClientProvider></ErrorBoundary></SafeAreaProvider>;
+  return <SafeAreaProvider><ErrorBoundary><QueryClientProvider client={queryClient}><GestureHandlerRootView style={{ flex: 1 }}><KeyboardProvider><RootLayoutNav /><InstallPrompt /></KeyboardProvider></GestureHandlerRootView></QueryClientProvider></ErrorBoundary></SafeAreaProvider>;
 }
