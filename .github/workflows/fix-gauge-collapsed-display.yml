@@ -1,0 +1,46 @@
+name: Fix test gauge collapsed display
+
+on:
+  push:
+    branches: [test]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test
+
+      - name: Apply test-only gauge display fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('artifacts/mobile/components/OriginalHomeScreen.tsx')
+          s = p.read_text()
+          marker = """        </TouchableOpacity>\n\n        {gaugeListOpen && ("""
+          insert = """        </TouchableOpacity>\n\n        {!gaugeListOpen && selectedGauge && (\n          <View style={{\n            flexDirection: 'row', alignItems: 'center',\n            justifyContent: 'space-between',\n            paddingHorizontal: 16, paddingVertical: 14,\n            backgroundColor: colors.card, borderRadius: 12,\n            borderWidth: 1, borderColor: colors.border,\n          }}>\n            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>\n              <View style={{\n                width: 32, height: 32, borderRadius: 16,\n                backgroundColor: colors.primary + '20',\n                alignItems: 'center', justifyContent: 'center',\n              }}>\n                <Feather name=\"anchor\" size={14} color={colors.primary} />\n              </View>\n              <View style={{ gap: 1 }}>\n                <Text style={{\n                  fontSize: 15, fontFamily: 'SpaceGrotesk_700Bold',\n                  color: colors.primary,\n                }}>\n                  {selectedGauge.name}\n                </Text>\n                {(selectedGauge.river != null || selectedGauge.river_km != null) && (\n                  <Text style={{\n                    fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',\n                    color: colors.mutedForeground,\n                  }}>\n                    {[selectedGauge.river, selectedGauge.river_km != null ? `km ${selectedGauge.river_km}` : null]\n                      .filter(Boolean).join(' · ')}\n                  </Text>\n                )}\n              </View>\n            </View>\n            <Feather name=\"check\" size={18} color={colors.primary} />\n          </View>\n        )}\n\n        {gaugeListOpen && ("""
+          if s.count(marker) != 1:
+              raise SystemExit(f'Expected exactly one gauge header/list marker, found {s.count(marker)}')
+          p.write_text(s.replace(marker, insert, 1))
+          PY
+
+      - name: Verify test web build
+        run: |
+          pnpm install --no-frozen-lockfile
+          pnpm exec expo export --platform web --output-dir dist
+
+      - name: Commit and push test-only change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/mobile/components/OriginalHomeScreen.tsx .github/workflows/fix-gauge-collapsed-display.yml
+          git commit -m "Fix test gauge collapsed display [skip ci]"
+          git push origin test
+          git rm .github/workflows/fix-gauge-collapsed-display.yml
+          git commit -m "Remove one-off gauge display workflow [skip ci]"
+          git push origin test
