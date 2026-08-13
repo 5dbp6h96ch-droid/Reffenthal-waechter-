@@ -23,6 +23,7 @@ export function useWebPushPrompt(): void {
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !supabaseConfigured || !supabase || typeof window === 'undefined') return;
+    if (!isStandaloneWebApp()) return;
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
 
     let cancelled = false;
@@ -34,7 +35,6 @@ export function useWebPushPrompt(): void {
       const existing = await navigator.serviceWorker.getRegistration('/');
       const subscription = existing ? await existing.pushManager.getSubscription() : null;
       if (subscription || Notification.permission === 'granted') return;
-
       if (document.getElementById(BUTTON_ID)) return;
 
       const button = document.createElement('button');
@@ -45,7 +45,7 @@ export function useWebPushPrompt(): void {
         position: 'fixed',
         left: '18px',
         right: '18px',
-        bottom: isStandaloneWebApp() ? '76px' : '18px',
+        bottom: '76px',
         zIndex: '99999',
         border: '0',
         borderRadius: '12px',
