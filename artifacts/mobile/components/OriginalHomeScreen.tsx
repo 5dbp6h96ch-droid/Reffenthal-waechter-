@@ -282,6 +282,9 @@ export default function HomeScreen() {
 
   // ── Bottom-Navigation ────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<ActiveTab>(null);
+  // Exit-Ansicht: rein im Speicher – beim erneuten Öffnen der PWA startet
+  // die App frisch und zeigt wieder den normalen Inhalt.
+  const [exited, setExited] = useState(false);
 
   const handleTabPress = useCallback((tab: NonNullable<ActiveTab>) => {
     setActiveTab(prev => prev === tab ? null : tab);
@@ -302,6 +305,12 @@ export default function HomeScreen() {
 
   // ── Auth-Formular-Zustand (Konto-Tab) ────────────────────────────────────
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  // Passwort-Zurücksetzen-Ansicht
+  const [resetMode, setResetMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState(false);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authFirstName, setAuthFirstName] = useState('');
@@ -310,7 +319,16 @@ export default function HomeScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   // ── Supabase Auth + User Settings + Gauges ──────────────────────────────
-  const { user, signIn, signUp, signOut } = useAuth();
+  const {
+    user, signIn, signUp, signOut, resetPassword,
+    passwordRecovery, clearPasswordRecovery, updatePassword,
+  } = useAuth();
+  // „Neues Passwort festlegen"-Ansicht (nach Klick auf den Reset-Link)
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordRepeat, setNewPasswordRepeat] = useState('');
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [recoveryDone, setRecoveryDone] = useState(false);
   const { profile: userProfile, displayName: profileDisplayName, displayUsername: profileDisplayUsername } = useProfile(user);
   const { settings, loaded: settingsLoaded, updateSettings } = useUserSettings(user?.id);
   const { gauges } = useGauges();
@@ -318,6 +336,7 @@ export default function HomeScreen() {
 
   // ── Ausgewählter Pegelort ────────────────────────────────────────────────
   // localGaugeId = sofortiger lokaler State (reagiert ohne Netzwerk-Roundtrip).
+  // Priorität: localGaugeId → null (settings wird im Init-Effect angewendet)
   const [localGaugeId, setLocalGaugeId] = useState<string | null>(null);
   const selectedGaugeId = localGaugeId ?? null;
   const selectedGauge = gauges.find(g => g.id === selectedGaugeId) ?? gauges[0] ?? null;
@@ -334,6 +353,8 @@ export default function HomeScreen() {
 
   // Init-Effect: erst ausführen, wenn settingsLoaded === true, damit keine
   // Race-Condition entsteht (gauges laden oft schneller als useUserSettings).
+  // Vorher: gauges[0] wurde sofort als Default gesetzt, bevor die gespeicherte
+  // Auswahl aus AsyncStorage/Supabase ankam → Speyer wurde zu KONSTANZ.
   useEffect(() => {
     if (gauges.length > 0 && localGaugeId == null && settingsLoaded) {
       const initial = settings?.selected_gauge_id ?? gauges[0].id;
@@ -1771,6 +1792,134 @@ export default function HomeScreen() {
             </Text>
           </View>
 
+          {resetMode ? (
+            /* ── Passwort zurücksetzen ── */
+            <View style={{
+              backgroundColor: colors.card, borderRadius: 12,
+              borderWidth: 1, borderColor: colors.border,
+              padding: 16, gap: 14,
+            }}>
+              <Text style={{
+                fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold',
+                color: colors.foreground,
+              }}>
+                Passwort zurücksetzen
+              </Text>
+
+              {resetSent ? (
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 8,
+                  backgroundColor: colors.safe + '18',
+                  borderRadius: 8, padding: 12,
+                }}>
+                  <Feather name="check-circle" size={14} color={colors.safe} />
+                  <Text style={{
+                    fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+                    color: colors.safe, flex: 1,
+                  }}>
+                    Wenn für diese E-Mail-Adresse ein Konto vorhanden ist, wurde ein Link zum Zurücksetzen des Passworts gesendet.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={{ gap: 6 }}>
+                    <Text style={{
+                      fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium',
+                      color: colors.mutedForeground, letterSpacing: 0.3,
+                    }}>
+                      E-Mail-Adresse
+                    </Text>
+                    <TextInput
+                      value={resetEmail}
+                      onChangeText={v => { setResetEmail(v); setResetError(null); }}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      placeholder="name@beispiel.de"
+                      placeholderTextColor={colors.mutedForeground}
+                      style={{
+                        fontSize: 15, fontFamily: 'SpaceGrotesk_400Regular',
+                        color: colors.foreground, backgroundColor: colors.muted,
+                        borderRadius: 8, paddingHorizontal: 12, paddingVertical: 11,
+                        borderWidth: 1, borderColor: colors.border,
+                      }}
+                    />
+                  </View>
+
+                  {resetError != null && (
+                    <View style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 8,
+                      backgroundColor: colors.destructive + '18',
+                      borderRadius: 8, padding: 12,
+                    }}>
+                      <Feather name="alert-circle" size={14} color={colors.destructive} />
+                      <Text style={{
+                        fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+                        color: colors.destructive, flex: 1,
+                      }}>
+                        {resetError}
+                      </Text>
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    disabled={resetLoading}
+                    onPress={async () => {
+                      if (!resetEmail.trim()) { setResetError('Bitte E-Mail-Adresse eingeben.'); return; }
+                      setResetLoading(true);
+                      setResetError(null);
+                      Keyboard.dismiss();
+                      const { error } = await resetPassword(resetEmail.trim());
+                      setResetLoading(false);
+                      if (error) {
+                        setResetError(error.message);
+                      } else {
+                        // Neutrale Meldung – keine Aussage darüber, ob das Konto existiert.
+                        setResetSent(true);
+                      }
+                    }}
+                    style={{
+                      backgroundColor: resetLoading ? colors.muted : colors.primary,
+                      borderRadius: 10, paddingVertical: 14,
+                      alignItems: 'center', marginTop: 2,
+                    }}
+                  >
+                    {resetLoading ? (
+                      <ActivityIndicator size="small" color={colors.primaryForeground} />
+                    ) : (
+                      <Text style={{
+                        fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold',
+                        color: colors.primaryForeground,
+                      }}>
+                        Reset-Link senden
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {/* Zurück zur Anmeldung */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  setResetMode(false);
+                  setResetEmail('');
+                  setResetError(null);
+                  setResetSent(false);
+                }}
+                style={{ alignItems: 'center', paddingVertical: 6 }}
+              >
+                <Text style={{
+                  fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium',
+                  color: colors.primary,
+                }}>
+                  Zurück zur Anmeldung
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
           {/* Login / Registrieren Tabs */}
           <View style={{
             flexDirection: 'row', backgroundColor: colors.muted,
@@ -1903,6 +2052,27 @@ export default function HomeScreen() {
               />
             </View>
 
+            {/* Passwort vergessen? (nur bei Anmeldung) */}
+            {authMode === 'login' && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  setResetMode(true);
+                  setResetEmail(authEmail.trim());
+                  setResetError(null);
+                  setResetSent(false);
+                }}
+                style={{ alignSelf: 'flex-start', paddingVertical: 2 }}
+              >
+                <Text style={{
+                  fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium',
+                  color: colors.primary,
+                }}>
+                  Passwort vergessen?
+                </Text>
+              </TouchableOpacity>
+            )}
+
             {/* Fehler */}
             {authError != null && (
               <View style={{
@@ -1984,6 +2154,8 @@ export default function HomeScreen() {
               )}
             </TouchableOpacity>
           </View>
+            </>
+          )}
         </View>
       ) : (
         /* ── Angemeldet: Profil ── */
@@ -2524,6 +2696,38 @@ export default function HomeScreen() {
             </TouchableOpacity>
           );
         })}
+        <TouchableOpacity
+          onPress={() => setExited(true)}
+          activeOpacity={0.7}
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 2,
+            paddingTop: 0,
+          }}
+        >
+          <View style={{
+            width: 36, height: 28,
+            alignItems: 'center', justifyContent: 'center',
+            borderRadius: 14,
+            backgroundColor: 'transparent',
+          }}>
+            <Feather
+              name="log-out"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </View>
+          <Text style={{
+            fontSize: 10,
+            fontFamily: 'SpaceGrotesk_400Regular',
+            color: colors.mutedForeground,
+            letterSpacing: 0.2,
+          }}>
+            Exit
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -2536,6 +2740,213 @@ export default function HomeScreen() {
   const rootStyle = Platform.OS === 'web'
     ? { height: windowHeight, backgroundColor: colors.background }
     : { flex: 1 as const, backgroundColor: colors.background };
+
+  // „Neues Passwort festlegen"-Ansicht nach Öffnen des Supabase-Reset-Links
+  if (passwordRecovery) {
+    return (
+      <View style={{
+        ...rootStyle,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+      }}>
+        <View style={{
+          width: '100%', maxWidth: 400,
+          backgroundColor: colors.card, borderRadius: 12,
+          borderWidth: 1, borderColor: colors.border,
+          padding: 16, gap: 14,
+        }}>
+          <Text style={{
+            fontSize: 18, fontFamily: 'SpaceGrotesk_700Bold',
+            color: colors.foreground,
+          }}>
+            Neues Passwort festlegen
+          </Text>
+
+          {recoveryDone ? (
+            <>
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                backgroundColor: colors.safe + '18',
+                borderRadius: 8, padding: 12,
+              }}>
+                <Feather name="check-circle" size={14} color={colors.safe} />
+                <Text style={{
+                  fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+                  color: colors.safe, flex: 1,
+                }}>
+                  Passwort wurde erfolgreich geändert.
+                </Text>
+              </View>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={async () => {
+                  // Zurück zur Anmeldung: Recovery beenden und abmelden
+                  setNewPassword('');
+                  setNewPasswordRepeat('');
+                  setRecoveryDone(false);
+                  clearPasswordRecovery();
+                  await signOut();
+                  setAuthMode('login');
+                  setActiveTab('konto');
+                }}
+                style={{
+                  backgroundColor: colors.primary,
+                  borderRadius: 10, paddingVertical: 14,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{
+                  fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.primaryForeground,
+                }}>
+                  Zur Anmeldung
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={{ gap: 6 }}>
+                <Text style={{
+                  fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium',
+                  color: colors.mutedForeground, letterSpacing: 0.3,
+                }}>
+                  Neues Passwort
+                </Text>
+                <TextInput
+                  value={newPassword}
+                  onChangeText={v => { setNewPassword(v); setRecoveryError(null); }}
+                  secureTextEntry
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={{
+                    fontSize: 15, fontFamily: 'SpaceGrotesk_400Regular',
+                    color: colors.foreground, backgroundColor: colors.muted,
+                    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 11,
+                    borderWidth: 1, borderColor: colors.border,
+                  }}
+                />
+              </View>
+              <View style={{ gap: 6 }}>
+                <Text style={{
+                  fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium',
+                  color: colors.mutedForeground, letterSpacing: 0.3,
+                }}>
+                  Passwort wiederholen
+                </Text>
+                <TextInput
+                  value={newPasswordRepeat}
+                  onChangeText={v => { setNewPasswordRepeat(v); setRecoveryError(null); }}
+                  secureTextEntry
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={{
+                    fontSize: 15, fontFamily: 'SpaceGrotesk_400Regular',
+                    color: colors.foreground, backgroundColor: colors.muted,
+                    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 11,
+                    borderWidth: 1, borderColor: colors.border,
+                  }}
+                />
+              </View>
+
+              {recoveryError != null && (
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 8,
+                  backgroundColor: colors.destructive + '18',
+                  borderRadius: 8, padding: 12,
+                }}>
+                  <Feather name="alert-circle" size={14} color={colors.destructive} />
+                  <Text style={{
+                    fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+                    color: colors.destructive, flex: 1,
+                  }}>
+                    {recoveryError}
+                  </Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                disabled={recoveryLoading}
+                onPress={async () => {
+                  if (newPassword.length < 6) {
+                    setRecoveryError('Das Passwort muss mindestens 6 Zeichen lang sein.');
+                    return;
+                  }
+                  if (newPassword !== newPasswordRepeat) {
+                    setRecoveryError('Die Passwörter stimmen nicht überein.');
+                    return;
+                  }
+                  setRecoveryLoading(true);
+                  setRecoveryError(null);
+                  Keyboard.dismiss();
+                  const { error } = await updatePassword(newPassword);
+                  setRecoveryLoading(false);
+                  if (error) {
+                    setRecoveryError(error.message);
+                  } else {
+                    setRecoveryDone(true);
+                  }
+                }}
+                style={{
+                  backgroundColor: recoveryLoading ? colors.muted : colors.primary,
+                  borderRadius: 10, paddingVertical: 14,
+                  alignItems: 'center', marginTop: 2,
+                }}
+              >
+                {recoveryLoading ? (
+                  <ActivityIndicator size="small" color={colors.primaryForeground} />
+                ) : (
+                  <Text style={{
+                    fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold',
+                    color: colors.primaryForeground,
+                  }}>
+                    Passwort speichern
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  // „App beendet"-Ansicht nach Tippen auf Exit
+  if (exited) {
+    return (
+      <View style={{
+        ...rootStyle,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        gap: 12,
+      }}>
+        <Text style={{
+          fontSize: 22,
+          fontFamily: 'SpaceGrotesk_700Bold',
+          color: colors.foreground,
+        }}>
+          R(h)einschiffer
+        </Text>
+        <Text style={{
+          fontSize: 15,
+          fontFamily: 'SpaceGrotesk_600SemiBold',
+          color: colors.mutedForeground,
+        }}>
+          App beendet
+        </Text>
+        <Text style={{
+          fontSize: 13,
+          fontFamily: 'SpaceGrotesk_400Regular',
+          color: colors.mutedForeground,
+          textAlign: 'center',
+        }}>
+          Du kannst dieses Fenster jetzt schließen.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={rootStyle}>

@@ -21,7 +21,11 @@
 
 import { useState, useEffect } from 'react';
 import type { Session, User, AuthError } from '@supabase/supabase-js';
-import { supabase, supabaseConfigured } from '@/app/utils/supabase';
+import {
+  supabase,
+  supabaseConfigured,
+  PASSWORD_RECOVERY_STORAGE_KEY,
+} from '@/app/utils/supabase';
 
 export interface UseAuthResult {
   session: Session | null;
@@ -34,9 +38,13 @@ export interface UseAuthResult {
     meta?: { firstName?: string; username?: string },
   ) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
+  resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
+  /** true, wenn der Nutzer über einen Passwort-Reset-Link gekommen ist. */
+  passwordRecovery: boolean;
+  clearPasswordRecovery: () => void;
+  updatePassword: (password: string) => Promise<{ error: AuthError | null }>;
 }
 
-/** Hilfsfunktion: Erstellt einen AuthError-ähnlichen Dummy für den Gastmodus. */
 function notConfiguredError(): { error: AuthError } {
   return {
     error: {
@@ -48,18 +56,39 @@ function notConfiguredError(): { error: AuthError } {
   };
 }
 
+function getRecoveryMarker(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.sessionStorage.getItem(PASSWORD_RECOVERY_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function clearRecoveryMarker(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(PASSWORD_RECOVERY_STORAGE_KEY);
+  } catch {
+    // sessionStorage kann in speziellen WebView-Umgebungen fehlen.
+  }
+}
+
 export function useAuth(): UseAuthResult {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(supabaseConfigured); // false wenn kein Supabase
+  const [loading, setLoading] = useState(supabaseConfigured);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   useEffect(() => {
-    // Ohne Supabase-Konfiguration: Gastmodus, kein Netzwerkaufruf
     if (!supabaseConfigured || !supabase) {
       setLoading(false);
       return;
     }
 
-    // Bestehende Session beim Start wiederherstellen
+    if (getRecoveryMarker()) {
+      setPasswordRecovery(true);
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
@@ -67,10 +96,12 @@ export function useAuth(): UseAuthResult {
       setLoading(false);
     });
 
-    // Auth-Zustandsänderungen beobachten (Login, Logout, Token-Refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      (event, newSession) => {
         setSession(newSession);
+        if (event === 'PASSWORD_RECOVERY') {
+          setPasswordRecovery(true);
+        }
       },
     );
 
@@ -94,18 +125,13 @@ export function useAuth(): UseAuthResult {
       email,
       password,
       options: {
-        // Bestätigungs-Link leitet auf die echte Production-URL zurück.
         emailRedirectTo: 'https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/',
-        // Vorname + Nutzername in user_metadata – werden von useProfile
-        // beim ersten Login in public.profiles übertragen.
         data: {
           first_name: meta?.firstName ?? '',
           username: (meta?.username ?? '').trim(),
         },
       },
     });
-    // Falls der Nutzer sofort eine Session hat (E-Mail-Bestätigung deaktiviert),
-    // direkt in profiles schreiben. Andernfalls übernimmt useProfile beim Login.
     if (!error && data.user && data.session) {
       await client.from('profiles').upsert(
         {
@@ -117,6 +143,20 @@ export function useAuth(): UseAuthResult {
         { onConflict: 'id' },
       );
     }
+    return { error };
+  };
+
+  const resetPassword = async (email: string) => {
+    if (!supabaseConfigured || !supabase) return notConfiguredError();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/',
+    });
+    return { error };
+  };
+
+  const updatePassword = async (password: string) => {
+    if (!supabaseConfigured || !supabase) return notConfiguredError();
+    const { error } = await supabase.auth.updateUser({ password });
     return { error };
   };
 
@@ -133,5 +173,12 @@ export function useAuth(): UseAuthResult {
     signIn,
     signUp,
     signOut,
+    resetPassword,
+    passwordRecovery,
+    clearPasswordRecovery: () => {
+      clearRecoveryMarker();
+      setPasswordRecovery(false);
+    },
+    updatePassword,
   };
 }
