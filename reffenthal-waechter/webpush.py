@@ -40,7 +40,7 @@ def classify_telegram(text: str) -> tuple[str, str, str, str] | None:
     if text.startswith("⚓ *NfB "):
         return (
             "wsv_news",
-            "Neue WSV-Nachricht",
+            "Neue WSV-Meldung",
             clean[:240],
             url,
         )
@@ -48,7 +48,7 @@ def classify_telegram(text: str) -> tuple[str, str, str, str] | None:
     if text.startswith("⚠️ *Niedrigwasser-Warnung"):
         return (
             "threshold_crossed",
-            "⚠️ Pegelwarnung Speyer",
+            "Pegelwarnung",
             clean[:240],
             "/",
         )
@@ -56,7 +56,7 @@ def classify_telegram(text: str) -> tuple[str, str, str, str] | None:
     if text.startswith("💧 *Pegel Speyer – Änderung*"):
         return (
             "gauge_change",
-            "🌊 Pegeländerung Speyer",
+            "Pegeländerung",
             clean[:240],
             "/",
         )
