@@ -2291,7 +2291,7 @@ export default function HomeScreen() {
                   <TouchableOpacity
                     key={g.id}
                     activeOpacity={0.75}
-                    onPress={() => selectGauge(g.id)}
+                    onPress={() => { selectGauge(g.id); setGaugeListOpen(false); }}
                     style={{
                       flexDirection: 'row', alignItems: 'center',
                       justifyContent: 'space-between',
