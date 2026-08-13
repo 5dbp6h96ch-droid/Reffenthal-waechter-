@@ -1,0 +1,36 @@
+name: Push-Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  push-test:
+    name: Web-Push Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Pegeländerung
+        run: |
+          curl --fail-with-body -sS -X POST \
+            "https://azssnqabyefqplnoehty.supabase.co/functions/v1/send-event-push" \
+            -H "Content-Type: application/json" \
+            -H "apikey: ${{ secrets.SUPABASE_SECRET_KEY }}" \
+            --data '{"event_type":"gauge_change","title":"Pegeländerung","body":"TEST – Pegeländerung","url":"/","gauge_id":"SPEYER","threshold_cm":225}'
+
+      - name: Test Pegelwarnung
+        run: |
+          curl --fail-with-body -sS -X POST \
+            "https://azssnqabyefqplnoehty.supabase.co/functions/v1/send-event-push" \
+            -H "Content-Type: application/json" \
+            -H "apikey: ${{ secrets.SUPABASE_SECRET_KEY }}" \
+            --data '{"event_type":"threshold_crossed","title":"Pegelwarnung","body":"TEST – Schwellenunterschreitung","url":"/","gauge_id":"SPEYER","threshold_cm":225}'
+
+      - name: Test WSV-Meldung
+        run: |
+          curl --fail-with-body -sS -X POST \
+            "https://azssnqabyefqplnoehty.supabase.co/functions/v1/send-event-push" \
+            -H "Content-Type: application/json" \
+            -H "apikey: ${{ secrets.SUPABASE_SECRET_KEY }}" \
+            --data '{"event_type":"wsv_news","title":"Neue WSV-Meldung","body":"TEST – Neue WSV-Meldung","url":"/","gauge_id":"SPEYER","threshold_cm":225}'
