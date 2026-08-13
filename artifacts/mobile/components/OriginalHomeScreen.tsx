@@ -2527,6 +2527,42 @@ export default function HomeScreen() {
             </TouchableOpacity>
           );
         })}
+        <TouchableOpacity
+          onPress={() => {
+            if (typeof window !== 'undefined') {
+              window.close();
+            }
+          }}
+          activeOpacity={0.7}
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 2,
+            paddingTop: 0,
+          }}
+        >
+          <View style={{
+            width: 36, height: 28,
+            alignItems: 'center', justifyContent: 'center',
+            borderRadius: 14,
+            backgroundColor: 'transparent',
+          }}>
+            <Feather
+              name="log-out"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </View>
+          <Text style={{
+            fontSize: 10,
+            fontFamily: 'SpaceGrotesk_400Regular',
+            color: colors.mutedForeground,
+            letterSpacing: 0.2,
+          }}>
+            Exit
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
