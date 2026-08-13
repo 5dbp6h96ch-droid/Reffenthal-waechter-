@@ -18,6 +18,30 @@ function isStandaloneWebApp(): boolean {
     || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
+async function waitForActiveServiceWorker(registration: ServiceWorkerRegistration): Promise<ServiceWorkerRegistration> {
+  if (registration.active) return registration;
+
+  const worker = registration.installing ?? registration.waiting;
+  if (!worker) throw new Error('Service Worker konnte nicht gestartet werden.');
+
+  await new Promise<void>((resolve, reject) => {
+    const onStateChange = () => {
+      if (worker.state === 'activated') {
+        worker.removeEventListener('statechange', onStateChange);
+        resolve();
+      } else if (worker.state === 'redundant') {
+        worker.removeEventListener('statechange', onStateChange);
+        reject(new Error('Service Worker wurde verworfen, bevor er aktiv wurde.'));
+      }
+    };
+    worker.addEventListener('statechange', onStateChange);
+    onStateChange();
+  });
+
+  if (!registration.active) throw new Error('Service Worker ist nicht aktiv.');
+  return registration;
+}
+
 export function useWebPushPrompt(): void {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -70,7 +94,8 @@ export function useWebPushPrompt(): void {
           if (permission !== 'granted') throw new Error('Benachrichtigungen wurden nicht erlaubt.');
 
           const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
-          const pushSubscription = await registration.pushManager.subscribe({
+          const activeRegistration = await waitForActiveServiceWorker(registration);
+          const pushSubscription = await activeRegistration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: base64UrlToUint8Array(PUBLIC_VAPID_KEY),
           });
