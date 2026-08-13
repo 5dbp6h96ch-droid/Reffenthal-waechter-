@@ -34,6 +34,7 @@ export interface UseAuthResult {
     meta?: { firstName?: string; username?: string },
   ) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
+  resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
 }
 
 /** Hilfsfunktion: Erstellt einen AuthError-ähnlichen Dummy für den Gastmodus. */
@@ -120,6 +121,15 @@ export function useAuth(): UseAuthResult {
     return { error };
   };
 
+  const resetPassword = async (email: string) => {
+    if (!supabaseConfigured || !supabase) return notConfiguredError();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      // Reset-Link leitet auf die Cloudflare-Test-URL zurück (wie signUp).
+      redirectTo: 'https://rheinschiffer-test.pages.dev/',
+    });
+    return { error };
+  };
+
   const signOut = async () => {
     if (!supabaseConfigured || !supabase) return notConfiguredError();
     const { error } = await supabase.auth.signOut();
@@ -133,5 +143,6 @@ export function useAuth(): UseAuthResult {
     signIn,
     signUp,
     signOut,
+    resetPassword,
   };
 }

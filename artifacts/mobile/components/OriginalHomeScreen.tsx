@@ -305,6 +305,12 @@ export default function HomeScreen() {
 
   // ── Auth-Formular-Zustand (Konto-Tab) ────────────────────────────────────
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  // Passwort-Zurücksetzen-Ansicht
+  const [resetMode, setResetMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState(false);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authFirstName, setAuthFirstName] = useState('');
@@ -313,7 +319,7 @@ export default function HomeScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   // ── Supabase Auth + User Settings + Gauges ──────────────────────────────
-  const { user, signIn, signUp, signOut } = useAuth();
+  const { user, signIn, signUp, signOut, resetPassword } = useAuth();
   const { profile: userProfile, displayName: profileDisplayName, displayUsername: profileDisplayUsername } = useProfile(user);
   const { settings, loaded: settingsLoaded, updateSettings } = useUserSettings(user?.id);
   const { gauges } = useGauges();
@@ -1777,6 +1783,134 @@ export default function HomeScreen() {
             </Text>
           </View>
 
+          {resetMode ? (
+            /* ── Passwort zurücksetzen ── */
+            <View style={{
+              backgroundColor: colors.card, borderRadius: 12,
+              borderWidth: 1, borderColor: colors.border,
+              padding: 16, gap: 14,
+            }}>
+              <Text style={{
+                fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold',
+                color: colors.foreground,
+              }}>
+                Passwort zurücksetzen
+              </Text>
+
+              {resetSent ? (
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 8,
+                  backgroundColor: colors.safe + '18',
+                  borderRadius: 8, padding: 12,
+                }}>
+                  <Feather name="check-circle" size={14} color={colors.safe} />
+                  <Text style={{
+                    fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+                    color: colors.safe, flex: 1,
+                  }}>
+                    Wenn für diese E-Mail-Adresse ein Konto vorhanden ist, wurde ein Link zum Zurücksetzen des Passworts gesendet.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={{ gap: 6 }}>
+                    <Text style={{
+                      fontSize: 12, fontFamily: 'SpaceGrotesk_500Medium',
+                      color: colors.mutedForeground, letterSpacing: 0.3,
+                    }}>
+                      E-Mail-Adresse
+                    </Text>
+                    <TextInput
+                      value={resetEmail}
+                      onChangeText={v => { setResetEmail(v); setResetError(null); }}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      placeholder="name@beispiel.de"
+                      placeholderTextColor={colors.mutedForeground}
+                      style={{
+                        fontSize: 15, fontFamily: 'SpaceGrotesk_400Regular',
+                        color: colors.foreground, backgroundColor: colors.muted,
+                        borderRadius: 8, paddingHorizontal: 12, paddingVertical: 11,
+                        borderWidth: 1, borderColor: colors.border,
+                      }}
+                    />
+                  </View>
+
+                  {resetError != null && (
+                    <View style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 8,
+                      backgroundColor: colors.destructive + '18',
+                      borderRadius: 8, padding: 12,
+                    }}>
+                      <Feather name="alert-circle" size={14} color={colors.destructive} />
+                      <Text style={{
+                        fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
+                        color: colors.destructive, flex: 1,
+                      }}>
+                        {resetError}
+                      </Text>
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    disabled={resetLoading}
+                    onPress={async () => {
+                      if (!resetEmail.trim()) { setResetError('Bitte E-Mail-Adresse eingeben.'); return; }
+                      setResetLoading(true);
+                      setResetError(null);
+                      Keyboard.dismiss();
+                      const { error } = await resetPassword(resetEmail.trim());
+                      setResetLoading(false);
+                      if (error) {
+                        setResetError(error.message);
+                      } else {
+                        // Neutrale Meldung – keine Aussage darüber, ob das Konto existiert.
+                        setResetSent(true);
+                      }
+                    }}
+                    style={{
+                      backgroundColor: resetLoading ? colors.muted : colors.primary,
+                      borderRadius: 10, paddingVertical: 14,
+                      alignItems: 'center', marginTop: 2,
+                    }}
+                  >
+                    {resetLoading ? (
+                      <ActivityIndicator size="small" color={colors.primaryForeground} />
+                    ) : (
+                      <Text style={{
+                        fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold',
+                        color: colors.primaryForeground,
+                      }}>
+                        Reset-Link senden
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {/* Zurück zur Anmeldung */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  setResetMode(false);
+                  setResetEmail('');
+                  setResetError(null);
+                  setResetSent(false);
+                }}
+                style={{ alignItems: 'center', paddingVertical: 6 }}
+              >
+                <Text style={{
+                  fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium',
+                  color: colors.primary,
+                }}>
+                  Zurück zur Anmeldung
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
           {/* Login / Registrieren Tabs */}
           <View style={{
             flexDirection: 'row', backgroundColor: colors.muted,
@@ -1909,6 +2043,27 @@ export default function HomeScreen() {
               />
             </View>
 
+            {/* Passwort vergessen? (nur bei Anmeldung) */}
+            {authMode === 'login' && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  setResetMode(true);
+                  setResetEmail(authEmail.trim());
+                  setResetError(null);
+                  setResetSent(false);
+                }}
+                style={{ alignSelf: 'flex-start', paddingVertical: 2 }}
+              >
+                <Text style={{
+                  fontSize: 13, fontFamily: 'SpaceGrotesk_500Medium',
+                  color: colors.primary,
+                }}>
+                  Passwort vergessen?
+                </Text>
+              </TouchableOpacity>
+            )}
+
             {/* Fehler */}
             {authError != null && (
               <View style={{
@@ -1990,6 +2145,8 @@ export default function HomeScreen() {
               )}
             </TouchableOpacity>
           </View>
+            </>
+          )}
         </View>
       ) : (
         /* ── Angemeldet: Profil ── */
