@@ -21,7 +21,11 @@
 
 import { useState, useEffect } from 'react';
 import type { Session, User, AuthError } from '@supabase/supabase-js';
-import { supabase, supabaseConfigured } from '@/app/utils/supabase';
+import {
+  supabase,
+  supabaseConfigured,
+  PASSWORD_RECOVERY_STORAGE_KEY,
+} from '@/app/utils/supabase';
 
 export interface UseAuthResult {
   session: Session | null;
@@ -53,6 +57,24 @@ function notConfiguredError(): { error: AuthError } {
   };
 }
 
+function getRecoveryMarker(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.sessionStorage.getItem(PASSWORD_RECOVERY_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function clearRecoveryMarker(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(PASSWORD_RECOVERY_STORAGE_KEY);
+  } catch {
+    // sessionStorage kann in speziellen WebView-Umgebungen fehlen.
+  }
+}
+
 export function useAuth(): UseAuthResult {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(supabaseConfigured); // false wenn kein Supabase
@@ -65,14 +87,11 @@ export function useAuth(): UseAuthResult {
       return;
     }
 
-    // Web: Recovery-Link direkt an der URL erkennen (type=recovery im Hash
-    // oder Query). Absicherung, falls das PASSWORD_RECOVERY-Event bereits
-    // vor der Listener-Registrierung gefeuert hat.
-    if (typeof window !== 'undefined' && typeof window.location !== 'undefined') {
-      const loc = `${window.location.hash}${window.location.search}`;
-      if (loc.includes('type=recovery')) {
-        setPasswordRecovery(true);
-      }
+    // Der Supabase-Webclient kann den Recovery-Code bereits während seiner
+    // Initialisierung verarbeitet und die URL danach bereinigt haben. Der
+    // synchrone Marker aus supabase.ts überlebt diesen Vorgang.
+    if (getRecoveryMarker()) {
+      setPasswordRecovery(true);
     }
 
     // Bestehende Session beim Start wiederherstellen
@@ -170,7 +189,10 @@ export function useAuth(): UseAuthResult {
     signOut,
     resetPassword,
     passwordRecovery,
-    clearPasswordRecovery: () => setPasswordRecovery(false),
+    clearPasswordRecovery: () => {
+      clearRecoveryMarker();
+      setPasswordRecovery(false);
+    },
     updatePassword,
   };
 }
