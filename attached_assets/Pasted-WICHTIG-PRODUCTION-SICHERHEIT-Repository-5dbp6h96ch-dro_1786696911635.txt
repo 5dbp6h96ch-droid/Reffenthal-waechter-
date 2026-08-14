@@ -1,0 +1,74 @@
+WICHTIG – PRODUCTION-SICHERHEIT
+
+Repository: 5dbp6h96ch-droid/Reffenthal-waechter-
+
+Ziel:
+Den bereits auf Branch „test“ vollständig getesteten Web-Push-Code für Production vorbereiten.
+
+TESTSIND BEREITS ERFOLGREICH:
+- Push-Nachrichten funktionieren auf test.
+- Alle drei echten Ereignistypen wurden erfolgreich getestet:
+  1. Pegeländerung
+  2. Pegelwarnung / Schwellenunterschreitung
+  3. Neue WSV-Meldung
+- Die Test-Pushes sind auf dem iPhone angekommen.
+- Die echten Push-Titel im Code sind:
+  „Pegeländerung“
+  „Pegelwarnung“
+  „Neue WSV-Meldung“
+- „Test“ darf NICHT Bestandteil eines echten Production-Titels sein.
+
+AUF KEINEN FALL:
+- main direkt verändern
+- Production direkt deployen
+- Merge nach main durchführen
+- Rebase
+- Reset
+- Force-Push
+- andere bestehende App-Funktionen umbauen
+- andere Dateien verändern, wenn es nicht zwingend für diesen Push-Code erforderlich ist
+- Secrets, Supabase Keys oder VAPID Keys in den Code schreiben
+
+AUFGABE:
+
+1. Prüfe zuerst den aktuellen Stand von:
+   test
+   main
+
+2. Identifiziere exakt den bereits getesteten Web-Push-Code auf test, insbesondere:
+   reffenthal-waechter/webpush.py
+
+3. Vergleiche diesen Code mit main.
+
+4. Erstelle einen separaten Production-Vorbereitungsbranch DIREKT von aktuellem main.
+   Der Branch darf main nicht verändern.
+
+5. Übernimm ausschließlich die für den Web-Push notwendigen Änderungen aus dem getesteten test-Stand.
+   Keine Übernahme der großen alten production-migration-Änderungen.
+
+6. Prüfe insbesondere:
+   - SUPABASE_SECRET_KEY wird ausschließlich aus der Runtime-Umgebung gelesen.
+   - Keine Secrets im Repository.
+   - send-event-push wird korrekt aufgerufen.
+   - Ereignisse werden korrekt klassifiziert:
+     gauge_change → „Pegeländerung“
+     threshold_crossed → „Pegelwarnung“
+     wsv_news → „Neue WSV-Meldung“
+   - Keine „Test“-Kennzeichnung in den echten Push-Titeln.
+
+7. Führe Syntax-/Tests aus.
+
+8. STOPP:
+   Bevor irgendein Merge nach main oder ein Production-Deployment erfolgt, gib mir ausschließlich einen Bericht mit:
+   - Branchname
+   - Commit-SHA
+   - geänderten Dateien
+   - Diff-Zusammenfassung
+   - Testergebnis
+   - Bestätigung, dass main unverändert blieb
+
+WICHTIG:
+Noch KEIN Merge nach main.
+Noch KEIN Production-Deployment.
+
+Nur vorbereiten und prüfen.
