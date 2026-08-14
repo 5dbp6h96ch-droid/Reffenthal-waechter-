@@ -7,6 +7,12 @@ on:
 
   # Manuell ausführen über GitHub Actions UI
   workflow_dispatch:
+    inputs:
+      push_test:
+        description: "Nur für Push-Test: alle drei Ereignistypen senden"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -43,6 +49,33 @@ jobs:
           SUPABASE_URL: https://azssnqabyefqplnoehty.supabase.co
         run: |
           cd reffenthal-waechter && python watcher.py
+
+      - name: Test Pegeländerung
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.push_test == true }}
+        run: |
+          curl --fail-with-body -sS -X POST \
+            "https://azssnqabyefqplnoehty.supabase.co/functions/v1/send-event-push" \
+            -H "Content-Type: application/json" \
+            -H "apikey: ${{ secrets.SUPABASE_SECRET_KEY }}" \
+            --data '{"event_type":"gauge_change","title":"Pegeländerung","body":"TEST – Pegeländerung","url":"/","gauge_id":"SPEYER","threshold_cm":225}'
+
+      - name: Test Pegelwarnung
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.push_test == true }}
+        run: |
+          curl --fail-with-body -sS -X POST \
+            "https://azssnqabyefqplnoehty.supabase.co/functions/v1/send-event-push" \
+            -H "Content-Type: application/json" \
+            -H "apikey: ${{ secrets.SUPABASE_SECRET_KEY }}" \
+            --data '{"event_type":"threshold_crossed","title":"Pegelwarnung","body":"TEST – Schwellenunterschreitung","url":"/","gauge_id":"SPEYER","threshold_cm":225}'
+
+      - name: Test WSV-Meldung
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.push_test == true }}
+        run: |
+          curl --fail-with-body -sS -X POST \
+            "https://azssnqabyefqplnoehty.supabase.co/functions/v1/send-event-push" \
+            -H "Content-Type: application/json" \
+            -H "apikey: ${{ secrets.SUPABASE_SECRET_KEY }}" \
+            --data '{"event_type":"wsv_news","title":"Neue WSV-Meldung","body":"TEST – Neue WSV-Meldung","url":"/","gauge_id":"SPEYER","threshold_cm":225}'
 
       - name: Zustand committen
         run: |
