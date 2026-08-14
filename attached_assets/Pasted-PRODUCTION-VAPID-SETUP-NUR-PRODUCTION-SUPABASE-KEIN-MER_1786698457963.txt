@@ -1,0 +1,95 @@
+PRODUCTION VAPID SETUP – NUR PRODUCTION-SUPABASE, KEIN MERGE, KEIN DEPLOYMENT
+
+Repository:
+5dbp6h96ch-droid/Reffenthal-waechter-
+
+Aktueller Vorbereitungsbranch:
+prod-webpush-prep
+
+Aktueller Commit:
+0a6ee86
+
+Production-Supabase:
+Projektname: Rheinschiffer
+Projekt-ID: cazlpbdcwycpoftohvtq
+
+Test-Supabase:
+Projekt-ID: azssnqabyefqplnoehty
+
+WICHTIG – ABSOLUTE GRENZEN:
+- main NICHT verändern
+- kein Merge nach main
+- kein Rebase
+- kein Reset
+- kein Force-Push
+- kein Production-Deployment
+- Test-Supabase NICHT verändern
+- keine Test-VAPID-Schlüssel übernehmen
+- keine privaten Schlüssel in Git committen
+- keine privaten Schlüssel in Quellcode schreiben
+- keine Secrets im Chat ausgeben
+
+DIE PRODUCTION-DATENBANK WURDE BEREITS VORBEREITET:
+public.web_push_subscriptions
+public.web_push_vapid_config
+
+ZIEL:
+Das Production-VAPID-Schlüsselpaar sicher für das Production-Supabase einrichten.
+
+AUFGABEN:
+
+1. Erzeuge ein NEUES Production-VAPID-Schlüsselpaar.
+   NICHT das Test-Schlüsselpaar verwenden.
+
+2. Behandle den privaten VAPID-Schlüssel ausschließlich als Secret.
+   Er darf niemals in Git, Commit, Migration, Log-Ausgabe oder Sourcecode landen.
+
+3. Prüfe, ob du über die vorhandene Replit/Supabase-Verbindung direkt auf das Production-Projekt
+   cazlpbdcwycpoftohvtq
+   zugreifen kannst.
+
+4. Falls direkter Zugriff möglich ist:
+   Schreibe in Production ausschließlich in:
+   public.web_push_vapid_config
+
+   Werte:
+   id = true
+   public_key = neuer Production Public Key
+   private_key_jwk = neuer Production Private Key als JSONB
+
+   Verwende dabei ausschließlich das neue Production-Schlüsselpaar.
+
+5. Falls Replit KEINEN sicheren Schreibzugriff auf das Production-Supabase besitzt:
+   NICHT versuchen, den Schlüssel anderweitig zu übertragen.
+   Stattdessen STOPP und exakt melden:
+   „Kein sicherer Schreibzugriff auf Production-Supabase verfügbar.“
+
+6. Prüfe nach erfolgreichem Eintrag:
+   - genau eine VAPID-Zeile vorhanden
+   - public_key vorhanden
+   - private_key_jwk vorhanden
+   - keine Secrets außerhalb der Datenbank/Secret-Verwaltung gespeichert
+
+7. Den neuen PUBLIC KEY anschließend für den Client vorbereiten.
+   Der Public Key muss später in:
+   useWebPushPrompt.ts
+   verwendet werden.
+
+   ABER:
+   Noch keinen Commit nach main.
+   Noch kein Deployment.
+
+8. Wenn du useWebPushPrompt.ts änderst, darf ausschließlich der alte Test-Public-Key durch den neuen Production-Public-Key ersetzt werden.
+   Keine weiteren Änderungen.
+
+9. Am Ende STOPP.
+
+Bericht:
+- Wurde das neue Production-VAPID-Paar erzeugt? Ja/Nein
+- Wurde es sicher in Production gespeichert? Ja/Nein
+- Wurde Test-Supabase verändert? Muss Nein sein.
+- Wurde main verändert? Muss Nein sein.
+- Wurde etwas deployed? Muss Nein sein.
+- Neuer PUBLIC KEY: darf genannt werden.
+- PRIVATE KEY: NIEMALS ausgeben.
+- Geänderte Dateien/Commit: exakt nennen.
