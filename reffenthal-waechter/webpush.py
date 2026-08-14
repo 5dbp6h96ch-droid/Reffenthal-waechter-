@@ -13,12 +13,11 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-SUPABASE_URL = os.environ.get(
-    "SUPABASE_URL",
-    "https://azssnqabyefqplnoehty.supabase.co",
-).rstrip("/")
+# Beide Werte kommen ausschließlich aus der Runtime-Umgebung (GitHub Secrets).
+# Fehlt einer, wird Web Push übersprungen – Telegram bleibt unberührt.
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY", "")
-PUSH_URL = f"{SUPABASE_URL}/functions/v1/send-event-push"
+PUSH_URL = f"{SUPABASE_URL}/functions/v1/send-event-push" if SUPABASE_URL else ""
 
 
 def _clean_markdown(text: str) -> str:
@@ -66,8 +65,10 @@ def classify_telegram(text: str) -> tuple[str, str, str, str] | None:
 
 def send_for_alert(text: str) -> bool:
     """Send the corresponding Web Push for a supported watcher alert."""
-    if not SUPABASE_SECRET_KEY:
-        logger.info("WebPush: SUPABASE_SECRET_KEY fehlt – Push übersprungen.")
+    if not SUPABASE_URL or not SUPABASE_SECRET_KEY:
+        logger.info(
+            "WebPush: SUPABASE_URL/SUPABASE_SECRET_KEY fehlt – Push übersprungen."
+        )
         return False
 
     event = classify_telegram(text)

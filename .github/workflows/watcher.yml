@@ -40,7 +40,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-          SUPABASE_URL: https://azssnqabyefqplnoehty.supabase.co
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         run: |
           cd reffenthal-waechter && python watcher.py
 
