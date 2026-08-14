@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { supabase, supabaseConfigured } from '@/app/utils/supabase';
 
+// Basis-Pfad des Deployments (GitHub Pages: /Reffenthal-waechter-, Test: leer)
+const PUSH_SW_BASE = (process.env.EXPO_ROUTER_BASE_URL ?? '').replace(/\/$/, '');
+
 const PUBLIC_VAPID_KEY = 'BEE2qq7KlarDR6GiQtCIbc05XIC28dzm7Hor0b6V3rvJeASaVJi2Hacq_glgNNxMirnwz5L47lRUXD_nleru5i4';
 
 function base64UrlToUint8Array(value: string): Uint8Array {
@@ -47,7 +50,7 @@ export function useWebPushPrompt() {
       if (Notification.permission !== 'granted') return;
 
       try {
-        const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
+        const registration = await navigator.serviceWorker.register(`${PUSH_SW_BASE}/push-sw.js`, { scope: `${PUSH_SW_BASE}/` });
         const activeRegistration = await waitForActiveServiceWorker(registration);
         const existing = await activeRegistration.pushManager.getSubscription();
         if (existing && !cancelled) setStatus('active');
@@ -88,7 +91,7 @@ export function useWebPushPrompt() {
         throw new Error('Benachrichtigungen wurden nicht erlaubt.');
       }
 
-      const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
+      const registration = await navigator.serviceWorker.register(`${PUSH_SW_BASE}/push-sw.js`, { scope: `${PUSH_SW_BASE}/` });
       const activeRegistration = await waitForActiveServiceWorker(registration);
       const existing = await activeRegistration.pushManager.getSubscription();
       const pushSubscription = existing ?? await activeRegistration.pushManager.subscribe({
