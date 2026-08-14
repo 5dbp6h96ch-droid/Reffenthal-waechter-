@@ -15,12 +15,16 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl } from '@workspace/api-client-react';
+import { setupWebViewport } from './utils/webViewport';
 import {
   registerNfbBackgroundFetch,
   saveApiBaseUrl,
 } from '@/tasks/nfbBackgroundFetch';
 
 SplashScreen.preventAutoHideAsync();
+
+// Responsives Web-Layout (Viewport-Meta korrigieren, Zoom-Sperre, Safe-Area).
+setupWebViewport();
 
 // TEST: Datenquellen bewusst über die stabile statische Daten-Schicht laden.
 // Die Cloudflare-Variable EXPO_PUBLIC_STATIC_DATA darf dafür nicht versehentlich
