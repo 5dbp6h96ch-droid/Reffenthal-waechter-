@@ -1,6 +1,7 @@
 name: Deploy test to Cloudflare Pages
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - test
