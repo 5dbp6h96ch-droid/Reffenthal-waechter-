@@ -56,6 +56,13 @@ export default function Root({ children }: PropsWithChildren) {
                was die Bottom-Navigation aus dem Sichtbereich schiebt. */
             height: 100%;
           }
+          /* Moderne Browser: dynamische Viewport-Höhe (mobile Adressleiste
+             ein-/ausblendbar) statt statischem Fenster-Anker. */
+          @supports (height: 100dvh) {
+            html, body, #root {
+              height: 100dvh;
+            }
+          }
           html {
             overflow-x: hidden;
             -webkit-text-size-adjust: 100%;
@@ -64,6 +71,15 @@ export default function Root({ children }: PropsWithChildren) {
           body {
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
+            /* iOS Safari ignoriert user-scalable=no – Pinch-Zoom zusätzlich
+               über touch-action unterbinden (Pan/Scroll bleibt erlaubt). */
+            touch-action: pan-x pan-y;
+          }
+          /* Querformat mit Notch: Inhalt nicht unter die seitlichen
+             Safe-Areas laufen lassen (oben/unten regelt die App selbst). */
+          #root {
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
           }
           *, *::before, *::after {
             box-sizing: border-box;
