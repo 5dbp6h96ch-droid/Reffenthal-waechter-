@@ -1,0 +1,79 @@
+PRODUKTIONS-VORBEREITUNG WEB-PUSH – NUR VORBEREITEN, NICHT DEPLOYEN
+
+Projekt: Rheinschiffer
+GitHub Repository: 5dbp6h96ch-droid/Reffenthal-waechter-
+
+WICHTIG:
+- main NICHT verändern
+- kein Merge
+- kein Rebase
+- kein Reset
+- kein Force-Push
+- KEIN Production-Deployment
+- Test-Supabase NICHT verändern
+- Production-Supabase NICHT direkt verändern
+- Nur einen vorbereiteten Branch/Commit erstellen
+
+Ausgangsbasis:
+Branch prod-webpush-prep
+Commit 408530a
+„Prepare web push for production (tested on test branch)“
+
+Ziel:
+Die bereits getestete Web-Push-Implementierung so vorbereiten, dass sie später sauber mit dem Produktions-Supabase-Projekt „Rheinschiffer“ funktioniert.
+
+Produktions-Supabase:
+Projektname: Rheinschiffer
+Projekt-ID: cazlpbdcwycpoftohvtq
+
+Test-Supabase:
+Projektname: Rheinschiffer-Test
+Projekt-ID: azssnqabyefqplnoehty
+
+Der Test besitzt bereits:
+- web_push_subscriptions
+- web_push_vapid_config
+- push_tokens
+
+Production besitzt diese Web-Push-Tabellen aktuell noch NICHT.
+
+AUFGABEN:
+
+1. Prüfe die bestehende Web-Push-Implementierung aus Commit 408530a.
+
+2. Erstelle auf dem Vorbereitungsbranch eine saubere Supabase-Migration für Production, die die für Web-Push benötigten Tabellen/Policies/Funktionen aus dem getesteten Test-Stand übernimmt.
+
+3. Keine Secrets oder privaten VAPID-Schlüssel in Git committen.
+
+4. VAPID-Konfiguration muss für Production separat erzeugt/gesetzt werden. NICHT den privaten Test-Schlüssel kopieren.
+
+5. Prüfe insbesondere:
+   - web_push_subscriptions
+   - web_push_vapid_config
+   - benötigte RLS-Policies
+   - benötigte Indizes/Constraints
+   - send-event-push Edge Function
+   - Auth-Zuordnung user_id
+   - keine Test-Texte in echten Push-Titeln
+
+6. Die bestehende Push-Klassifizierung muss erhalten bleiben:
+   gauge_change → „Pegeländerung“
+   threshold_crossed → „Pegelwarnung“
+   wsv_news → „Neue WSV-Meldung“
+   sonstige Texte → kein Push
+
+7. Die bereits getestete Telegram/NfB-Integration darf nicht doppelt pushen.
+
+8. SUPABASE_URL und SUPABASE_SECRET_KEY müssen später aus Production-Secrets kommen und dürfen nicht fest im Code stehen.
+
+9. Erstelle KEIN Production-Deployment.
+
+10. Am Ende nur Bericht liefern:
+   - Branch
+   - Commit-SHA
+   - geänderte Dateien
+   - SQL/Migrationsumfang
+   - welche Secrets später benötigt werden
+   - welche Schritte vor dem tatsächlichen Production-Deployment noch fehlen
+
+NOCH NICHT MERGEN UND NOCH NICHT DEPLOYEN.
