@@ -60,6 +60,7 @@ import { useColors } from '@/hooks/useColors';
 import { useSinceLastVisit } from '@/hooks/useSinceLastVisit';
 import RheinKarte from '@/components/RheinKarte';
 import { useAuth } from '@/hooks/useAuth';
+import { useWebPushPrompt } from '@/hooks/useWebPushPrompt';
 import { useProfile } from '@/hooks/useProfile';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useGauges } from '@/hooks/useGauges';
@@ -310,6 +311,11 @@ export default function HomeScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   // ── Supabase Auth + User Settings + Gauges ──────────────────────────────
+  const {
+    visible: webPushVisible,
+    status: webPushStatus,
+    activate: activateWebPush,
+  } = useWebPushPrompt();
   const { user, signIn, signUp, signOut } = useAuth();
   const { profile: userProfile, displayName: profileDisplayName, displayUsername: profileDisplayUsername } = useProfile(user);
   const { settings, loaded: settingsLoaded, updateSettings } = useUserSettings(user?.id);
@@ -2242,6 +2248,53 @@ export default function HomeScreen() {
           </View>
         ))}
       </View>
+
+      {/* PUSH-NACHRICHTEN (nur Web) */}
+      {Platform.OS === 'web' && webPushVisible && (
+        <View style={{ gap: 10 }}>
+          <Text style={{
+            fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold',
+            color: colors.mutedForeground,
+            letterSpacing: 2, textTransform: 'uppercase',
+          }}>
+            Push-Nachrichten
+          </Text>
+          <TouchableOpacity
+            onPress={activateWebPush}
+            activeOpacity={0.8}
+            disabled={webPushStatus === 'activating' || webPushStatus === 'active'}
+            style={{
+              backgroundColor: webPushStatus === 'active'
+                ? colors.safe + '18'
+                : colors.card,
+              borderRadius: 12, borderWidth: 1,
+              borderColor: webPushStatus === 'active' ? colors.safe + '40' : colors.border,
+              paddingHorizontal: 16, paddingVertical: 14,
+              flexDirection: 'row', alignItems: 'center', gap: 10,
+            }}
+          >
+            {webPushStatus === 'activating' ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Feather
+                name={webPushStatus === 'active' ? 'check-circle' : 'bell'}
+                size={16}
+                color={webPushStatus === 'active' ? colors.safe : colors.primary}
+              />
+            )}
+            <Text style={{
+              fontSize: 14, fontFamily: 'SpaceGrotesk_600SemiBold',
+              color: webPushStatus === 'active' ? colors.safe : colors.foreground,
+            }}>
+              {webPushStatus === 'active'
+                ? '✓ Push-Nachrichten aktiviert'
+                : webPushStatus === 'activating'
+                  ? 'Push wird aktiviert …'
+                  : 'Push-Nachrichten aktivieren'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </ScrollView>
   );
 
