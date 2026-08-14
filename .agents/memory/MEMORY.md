@@ -1,1 +1,2 @@
 - [Task-merge import drops](task-merge-import-drops.md) — task agents drop hook imports from index.tsx → ReferenceError crash; run tsc and look for TS2552 after every merge.
+- [Prod deploy quirks](prod-deploy-quirks.md) — GitHub Pages subpath breaks hardcoded `/` paths (test serves from root); edge functions need `--no-verify-jwt` and a personal access token.
