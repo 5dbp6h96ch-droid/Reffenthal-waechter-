@@ -80,6 +80,11 @@ self.addEventListener('fetch', (event) => {
 
   const path = url.pathname;
 
+  // Service-Worker-Skripte niemals über den App-Cache ausliefern.
+  // Wichtig für Push: ein alter sw/push-sw.js darf sonst dauerhaft
+  // einen veralteten Notification-Payload anzeigen.
+  if (path.endsWith('/sw.js') || path.endsWith('/push-sw.js')) return;
+
   // Navigation / HTML → Network First
   if (req.mode === 'navigate' || path === BASE + '/' || path === BASE) {
     event.respondWith(networkFirst(req));

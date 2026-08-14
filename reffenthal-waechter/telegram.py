@@ -1,7 +1,8 @@
 """
 Telegram-Versand für den Reffenthal-Wächter.
 
-Sendet Nachrichten über die Telegram Bot API.
+Sendet Nachrichten über die Telegram Bot API und löst für die relevanten
+Wächter-Alerts zusätzlich Web Push aus.
 """
 
 import logging
@@ -9,6 +10,7 @@ import logging
 import requests
 
 from config import HTTP_TIMEOUT, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, USER_AGENT
+from webpush import send_for_alert
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +18,8 @@ logger = logging.getLogger(__name__)
 def send_message(text: str) -> bool:
     """Sendet eine Textnachricht an den konfigurierten Telegram-Chat.
 
-    Args:
-        text: Der Nachrichtentext (Markdown-Formatierung erlaubt).
-
-    Returns:
-        True bei Erfolg, False bei Fehler.
+    Bei Pegeländerung, Niedrigwasser-Schwelle und WSV/NfB-News wird nach
+    erfolgreichem Telegram-Versand zusätzlich der Web-Push ausgelöst.
     """
     if not TELEGRAM_BOT_TOKEN:
         logger.error("Telegram: TELEGRAM_BOT_TOKEN ist nicht gesetzt.")
@@ -48,6 +47,10 @@ def send_message(text: str) -> bool:
         )
         response.raise_for_status()
         logger.info("Telegram: Nachricht gesendet (%d Zeichen).", len(text))
+        try:
+            send_for_alert(text)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("WebPush: unerwarteter Fehler: %s", exc)
         return True
     except requests.exceptions.Timeout:
         logger.error("Telegram: Zeitüberschreitung beim Senden.")
