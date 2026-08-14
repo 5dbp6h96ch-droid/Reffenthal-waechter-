@@ -16,8 +16,9 @@
  * nach dem Mount ausführen. Beim Expo-Static-Export gibt es kein DOM →
  * Komponente gibt null zurück.
  */
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, ScrollView as RNScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -189,6 +190,28 @@ export default function RheinKarte({
   /** true = mindestens eine Seamark-Kachel konnte nicht geladen werden */
   const [seamarkError, setSeamarkError] = useState(false);
 
+  // ── Vollbild-Modus ─────────────────────────────────────────────────────────
+  // DIESELBE Karteninstanz wird per CSS auf Vollbild geschaltet – dadurch
+  // bleiben aktuelle Position und Zoom automatisch erhalten (keine zweite
+  // Instanz). Leaflet braucht danach nur ein invalidateSize().
+  const [fullscreen, setFullscreen] = useState(false);
+  const insets = useSafeAreaInsets();
+  const mapRef = useRef<L.Map | null>(null);
+
+  useEffect(() => {
+    // Nach dem Umschalten Kartengröße neu berechnen …
+    const t = setTimeout(() => mapRef.current?.invalidateSize(), 60);
+    // … und Hintergrund-Scroll sperren, solange das Overlay offen ist.
+    if (typeof document !== 'undefined') {
+      if (fullscreen) {
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => { clearTimeout(t); document.body.style.overflow = prev; };
+      }
+    }
+    return () => clearTimeout(t);
+  }, [fullscreen]);
+
   // SSG-Guard: kein DOM beim Expo-Static-Export → erst nach Browser-Mount rendern
   const [mounted, setMounted] = useState(false);
 
@@ -249,7 +272,44 @@ export default function RheinKarte({
   ];
 
   return (
-    <View style={{ gap: 10, marginTop: 2 }}>
+    <View
+      // Vollbild: DERSELBE Baum (inkl. Karteninstanz) wird per CSS-Position
+      // auf den ganzen Viewport gelegt – Position/Zoom bleiben erhalten.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      style={fullscreen ? ({
+        // @ts-expect-error 'fixed' ist auf react-native-web gültig
+        position: 'fixed',
+        top: 0, left: 0, right: 0, bottom: 0,
+        zIndex: 100000,
+        backgroundColor: 'rgba(0,0,0,0.88)',
+        paddingTop: Math.max(insets.top, 10) + 6,
+        paddingBottom: Math.max(insets.bottom, 10),
+        paddingLeft: Math.max(insets.left, 10),
+        paddingRight: Math.max(insets.right, 10),
+        gap: 10,
+      } as any) : { gap: 10, marginTop: 2 }}
+    >
+
+      {/* Vollbild: Kopfzeile mit X (auch bei Notch/Dynamic Island erreichbar) */}
+      {fullscreen && (
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: 15, color: '#FFFFFF', fontFamily: 'SpaceGrotesk_600SemiBold' }}>
+            Rhein-Karte
+          </Text>
+          <TouchableOpacity
+            onPress={() => setFullscreen(false)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{
+              width: 40, height: 40, borderRadius: 20,
+              backgroundColor: 'rgba(255,255,255,0.18)',
+              alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 20, color: '#FFFFFF', lineHeight: 22 }}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Offline-Banner */}
       {isOffline && (
@@ -311,17 +371,19 @@ export default function RheinKarte({
         </View>
       )}
 
-      {/* Karte – feste Höhe 400px (Pflicht für Leaflet) */}
+      {/* Karte – inline feste Höhe 400px (Pflicht für Leaflet), Vollbild: flex:1 */}
       <View style={{
-        height: 400,
+        ...(fullscreen ? { flex: 1 } : { height: 400 }),
         borderRadius: 10,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: colors.border as string,
+        borderColor: fullscreen ? 'rgba(255,255,255,0.25)' : (colors.border as string),
       }}>
         <MapContainer
           center={[49.4, 8.4]}
           zoom={9}
+          // @ts-ignore – ref liefert die Leaflet-Map-Instanz
+          ref={mapRef}
           // @ts-ignore – style ist ein gültiges Leaflet-MapContainer-Prop
           style={{ height: '100%', width: '100%' }}
           scrollWheelZoom
@@ -446,6 +508,34 @@ export default function RheinKarte({
           ))}
 
         </MapContainer>
+
+        {/* Inline-Ansicht: Tipp-Fläche zum Öffnen des Vollbilds.
+            Die volle Karteninteraktion (Zoom/Pan) findet im Vollbild statt. */}
+        {!fullscreen && (
+          <TouchableOpacity
+            onPress={() => setFullscreen(true)}
+            activeOpacity={0.85}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            style={{
+              position: 'absolute',
+              top: 0, left: 0, right: 0, bottom: 0,
+              zIndex: 1000,
+              backgroundColor: 'transparent',
+            } as any}
+          >
+            <View style={{
+              position: 'absolute', top: 8, right: 8,
+              backgroundColor: 'rgba(0,0,0,0.55)',
+              borderRadius: 8,
+              paddingHorizontal: 10, paddingVertical: 6,
+              flexDirection: 'row', alignItems: 'center', gap: 5,
+            }}>
+              <Text style={{ fontSize: 12, color: '#FFFFFF', fontFamily: 'SpaceGrotesk_500Medium' }}>
+                ⤢ Vergrößern
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Quellenhinweis */}
