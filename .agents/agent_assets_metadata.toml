@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "a24CAEgCCWtsp794-b7aT"
+uri = "file://generated_assets/vapid-generator.html"
+type = "text"
+title = "Production VAPID-Generator"
+description = "Erzeugt das VAPID-Schlüsselpaar lokal im Browser (WebCrypto, HTTPS nötig) – mit Fehleranzeige und fertigem SQL für den Supabase SQL Editor."

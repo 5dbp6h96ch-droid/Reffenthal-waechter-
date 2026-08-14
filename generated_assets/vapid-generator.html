@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Production VAPID-Generator – Rheinschiffer</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  h1 { font-size: 1.3rem; }
+  .card { border: 1px solid #8884; border-radius: 12px; padding: 16px; margin: 1rem 0; }
+  label { font-weight: 600; display: block; margin-bottom: .3rem; }
+  textarea { width: 100%; min-height: 84px; font-family: ui-monospace, Menlo, monospace; font-size: .8rem; border-radius: 8px; padding: 8px; box-sizing: border-box; }
+  button { font-size: 1rem; padding: .6rem 1.1rem; border-radius: 8px; border: 1px solid #8886; cursor: pointer; }
+  button.primary { background: #1d4ed8; color: #fff; border: none; }
+  .row { display: flex; gap: .5rem; align-items: center; margin-top: .4rem; }
+  #error { color: #dc2626; white-space: pre-wrap; font-weight: 600; }
+  .hint { font-size: .85rem; color: #666; }
+  .warn { background: #fde68a55; border-color: #d97706; }
+</style>
+</head>
+<body>
+<h1>🔑 Production VAPID-Generator (Rheinschiffer)</h1>
+<p class="hint">Erzeugt ein neues VAPID-Schlüsselpaar (ECDSA P-256) vollständig lokal in deinem Browser. Es wird nichts gesendet, gespeichert oder geloggt.</p>
+
+<div class="card warn">
+  <strong>Wichtig:</strong> Den <em>Private JWK</em> ausschließlich im Supabase SQL Editor des Production-Projekts einfügen – niemals in Git, Chat oder Code.
+</div>
+
+<div class="card">
+  <button class="primary" id="gen">Neues Production-Paar erzeugen</button>
+  <p id="error"></p>
+</div>
+
+<div class="card">
+  <label for="pub">Public Key (für Client, Base64URL)</label>
+  <textarea id="pub" readonly placeholder="– noch nicht erzeugt –"></textarea>
+  <div class="row"><button data-copy="pub">Kopieren</button></div>
+</div>
+
+<div class="card">
+  <label for="priv">Private JWK (nur für Supabase – geheim halten!)</label>
+  <textarea id="priv" readonly placeholder="– noch nicht erzeugt –"></textarea>
+  <div class="row"><button data-copy="priv">Kopieren</button></div>
+</div>
+
+<div class="card">
+  <label for="sql">Fertiges SQL für den Supabase SQL Editor (enthält den Private Key – geheim!)</label>
+  <textarea id="sql" readonly style="min-height:130px" placeholder="– noch nicht erzeugt –"></textarea>
+  <div class="row"><button data-copy="sql">Kopieren</button></div>
+</div>
+
+<script>
+(function () {
+  const el = (id) => document.getElementById(id);
+  const err = el('error');
+
+  function b64url(bytes) {
+    let s = '';
+    for (const b of new Uint8Array(bytes)) s += String.fromCharCode(b);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  async function generate() {
+    err.textContent = '';
+    try {
+      if (!window.isSecureContext || !crypto || !crypto.subtle) {
+        throw new Error('WebCrypto nicht verfügbar. Diese Seite muss über HTTPS (oder localhost) geöffnet werden – nicht über file:// oder http://.');
+      }
+      const pair = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']
+      );
+      // Public Key: unkomprimierter Punkt (65 Bytes) als Base64URL – Format für applicationServerKey
+      const raw = await crypto.subtle.exportKey('raw', pair.publicKey);
+      const publicKey = b64url(raw);
+      // Private Key als JWK (enthält d, x, y)
+      const jwk = await crypto.subtle.exportKey('jwk', pair.privateKey);
+      const privateJwk = JSON.stringify(jwk);
+
+      el('pub').value = publicKey;
+      el('priv').value = privateJwk;
+      el('sql').value =
+        "insert into public.web_push_vapid_config (id, public_key, private_key_jwk)\n" +
+        "values (true, '" + publicKey + "', '" + privateJwk.replace(/'/g, "''") + "'::jsonb)\n" +
+        "on conflict (id) do update\n" +
+        "  set public_key = excluded.public_key,\n" +
+        "      private_key_jwk = excluded.private_key_jwk;";
+    } catch (e) {
+      err.textContent = 'Fehler: ' + (e && e.message ? e.message : String(e));
+    }
+  }
+
+  el('gen').addEventListener('click', generate);
+
+  document.querySelectorAll('button[data-copy]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const ta = el(btn.dataset.copy);
+      try {
+        await navigator.clipboard.writeText(ta.value);
+        btn.textContent = '✓ kopiert';
+      } catch {
+        ta.select(); document.execCommand('copy');
+        btn.textContent = '✓ kopiert';
+      }
+      setTimeout(() => (btn.textContent = 'Kopieren'), 1500);
+    });
+  });
+})();
+</script>
+</body>
+</html>
