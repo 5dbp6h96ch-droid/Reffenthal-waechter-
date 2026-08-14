@@ -2,8 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { supabase, supabaseConfigured } from '@/app/utils/supabase';
 
-// Basis-Pfad des Deployments (GitHub Pages: /Reffenthal-waechter-, Test: leer)
-const PUSH_SW_BASE = (process.env.EXPO_ROUTER_BASE_URL ?? '').replace(/\/$/, '');
+// Basis-Pfad des Deployments zur Laufzeit ermitteln (GitHub Pages: /Reffenthal-waechter-, Test: leer).
+// process.env.EXPO_ROUTER_BASE_URL wird im Client-Bundle nicht ersetzt (nur EXPO_PUBLIC_*),
+// daher gleiches Muster wie die sw.js-Registrierung in app/+html.tsx: aus window.location.pathname ableiten.
+const PUSH_SW_BASE =
+  typeof window !== 'undefined' && window.location.pathname.startsWith('/Reffenthal-waechter-')
+    ? '/Reffenthal-waechter-'
+    : '';
 
 const PUBLIC_VAPID_KEY = 'BEE2qq7KlarDR6GiQtCIbc05XIC28dzm7Hor0b6V3rvJeASaVJi2Hacq_glgNNxMirnwz5L47lRUXD_nleru5i4';
 
