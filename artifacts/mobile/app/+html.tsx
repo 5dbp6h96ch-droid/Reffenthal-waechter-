@@ -26,24 +26,29 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="theme-color" content="#143D45" />
 
         <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="R(h)einschiffer" />
         <meta property="og:url" content={APP_URL} />
-        <meta property="og:title" content="R(h)einschiffer" />
+        <meta property="og:title" content="R(h)einschiffer – Pegel & Rhein" />
         <meta
           property="og:description"
-          content="Pegelstand-Überwachung · Speyer / Rhein – Niedrigwasser-Alarm für Reffenthal und Altrhein"
+          content="Pegelstände, Vorhersagen, Rheinkarte, Pegelwarnungen, WSV-Meldungen und Push-Nachrichten."
         />
         <meta property="og:image" content={ICON_URL} />
+        <meta property="og:image:secure_url" content={ICON_URL} />
+        <meta property="og:image:type" content="image/png" />
         <meta property="og:image:width" content="1024" />
         <meta property="og:image:height" content="1024" />
+        <meta property="og:image:alt" content="R(h)einschiffer – Rheinschiffer-Icon" />
         <meta property="og:locale" content="de_DE" />
 
         <meta name="twitter:card" content="summary" />
-        <meta name="twitter:title" content="R(h)einschiffer" />
+        <meta name="twitter:title" content="R(h)einschiffer – Pegel & Rhein" />
         <meta
           name="twitter:description"
-          content="Pegelstand-Überwachung · Speyer / Rhein"
+          content="Pegelstände, Vorhersagen, Rheinkarte, Pegelwarnungen, WSV-Meldungen und Push-Nachrichten."
         />
         <meta name="twitter:image" content={ICON_URL} />
+        <meta name="twitter:image:alt" content="R(h)einschiffer – Rheinschiffer-Icon" />
 
         <link rel="icon" type="image/png" href={ICON_URL} />
         <meta name="mobile-web-app-capable" content="yes" />

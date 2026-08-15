@@ -102,6 +102,31 @@ jobs:
           INJECT+='<meta name="apple-mobile-web-app-title" content="R(h)einschiffer">'
           INJECT+='<meta name="theme-color" content="#143D45">'
 
+          # Open-Graph / Twitter-Meta für Link-Vorschauen (WhatsApp etc.).
+          # Muss hier eingefügt werden, da +html.tsx-head-Elemente vom
+          # Expo-Export nicht in die statische index.html gerendert werden.
+          APP_URL='https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/'
+          OG_IMG='https://raw.githubusercontent.com/5dbp6h96ch-droid/Reffenthal-waechter-/main/artifacts/mobile/assets/images/icon.png'
+          OG_DESC='Pegelstände, Vorhersagen, Rheinkarte, Pegelwarnungen, WSV-Meldungen und Push-Nachrichten.'
+          INJECT+='<meta name="description" content="'"$OG_DESC"'">'
+          INJECT+='<meta property="og:type" content="website">'
+          INJECT+='<meta property="og:site_name" content="R(h)einschiffer">'
+          INJECT+='<meta property="og:url" content="'"$APP_URL"'">'
+          INJECT+='<meta property="og:title" content="R(h)einschiffer – Pegel \&amp; Rhein">'
+          INJECT+='<meta property="og:description" content="'"$OG_DESC"'">'
+          INJECT+='<meta property="og:image" content="'"$OG_IMG"'">'
+          INJECT+='<meta property="og:image:secure_url" content="'"$OG_IMG"'">'
+          INJECT+='<meta property="og:image:type" content="image/png">'
+          INJECT+='<meta property="og:image:width" content="1024">'
+          INJECT+='<meta property="og:image:height" content="1024">'
+          INJECT+='<meta property="og:image:alt" content="R(h)einschiffer – Rheinschiffer-Icon">'
+          INJECT+='<meta property="og:locale" content="de_DE">'
+          INJECT+='<meta name="twitter:card" content="summary">'
+          INJECT+='<meta name="twitter:title" content="R(h)einschiffer – Pegel \&amp; Rhein">'
+          INJECT+='<meta name="twitter:description" content="'"$OG_DESC"'">'
+          INJECT+='<meta name="twitter:image" content="'"$OG_IMG"'">'
+          INJECT+='<meta name="twitter:image:alt" content="R(h)einschiffer – Rheinschiffer-Icon">'
+
           sed -i "s|</head>|${INJECT}</head>|" "$DIST/index.html"
 
           echo "=== Eingefügte Tags ==="
