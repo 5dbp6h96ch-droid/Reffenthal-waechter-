@@ -600,6 +600,25 @@ export default function HomeScreen() {
   const currentCm = pegelLive?.cm ?? null;
   const currentTs = pegelLive?.ts ?? null;
   const currentHistory = pegelLive?.history ?? [];
+
+  // ── Pegel-Tendenz: echte Differenz zur vorherigen verfügbaren Messung ────
+  // Vorherige Messung = letzter Verlaufs-Messwert (PEGELONLINE, 15-Min-Raster)
+  // mit Zeitstempel STRENG VOR der aktuellen Messung. Keine Schätzung – wenn
+  // keine frühere Messung vorliegt, wird KEINE Tendenz angezeigt.
+  const pegelTrend: { diff: number; prevTs: string } | null = (() => {
+    if (currentCm === null || currentTs === null || currentHistory.length === 0) return null;
+    const curMs = new Date(currentTs).getTime();
+    if (!Number.isFinite(curMs)) return null;
+    let prev: { cm: number; ts: string } | null = null;
+    for (const m of currentHistory) {
+      const ms = new Date(m.ts).getTime();
+      if (Number.isFinite(ms) && ms < curMs && (!prev || ms > new Date(prev.ts).getTime())) {
+        prev = m;
+      }
+    }
+    if (!prev) return null;
+    return { diff: currentCm - prev.cm, prevTs: prev.ts };
+  })();
   // Persönliche Schwelle aus user_gauge_settings für den aktuell ausgewählten Pegel
   const gaugeSetting = selectedGauge ? getGaugeSetting(selectedGauge.id) : null;
   const threshold = gaugeSetting?.alert_threshold_cm ?? 225;
@@ -746,6 +765,36 @@ export default function HomeScreen() {
               marginBottom: 6,
             }}>
               cm
+            </Text>
+          )}
+        </View>
+      )}
+
+      {/* Tendenz + letzte Messung – nur mit echten Messdaten */}
+      {!pegelLiveLoading && !pegelLiveError && currentCm !== null && (
+        <View style={{ gap: 2 }}>
+          {pegelTrend && (
+            <Text style={{
+              fontSize: 17,
+              fontFamily: 'SpaceGrotesk_600SemiBold',
+              color: colors.primaryForeground,
+              includeFontPadding: false,
+            }}>
+              {pegelTrend.diff > 0
+                ? `↑ +${pegelTrend.diff} cm`
+                : pegelTrend.diff < 0
+                  ? `↓ ${pegelTrend.diff} cm`
+                  : '→ 0 cm'}
+            </Text>
+          )}
+          {currentTs && (
+            <Text style={{
+              fontSize: 12,
+              fontFamily: 'SpaceGrotesk_500Medium',
+              color: colors.primaryForeground,
+              opacity: 0.55,
+            }}>
+              {`Letzte Messung: ${formatRelativeTime(currentTs)}`}
             </Text>
           )}
         </View>
