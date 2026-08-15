@@ -671,17 +671,7 @@ export default function HomeScreen() {
       padding: 20,
       gap: 10,
     }}>
-      {/* Pegelname */}
-      <Text style={{
-        fontSize: 18,
-        fontFamily: 'SpaceGrotesk_700Bold',
-        color: colors.primaryForeground,
-        letterSpacing: 1,
-      }}>
-        {(selectedGauge?.name ?? '—').toUpperCase()}
-      </Text>
-
-      {/* Rheinkilometer · Datum · Uhrzeit + ALARM-Badge */}
+      {/* Pegelname + Status-Badge (rechter Kachelrand, auf Namenshöhe) */}
       <View style={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -689,18 +679,14 @@ export default function HomeScreen() {
         flexWrap: 'nowrap',
       }}>
         <Text style={{
-          fontSize: 11,
-          fontFamily: 'SpaceGrotesk_600SemiBold',
+          fontSize: 18,
+          fontFamily: 'SpaceGrotesk_700Bold',
           color: colors.primaryForeground,
-          opacity: 0.75,
-          letterSpacing: 0.5,
+          letterSpacing: 1,
           flex: 1,
           flexShrink: 1,
         }} numberOfLines={1}>
-          {`RHEINKILOMETER ${selectedGauge?.river_km != null ? String(selectedGauge.river_km).replace('.', ',') : '—'}`}
-          {currentTs
-            ? ` · ${formatDate(currentTs)} · ${formatTime(currentTs)}`
-            : ''}
+          {(selectedGauge?.name ?? '—').toUpperCase()}
         </Text>
         {statusLabel && (
           <View style={{
@@ -717,6 +703,20 @@ export default function HomeScreen() {
           </View>
         )}
       </View>
+
+      {/* Rheinkilometer · Datum · Uhrzeit */}
+      <Text style={{
+        fontSize: 11,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
+        color: colors.primaryForeground,
+        opacity: 0.75,
+        letterSpacing: 0.5,
+      }} numberOfLines={1}>
+        {`RHEINKILOMETER ${selectedGauge?.river_km != null ? String(selectedGauge.river_km).replace('.', ',') : '—'}`}
+        {currentTs
+          ? ` · ${formatDate(currentTs)} · ${formatTime(currentTs)}`
+          : ''}
+      </Text>
 
       {/* Großer cm-Wert */}
       {pegelLiveLoading ? (
