@@ -213,11 +213,15 @@ export default function RheinKarte({
     // Leaflet übersteht das DOM-Verschieben; es braucht nur invalidateSize().
     const el = outerRef.current;
     if (typeof document !== 'undefined' && el) {
-      if (fullscreen && el.parentNode && el.parentNode !== document.body) {
+      // Ziel ist das React-Root-Element (#root), NICHT document.body:
+      // React delegiert alle Events am Root-Container – außerhalb davon
+      // würden onPress-Handler (z. B. das X) nicht mehr feuern.
+      const host = document.getElementById('root') ?? document.body;
+      if (fullscreen && el.parentNode && el.parentNode !== host) {
         const slot = document.createComment('rheinkarte-slot');
         slotRef.current = slot;
         el.parentNode.insertBefore(slot, el);
-        document.body.appendChild(el);
+        host.appendChild(el);
         // Wirklich viewportfüllend: 100vw × 100dvh (Fallback 100vh).
         el.style.position = 'fixed';
         el.style.top = '0'; el.style.left = '0';
