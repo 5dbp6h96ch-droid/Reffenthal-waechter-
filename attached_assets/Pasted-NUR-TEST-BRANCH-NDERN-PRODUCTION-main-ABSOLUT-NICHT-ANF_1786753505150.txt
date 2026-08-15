@@ -1,0 +1,139 @@
+NUR TEST-BRANCH ÄNDERN.
+PRODUCTION/main ABSOLUT NICHT ANFASSEN.
+KEIN MERGE NACH main.
+KEIN PRODUCTION-DEPLOYMENT.
+
+Ausgangspunkt:
+Test-Branch mit Commit 809872e (Vollbild-Overlays für GIF und Karte).
+
+Der GIF-Vollbildmodus funktioniert bereits grundsätzlich:
+- GIF wird groß angezeigt
+- Animation läuft weiter
+- X funktioniert
+
+Die Karten-Vollbildansicht hat jedoch auf dem iPhone ein Darstellungsproblem:
+Die Karte wird zwar vergrößert, ist danach aber nicht sichtbar bzw. liegt außerhalb des sichtbaren Viewports und das X ist nicht erreichbar.
+
+Zusätzliche gewünschte Funktion:
+Das vergrößerte Vorhersage-GIF soll innerhalb seines Vollbild-Overlays zoombar sein.
+
+Änderungen:
+
+1. VORHERSAGE-GIF – ZOOM
+
+Im bestehenden GIF-Vollbild-Overlay:
+- GIF bleibt animiert.
+- Pinch-to-Zoom innerhalb des GIF-Overlays ermöglichen.
+- Das GIF muss sich beim Hineinzoomen vergrößern.
+- Bei vergrößerter Darstellung muss das GIF per Finger verschiebbar sein (Pan).
+- Optional darf Doppeltippen zwischen vergrößert und Ausgangsgröße wechseln.
+- X muss unabhängig vom GIF-Zoom immer sichtbar und erreichbar bleiben.
+- X darf nicht mit dem GIF mitgezoomt oder verschoben werden.
+- Beim Schließen Zoom/Pan-Zustand zurücksetzen.
+- Die globale Zoom-Sperre der Webseite NICHT aufheben.
+- Der Zoom darf ausschließlich innerhalb des GIF-Overlays funktionieren.
+
+Wichtig:
+Keine neue GIF-Datei erzeugen.
+Das vorhandene GIF weiterverwenden.
+Animation muss vollständig erhalten bleiben.
+
+2. KARTE – VOLLBILD AUF IPHONE KORRIGIEREN
+
+Die bestehende Karteninstanz weiterhin wiederverwenden.
+Keine zweite Karteninstanz erzeugen.
+
+Beim Öffnen:
+- Karten-Container muss wirklich viewportfüllend sein:
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+- fallback für Browser ohne 100dvh berücksichtigen.
+- sehr hoher z-index, sodass das Overlay über der gesamten App liegt.
+- Hintergrund/Seite darf während des Overlays nicht scrollen.
+- Karte muss tatsächlich innerhalb des sichtbaren Viewports liegen.
+- aktuelle Kartenposition und aktueller Zoom sollen erhalten bleiben.
+- invalidateSize() nach dem Umschalten ausführen.
+
+3. X DER KARTE
+
+- X fest innerhalb des Vollbild-Overlays positionieren.
+- X muss auf dem iPhone jederzeit sichtbar sein.
+- Safe-Area berücksichtigen:
+  env(safe-area-inset-top)
+  env(safe-area-inset-right)
+- X darf nicht Teil der verschiebbaren Kartenfläche sein.
+- X muss über der Karte liegen.
+- X antippen → Vollbildmodus schließen.
+
+4. KARTEN-ZOOM
+
+Im Vollbild:
+- hineinzoomen
+- herauszoomen
+- Pan/Verschieben
+- bestehende Kartenfunktion weiterverwenden.
+- globale Webseiten-Zoom-Sperre bleibt bestehen.
+
+5. NORMALE ANSICHT
+
+Inline-GIF und Inline-Karte unverändert lassen.
+Das bestehende Badge „⤢ Vergrößern“ der Karte beibehalten.
+
+6. RESPONSIVE / SAFE AREA
+
+Bestehenden Responsive-/Viewport-Fix NICHT entfernen oder verändern.
+Keine feste Gerätegröße verwenden.
+iPhone mit Dynamic Island/Notch und Home Indicator berücksichtigen.
+
+7. SICHERHEIT / SCOPE
+
+AUSSCHLIESSLICH test.
+Keine Änderungen an:
+- main
+- Production
+- Supabase
+- Auth
+- Push
+- Secrets
+- GitHub-Workflows
+- Backend
+
+Vor Commit:
+- expo export --platform web erfolgreich.
+- Test-Deployment durchführen.
+- Live auf rheinschiffer-test.pages.dev prüfen.
+
+Auf iPhone-Viewport speziell testen:
+A) GIF öffnen
+B) GIF zoomt per Pinch
+C) GIF lässt sich verschieben
+D) GIF bleibt animiert
+E) X bleibt jederzeit erreichbar
+F) GIF schließen
+
+G) Karte öffnen
+H) Karte ist sofort sichtbar
+I) X ist sofort sichtbar
+J) Karte zoomen
+K) Karte verschieben
+L) X schließt Karte
+M) normale Ansicht funktioniert danach wieder
+
+Danach STOPPEN.
+
+Bericht:
+- Branch
+- Commit-SHA
+- geänderte Dateien
+- GIF-Zoom erfolgreich
+- GIF-Pan erfolgreich
+- GIF-Animation erhalten
+- Karten-Vollbild auf iPhone erfolgreich
+- Karten-Zoom/Pan erfolgreich
+- X erreichbar
+- Build erfolgreich
+- Test-Deployment erfolgreich
+- main unverändert
+- Production unverändert
