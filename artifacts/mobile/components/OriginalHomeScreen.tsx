@@ -59,6 +59,7 @@ import { useNfbNotifications } from '@/hooks/useNfbNotifications';
 import { useColors } from '@/hooks/useColors';
 import { useSinceLastVisit } from '@/hooks/useSinceLastVisit';
 import RheinKarte from '@/components/RheinKarte';
+import GifLightbox from '@/components/GifLightbox';
 import { useAuth } from '@/hooks/useAuth';
 import { useWebPushPrompt } from '@/hooks/useWebPushPrompt';
 import { useProfile } from '@/hooks/useProfile';
@@ -1040,56 +1041,13 @@ export default function HomeScreen() {
                               />
                             </TouchableOpacity>
 
-                            {/* Vollbild-Overlay: GIF möglichst groß, Hintergrund abgedunkelt */}
+                            {/* Vollbild-Lightbox: GIF groß, zoombar (Pinch/Pan/
+                                Doppeltipp – nur Web), X immer erreichbar */}
                             {gifFull && (
-                              <View
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                style={{
-                                  // @ts-expect-error 'fixed' ist auf react-native-web gültig
-                                  position: 'fixed',
-                                  top: 0, left: 0, right: 0, bottom: 0,
-                                  zIndex: 100000,
-                                  backgroundColor: 'rgba(0,0,0,0.9)',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  paddingTop: Math.max(insets.top, 10),
-                                  paddingBottom: Math.max(insets.bottom, 10),
-                                  paddingLeft: Math.max(insets.left, 8),
-                                  paddingRight: Math.max(insets.right, 8),
-                                } as any}
-                              >
-                                {(() => {
-                                  // GIF-Seitenverhältnis 800×600 – so groß wie der
-                                  // Viewport es erlaubt (abzüglich Safe-Area/Rand).
-                                  const availW = windowWidth - Math.max(insets.left, 8) - Math.max(insets.right, 8) - 8;
-                                  const availH = windowHeight - Math.max(insets.top, 10) - Math.max(insets.bottom, 10) - 72;
-                                  const scale = Math.min(availW / 800, availH / 600);
-                                  const w = Math.max(1, Math.floor(800 * scale));
-                                  const h = Math.max(1, Math.floor(600 * scale));
-                                  return (
-                                    <Image
-                                      source={{ uri: `${gifUrl}?t=${hvzTs}` }}
-                                      style={{ width: w, height: h, borderRadius: 8 }}
-                                      resizeMode="contain"
-                                    />
-                                  );
-                                })()}
-                                <TouchableOpacity
-                                  onPress={() => setGifFull(false)}
-                                  activeOpacity={0.7}
-                                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                  style={{
-                                    position: 'absolute',
-                                    top: Math.max(insets.top, 10) + 6,
-                                    right: Math.max(insets.right, 10) + 6,
-                                    width: 40, height: 40, borderRadius: 20,
-                                    backgroundColor: 'rgba(255,255,255,0.18)',
-                                    alignItems: 'center', justifyContent: 'center',
-                                  }}
-                                >
-                                  <Text style={{ fontSize: 20, color: '#FFFFFF', lineHeight: 22 }}>✕</Text>
-                                </TouchableOpacity>
-                              </View>
+                              <GifLightbox
+                                uri={`${gifUrl}?t=${hvzTs}`}
+                                onClose={() => setGifFull(false)}
+                              />
                             )}
                           </>
                         );
