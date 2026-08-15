@@ -197,8 +197,45 @@ export default function RheinKarte({
   const [fullscreen, setFullscreen] = useState(false);
   const insets = useSafeAreaInsets();
   const mapRef = useRef<L.Map | null>(null);
+  // DOM-Knoten des äußeren Containers (react-native-web liefert das Element).
+  const outerRef = useRef<HTMLElement | null>(null);
+  // Platzhalter, der die ursprüngliche Position im DOM markiert, solange der
+  // Container für den Vollbildmodus nach document.body verschoben ist.
+  const slotRef = useRef<Comment | null>(null);
 
   useEffect(() => {
+    // iOS-Fix: position:fixed ist NICHT viewport-relativ, wenn irgendein
+    // Vorfahre eine CSS-Transform hat (auf dem iPhone lag das Overlay dadurch
+    // außerhalb des sichtbaren Bereichs, X unerreichbar). Deshalb wird der
+    // Container – MIT der bestehenden, unveränderten Karteninstanz darin –
+    // für die Dauer des Vollbildmodus direkt nach document.body verschoben
+    // und beim Schließen an die ursprüngliche Stelle zurückgesetzt.
+    // Leaflet übersteht das DOM-Verschieben; es braucht nur invalidateSize().
+    const el = outerRef.current;
+    if (typeof document !== 'undefined' && el) {
+      if (fullscreen && el.parentNode && el.parentNode !== document.body) {
+        const slot = document.createComment('rheinkarte-slot');
+        slotRef.current = slot;
+        el.parentNode.insertBefore(slot, el);
+        document.body.appendChild(el);
+        // Wirklich viewportfüllend: 100vw × 100dvh (Fallback 100vh).
+        el.style.position = 'fixed';
+        el.style.top = '0'; el.style.left = '0';
+        el.style.width = '100vw';
+        el.style.height =
+          (typeof CSS !== 'undefined' && CSS.supports?.('height', '100dvh'))
+            ? '100dvh' : '100vh';
+        el.style.zIndex = '100000';
+      } else if (!fullscreen && slotRef.current) {
+        const slot = slotRef.current;
+        slotRef.current = null;
+        slot.parentNode?.insertBefore(el, slot);
+        slot.remove();
+        // Inline-Styles des Vollbildmodus wieder entfernen.
+        el.style.position = ''; el.style.top = ''; el.style.left = '';
+        el.style.width = ''; el.style.height = ''; el.style.zIndex = '';
+      }
+    }
     // Nach dem Umschalten Kartengröße neu berechnen …
     const t = setTimeout(() => mapRef.current?.invalidateSize(), 60);
     // … und Hintergrund-Scroll sperren, solange das Overlay offen ist.
@@ -211,6 +248,17 @@ export default function RheinKarte({
     }
     return () => clearTimeout(t);
   }, [fullscreen]);
+
+  // Sicherheitsnetz: Wird die Komponente im Vollbildmodus unmounted, den
+  // nach body verschobenen Knoten und den Platzhalter aufräumen.
+  useEffect(() => () => {
+    const el = outerRef.current;
+    const slot = slotRef.current;
+    if (el && slot?.parentNode) {
+      slot.parentNode.insertBefore(el, slot);
+    }
+    slot?.remove();
+  }, []);
 
   // SSG-Guard: kein DOM beim Expo-Static-Export → erst nach Browser-Mount rendern
   const [mounted, setMounted] = useState(false);
@@ -275,6 +323,10 @@ export default function RheinKarte({
     <View
       // Vollbild: DERSELBE Baum (inkl. Karteninstanz) wird per CSS-Position
       // auf den ganzen Viewport gelegt – Position/Zoom bleiben erhalten.
+      // Der DOM-Knoten wird dabei nach document.body verschoben (iOS-Fix,
+      // siehe Effekt oben).
+      // @ts-expect-error – auf Web liefert der ref das DOM-Element
+      ref={outerRef}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       style={fullscreen ? ({
         // @ts-expect-error 'fixed' ist auf react-native-web gültig
