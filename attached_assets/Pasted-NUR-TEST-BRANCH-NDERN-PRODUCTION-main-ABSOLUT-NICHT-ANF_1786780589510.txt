@@ -1,0 +1,92 @@
+NUR TEST-BRANCH ÄNDERN.
+PRODUCTION/main ABSOLUT NICHT ANFASSEN.
+
+Aufgabe: Pegelanzeige verständlicher machen.
+
+Ziel:
+Auf der Startseite soll der Nutzer den aktuellen Pegel und dessen Veränderung zur vorherigen Messung sofort verstehen können.
+
+Darstellung für den ausgewählten „Mein Pegel“:
+
+Beispiel:
+
+Konstanz
+3,42 m
+↑ +12 cm
+Letzte Messung: vor 18 Min.
+
+Anforderungen:
+
+1. AKTUELLER PEGEL
+- Aktuellen Pegelstand groß und gut lesbar darstellen.
+- Bestehende Einheit und Datenquelle beibehalten.
+- Keine Änderung an der zugrunde liegenden Datenabfrage.
+
+2. PEGEL-TENDENZ
+- Tatsächliche Differenz zur vorherigen verfügbaren Messung berechnen.
+- Steigend: ↑ +12 cm
+- Fallend: ↓ -12 cm
+- Unverändert: → 0 cm
+- Keine Schätzung oder künstlich berechnete Tendenz.
+- Wenn keine vorherige Messung verfügbar ist, keine falsche Tendenz anzeigen.
+
+3. ZEITPUNKT
+- Zeitpunkt der letzten Messung anzeigen.
+- Möglichst verständlich relativ darstellen, z. B.:
+  „vor 18 Min.“
+- Bei sehr alten Daten entsprechend Stunden/Tage anzeigen.
+- Die vorhandene Zeitinformation verwenden.
+
+4. DARSTELLUNG
+- Aktuellen Pegel visuell am stärksten hervorheben.
+- Tendenz direkt darunter oder daneben.
+- Zeitpunkt kleiner darstellen.
+- Bestehendes Design der App beibehalten.
+- Keine unnötige komplette Neugestaltung.
+- Responsive Verhalten auf iPhone und Desktop erhalten.
+- Keine festen Bildschirmgrößen.
+
+5. WICHTIG – DATENLOGIK
+- Zuerst den bestehenden Code untersuchen und feststellen, woher die Pegelmessungen kommen.
+- Verwende ausschließlich bereits vorhandene echte Messdaten.
+- Keine neue Supabase-Tabelle.
+- Keine Änderung an Supabase.
+- Keine Änderung an Push.
+- Keine Änderung an Auth.
+- Keine Änderung am Backend.
+- Falls die vorhandenen Daten keine sichere vorherige Messung enthalten, die Tendenz nicht erfinden.
+- Bestehende Aktualisierungsintervalle unverändert lassen.
+
+6. MEIN PEGEL
+- Die Anzeige muss immer zum aktuell ausgewählten „Mein Pegel“ gehören.
+- Beim Wechsel des Pegels müssen Wert, Tendenz und Messzeitpunkt ebenfalls wechseln.
+- Bestehende Auswahlfunktion nicht verändern.
+
+7. SCOPE
+AUSSCHLIESSLICH test.
+main nicht ändern.
+Kein Merge nach main.
+Kein Production-Deployment.
+Keine Secrets ändern.
+Keine Workflows ändern.
+
+Vor dem Commit:
+- expo export --platform web erfolgreich ausführen.
+- Prüfen, dass Desktop weiterhin funktioniert.
+- Prüfen, dass iPhone-Darstellung funktioniert.
+- Mindestens einen steigenden und einen fallenden bzw. unveränderten Messwert anhand echter vorhandener Daten prüfen.
+- Prüfen, dass beim Wechsel von „Mein Pegel“ alle drei Werte korrekt wechseln.
+
+Danach STOPPEN.
+
+Bericht liefern:
+- Branch
+- Commit-SHA
+- geänderte Dateien
+- genaue Berechnungslogik der Tendenz
+- Beispiel eines tatsächlich geprüften Pegels
+- Build-Ergebnis
+- Test-Deployment
+- Bestätigung: main unverändert
+- Bestätigung: Production unverändert
+- Bestätigung: Supabase/Backend/Push unverändert
