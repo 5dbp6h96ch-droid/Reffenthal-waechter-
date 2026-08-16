@@ -17,9 +17,65 @@ jobs:
           ref: test
       - name: Patch test UI
         run: |
-          python3 -c 'from pathlib import Path; p=Path("artifacts/mobile/components/OriginalHomeScreen.tsx"); s=p.read_text(); s=s.replace("onPress={() => selectGauge(g.id)}", "onPress={() => { selectGauge(g.id); setGaugeListOpen(false); }}", 1); marker="        {gaugeListOpen && ("; insert="        {!gaugeListOpen && selectedGauge && (<View style={{padding:14, marginTop:8, backgroundColor:colors.card, borderRadius:12, borderWidth:1, borderColor:colors.border}}><Text style={{fontSize:15, fontFamily:\"SpaceGrotesk_700Bold\", color:colors.primary}}>{selectedGauge.name}</Text></View>)}\n\n        {gaugeListOpen && ("; s=s.replace(marker, insert, 1) if "{!gaugeListOpen && selectedGauge && (" not in s else s; p.write_text(s)'
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("artifacts/mobile/components/OriginalHomeScreen.tsx")
+          s = p.read_text(encoding="utf-8")
+
+          # Bestehenden TEST-Fix beibehalten.
+          s = s.replace(
+              "onPress={() => selectGauge(g.id)}",
+              "onPress={() => { selectGauge(g.id); setGaugeListOpen(false); }}",
+              1,
+          )
+          marker = "        {gaugeListOpen && ("
+          insert = "        {!gaugeListOpen && selectedGauge && (<View style={{padding:14, marginTop:8, backgroundColor:colors.card, borderRadius:12, borderWidth:1, borderColor:colors.border}}><Text style={{fontSize:15, fontFamily:\"SpaceGrotesk_700Bold\", color:colors.primary}}>{selectedGauge.name}</Text></View>)}\n\n        {gaugeListOpen && ("
+          if "{!gaugeListOpen && selectedGauge && (" not in s:
+              s = s.replace(marker, insert, 1)
+
+          # Admin-Link im Konto nur für Admins.
+          marker = "          {/* Abmelden */}"
+          if "Admin · Push senden" not in s:
+              block = '''          {/* Admin – nur für Benutzer mit Admin-Rolle */}
+          {user.app_metadata?.role === 'admin' && (
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => {
+                if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                  window.location.assign('/admin');
+                } else {
+                  Linking.openURL('https://rheinschiffer-test.pages.dev/admin');
+                }
+              }}
+              style={{
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                gap: 10, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10,
+                borderWidth: 1, borderColor: colors.primary + '45',
+                backgroundColor: colors.primary + '10',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Feather name="send" size={16} color={colors.primary} />
+                <Text style={{
+                  fontSize: 14, fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.primary,
+                }}>
+                  Admin · Push senden
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+
+'''
+              if marker not in s:
+                  raise SystemExit('Konto-Marker nicht gefunden.')
+              s = s.replace(marker, block + marker, 1)
+
+          p.write_text(s, encoding="utf-8")
+          PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add artifacts/mobile/components/OriginalHomeScreen.tsx
-          git commit -m "Fix test Meine Pegel collapsed selection [skip ci]"
+          git commit -m "Fix test UI: Admin-Push im Konto verlinken [skip ci]"
           git push origin test
