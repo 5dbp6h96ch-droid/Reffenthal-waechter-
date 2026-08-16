@@ -1,0 +1,80 @@
+name: TEST – Admin-Link im Konto
+
+on:
+  push:
+    branches:
+      - test
+
+permissions:
+  contents: write
+
+jobs:
+  add-admin-link:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout test
+        uses: actions/checkout@v4
+        with:
+          ref: test
+          fetch-depth: 0
+
+      - name: Add admin link to Konto
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('artifacts/mobile/components/OriginalHomeScreen.tsx')
+          s = p.read_text(encoding='utf-8')
+
+          marker = "          {/* Abmelden */}"
+          if "Admin · Push senden" in s:
+              print('Admin-Link bereits vorhanden.')
+          elif marker not in s:
+              raise SystemExit('Marker für Abmelden nicht gefunden.')
+          else:
+              block = '''          {/* Admin – nur für Benutzer mit Admin-Rolle */}
+          {user.app_metadata?.role === 'admin' && (
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => {
+                if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                  window.location.assign('/admin');
+                } else {
+                  Linking.openURL('https://rheinschiffer-test.pages.dev/admin');
+                }
+              }}
+              style={{
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                gap: 10, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10,
+                borderWidth: 1, borderColor: colors.primary + '45',
+                backgroundColor: colors.primary + '10',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Feather name="send" size={16} color={colors.primary} />
+                <Text style={{
+                  fontSize: 14, fontFamily: 'SpaceGrotesk_600SemiBold',
+                  color: colors.primary,
+                }}>
+                  Admin · Push senden
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+
+'''
+              p.write_text(s.replace(marker, block + marker, 1), encoding='utf-8')
+          PY
+
+      - name: Commit and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/mobile/components/OriginalHomeScreen.tsx
+          git rm .github/workflows/test-add-admin-link.yml
+          git diff --cached --quiet || git commit -m "test: Admin-Push im Konto verlinken"
+          git push origin HEAD:test
