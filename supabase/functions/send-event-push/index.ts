@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
     if (subError) throw subError;
 
     let targets = subscriptions ?? [];
-    let notificationBody = payload.body;
+    const thresholdByUser = new Map<string, number>();
 
     if (payload.event_type === "threshold_crossed") {
       const userIds = [...new Set((subscriptions ?? []).map((sub) => sub.user_id))];
@@ -137,14 +137,12 @@ Deno.serve(async (req) => {
         if (!setting?.alert_enabled) return false;
 
         const threshold = Number(setting.alert_threshold_cm ?? payload.threshold_cm ?? 225);
-        return payload.current_cm !== undefined && payload.current_cm < threshold &&
-          (payload.previous_cm === undefined || payload.previous_cm >= threshold);
-      });
+        if (payload.current_cm === undefined || payload.current_cm >= threshold) return false;
+        if (payload.previous_cm !== undefined && payload.previous_cm < threshold) return false;
 
-      // Standardized warning text: no icons and no Reffenthal-entry wording.
-      notificationBody = formatThresholdBody({
-        ...payload,
-        threshold_cm: payload.threshold_cm,
+        // Each user can have a different threshold for the same selected gauge.
+        thresholdByUser.set(sub.user_id, threshold);
+        return true;
       });
     }
 
@@ -162,24 +160,31 @@ Deno.serve(async (req) => {
       vapidKeys,
     });
 
-    const notification = {
-      title: payload.title,
-      body: notificationBody,
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
-      navigate: payload.url ?? "/",
-    };
-    const wirePayload = JSON.stringify({
-      web_push: "8030",
-      notification,
-      title: payload.title,
-      body: notificationBody,
-      url: payload.url ?? "/",
-    });
-
     const results: Array<{ endpoint: string; user_id: string; ok: boolean; status?: number; reason?: string }> = [];
     for (const subscription of targets) {
       try {
+        const notificationBody = payload.event_type === "threshold_crossed"
+          ? formatThresholdBody({
+              ...payload,
+              threshold_cm: thresholdByUser.get(subscription.user_id) ?? payload.threshold_cm,
+            })
+          : payload.body;
+
+        const notification = {
+          title: payload.title,
+          body: notificationBody,
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          navigate: payload.url ?? "/",
+        };
+        const wirePayload = JSON.stringify({
+          web_push: "8030",
+          notification,
+          title: payload.title,
+          body: notificationBody,
+          url: payload.url ?? "/",
+        });
+
         const subscriber = appServer.subscribe({
           endpoint: subscription.endpoint,
           keys: { p256dh: subscription.p256dh, auth: subscription.auth },
