@@ -38,13 +38,11 @@ jobs:
 
       - name: Wächter ausführen
         env:
+          # Production-Lauf: ausschließlich Production-Supabase und -Pushes.
+          WATCH_ENV: "production"
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          # Test-Supabase: damit Web-Pushs auch das Testsystem erreichen
-          # (sonst: "WebPush: Kein Schlüssel für test – Ziel übersprungen")
-          TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
-          TEST_SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
         run: |
           cd reffenthal-waechter && python watcher.py
 
