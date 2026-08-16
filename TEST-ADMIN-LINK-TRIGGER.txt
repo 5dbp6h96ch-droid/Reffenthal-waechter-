@@ -1,1 +1,1 @@
-Temporary trigger for TEST admin-link change. This file will be removed by the follow-up cleanup.
+trigger
