@@ -1,12 +1,10 @@
 """Dynamische Pegel-Auswahl für den Reffenthal-Wächter.
 
-Liest die von Benutzern in der App gewählten Pegel (Tabelle
-`user_gauge_settings`, alert_enabled = true) aus BEIDEN Supabase-Projekten
-(Production + Test) und liefert die zu überwachenden Pegel samt Schwelle.
-
-Fällt die Abfrage aus oder hat kein Benutzer etwas gewählt, wird als
-Fallback der bisherige Standard (Pegel Speyer, Schwelle aus config)
-verwendet – der Wächter bleibt damit immer funktionsfähig.
+Liest die von Benutzern aktuell ausgewählten Pegel und deren Alarmgrenzen
+aus dem ausdrücklich gewählten Supabase-Projekt. Nicht ausgewählte Pegel
+werden nicht überwacht. Damit können Test- und Production-Einstellungen
+sowie alte/unselektierte Benutzereinstellungen nicht in einen Lauf
+hineinbluten.
 """
 
 import logging
@@ -29,12 +27,7 @@ _station_cache: dict[str, tuple[str, str] | None] = {}
 
 
 def resolve_station(station_id: str) -> tuple[str, str] | None:
-    """Pegel-ID (UUID oder Kurzname) zu (kanonische UUID, Anzeigename) auflösen.
-
-    In `user_gauge_settings` stehen gemischt UUIDs und Kurznamen – über
-    PEGELONLINE wird beides auf dieselbe kanonische UUID normalisiert,
-    damit kein Pegel doppelt überwacht wird.
-    """
+    """Pegel-ID (UUID oder Kurzname) zu (kanonische UUID, Anzeigename) auflösen."""
     if station_id in _station_cache:
         return _station_cache[station_id]
     result: tuple[str, str] | None = None
@@ -62,11 +55,11 @@ def resolve_station(station_id: str) -> tuple[str, str] | None:
 
 
 def _fetch_settings(base_url: str, secret_key: str) -> list[dict]:
-    """user_gauge_settings eines Supabase-Projekts lesen (nur aktive Alarme)."""
+    """Aktive user_gauge_settings eines Supabase-Projekts lesen."""
     resp = requests.get(
         f"{base_url}/rest/v1/user_gauge_settings",
         params={
-            "select": "gauge_id,alert_threshold_cm",
+            "select": "user_id,gauge_id,alert_threshold_cm",
             "alert_enabled": "eq.true",
         },
         headers={"apikey": secret_key, "Authorization": f"Bearer {secret_key}"},
@@ -76,27 +69,55 @@ def _fetch_settings(base_url: str, secret_key: str) -> list[dict]:
     return resp.json()
 
 
-def load_watched_gauges() -> list[dict]:
-    """Zu überwachende Pegel bestimmen.
+def _fetch_selected(base_url: str, secret_key: str) -> dict[str, str]:
+    """Aktuell ausgewählten Pegel je Benutzer lesen."""
+    resp = requests.get(
+        f"{base_url}/rest/v1/user_settings",
+        params={"select": "user_id,selected_gauge_id"},
+        headers={"apikey": secret_key, "Authorization": f"Bearer {secret_key}"},
+        timeout=config.HTTP_TIMEOUT,
+    )
+    resp.raise_for_status()
+    return {
+        str(row["user_id"]): str(row["selected_gauge_id"])
+        for row in resp.json()
+        if row.get("user_id") and row.get("selected_gauge_id")
+    }
 
-    Returns:
-        Liste von {"uuid", "name", "threshold_cm"}; pro Pegel gilt die
-        höchste von Benutzern gesetzte Schwelle (früheste Warnung – die
-        Push-Funktion filtert anschließend je Benutzer individuell).
+
+def load_watched_gauges() -> list[dict]:
+    """Zu überwachende Pegel aus dem gewählten Supabase-Projekt bestimmen.
+
+    Es werden ausschließlich aktive Alarm-Einstellungen für den Pegel
+    berücksichtigt, den der jeweilige Benutzer aktuell ausgewählt hat.
+    Die höchste der tatsächlich relevanten Schwellen wird zum Auslösen
+    eines Events verwendet; die Edge Function filtert anschließend je
+    Benutzer auf dessen eigene Schwelle.
     """
     resolved: dict[str, dict] = {}
 
-    for name, push_url, secret_key in webpush._targets():
+    targets = webpush._targets()
+    for name, push_url, secret_key in targets:
         base_url = push_url.split("/functions/")[0]
         try:
+            selected = _fetch_selected(base_url, secret_key)
             rows = _fetch_settings(base_url, secret_key)
         except (requests.exceptions.RequestException, ValueError) as exc:
             logger.warning("Pegelauswahl [%s]: Abfrage fehlgeschlagen: %s", name, exc)
             continue
+
         for row in rows:
-            raw_id = (row.get("gauge_id") or "").strip()
-            if not raw_id:
+            user_id = str(row.get("user_id") or "")
+            raw_id = str(row.get("gauge_id") or "").strip()
+            if not user_id or not raw_id:
                 continue
+
+            # Nur der aktuell ausgewählte Pegel dieses Benutzers ist für
+            # dessen Warnung relevant. So können alte/andere Einstellungen
+            # keine Production-Überwachung verfälschen.
+            if selected.get(user_id) != raw_id:
+                continue
+
             station = resolve_station(raw_id)
             if station is None:
                 continue
@@ -111,7 +132,7 @@ def load_watched_gauges() -> list[dict]:
 
     if not resolved:
         logger.info(
-            "Pegelauswahl: Keine Benutzerauswahl gefunden – Fallback Pegel Speyer (%d cm).",
+            "Pegelauswahl: Keine aktive Auswahl gefunden – Fallback Pegel Speyer (%d cm).",
             config.PEGEL_LOW_THRESHOLD_CM,
         )
         resolved = {SPEYER_UUID: {
@@ -121,10 +142,11 @@ def load_watched_gauges() -> list[dict]:
         }}
 
     gauges = list(resolved.values())
-    for g in gauges:
-        g["thresholds"] = sorted(g["thresholds"])
+    for gauge in gauges:
+        gauge["thresholds"] = sorted(gauge["thresholds"])
+
     logger.info(
-        "Pegelauswahl: %d Pegel überwacht: %s",
+        "Pegelauswahl: %d aktuell ausgewählte Pegel überwacht: %s",
         len(gauges),
         ", ".join(f"{g['name']} (<{g['threshold_cm']} cm)" for g in gauges),
     )
