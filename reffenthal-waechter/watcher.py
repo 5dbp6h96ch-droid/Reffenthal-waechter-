@@ -17,6 +17,7 @@ from datetime import datetime
 import clubs
 import config
 import db
+import gauges
 import mck
 import nfb
 import pegel
@@ -71,71 +72,136 @@ def run_rss(seen: set[str]) -> set[str]:
     return seen
 
 
-def run_pegel(state: dict) -> dict:
-    """Prüft den Pegel Speyer und sendet Telegram-Alarm bei Bedarf.
+def _push_ts(timestamp: str) -> str:
+    """Zeitstempel für den sachlichen Push-Text formatieren."""
+    try:
+        dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        return dt.strftime("%d.%m.%Y %H:%M")
+    except (ValueError, AttributeError):
+        return timestamp
 
-    Args:
-        state: Gespeicherter Pegel-Zustand.
+
+def run_pegel(state: dict) -> dict:
+    """Prüft alle von Benutzern gewählten Pegel und alarmiert bei Bedarf.
+
+    Der zu überwachende Pegel ist NICHT mehr fest Speyer: Die Auswahl kommt
+    dynamisch aus `user_gauge_settings` (Test + Production); ohne Auswahl
+    gilt der Fallback Speyer. Für Speyer bleiben die bisherigen
+    Top-Level-Zustandsfelder (history …) erhalten, damit App/Verlauf
+    weiter funktionieren.
 
     Returns:
         Aktualisierter Zustand.
     """
     logger.info("─── Pegel-Check startet ───")
-    current = pegel.fetch_pegel()
 
-    if current is None:
-        logger.warning("Pegel: Kein Messwert – überspringe.")
-        return state
+    try:
+        watched = gauges.load_watched_gauges()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Pegelauswahl: Fehler (%s) – Fallback Speyer.", exc)
+        watched = [{
+            "uuid": gauges.SPEYER_UUID,
+            "name": "Speyer",
+            "threshold_cm": config.PEGEL_LOW_THRESHOLD_CM,
+        }]
 
-    value_cm = current["value_cm"]
-    timestamp = current["timestamp"]
-    logger.info("Pegel: %d cm", value_cm)
+    gauge_states: dict = state.get("gauges", {})
 
-    analysis = pegel.analyze_pegel(current, state)
-    updated_state = analysis["updated_state"]
+    for gauge in watched:
+        uuid = gauge["uuid"]
+        name = gauge["name"]
+        threshold_cm = gauge["threshold_cm"]
+        is_speyer = uuid == gauges.SPEYER_UUID
 
-    # Dauerhaft in Datenbank speichern (Wochen-/Monatstrends)
-    db.save_pegel(value_cm, timestamp)
+        current = pegel.fetch_pegel(uuid)
+        if current is None:
+            logger.warning("Pegel [%s]: Kein Messwert – überspringe.", name)
+            continue
 
-    # Niedrigwasser-Warnung hat Vorrang
-    if analysis["low_alert"]:
-        msg = pegel.format_low_alert_message(value_cm, timestamp)
-        success = telegram.send_message(msg)
-        if success:
-            logger.info("Pegel: Niedrigwasser-Alarm gesendet.")
+        value_cm = current["value_cm"]
+        timestamp = current["timestamp"]
+        logger.info("Pegel [%s]: %d cm (Schwelle %d cm)", name, value_cm, threshold_cm)
+
+        # Zustand: Speyer nutzt die bisherigen Top-Level-Felder (Kompatibilität
+        # mit App-Verlauf), andere Pegel liegen unter state["gauges"][uuid].
+        gstate = state if is_speyer else gauge_states.get(uuid, {})
+        analysis = pegel.analyze_pegel(current, gstate, threshold_cm)
+        if is_speyer:
+            state = {**state, **analysis["updated_state"]}
         else:
-            logger.warning("Pegel: Niedrigwasser-Alarm konnte nicht gesendet werden.")
+            gauge_states[uuid] = analysis["updated_state"]
 
-    # Nur bei signifikanter Änderung und kein Alarm (Doppelnachricht vermeiden)
-    elif analysis["changed"]:
-        msg = pegel.format_change_message(value_cm, analysis["delta_cm"], timestamp)
-        success = telegram.send_message(msg)
-        if success:
-            logger.info("Pegel: Änderungsmeldung gesendet.")
+        # Dauerhaft in Datenbank speichern (Wochen-/Monatstrends, nur Speyer –
+        # pegel_history ist eine Ein-Pegel-Tabelle)
+        if is_speyer:
+            db.save_pegel(value_cm, timestamp)
+
+        # Niedrigwasser-Warnung hat Vorrang
+        if analysis["low_alert"]:
+            msg = pegel.format_low_alert_message(value_cm, timestamp, name, threshold_cm)
+            push_meta = {
+                "event_type": "threshold_crossed",
+                "title": "Pegelwarnung",
+                "body": (
+                    f"Pegel: {name}\nAktuell: {value_cm} cm\n"
+                    f"Unter Schwelle: {threshold_cm} cm\nStand: {_push_ts(timestamp)}"
+                ),
+                "url": "/",
+                "gauge_id": uuid,
+                "current_cm": value_cm,
+                "previous_cm": analysis["previous_cm"],
+                "threshold_cm": threshold_cm,
+            }
+            success = telegram.send_message(msg, push_meta=push_meta)
+            if success:
+                logger.info("Pegel [%s]: Niedrigwasser-Alarm gesendet.", name)
+            else:
+                logger.warning("Pegel [%s]: Niedrigwasser-Alarm konnte nicht gesendet werden.", name)
+
+        # Nur bei signifikanter Änderung und kein Alarm (Doppelnachricht vermeiden)
+        elif analysis["changed"]:
+            msg = pegel.format_change_message(value_cm, analysis["delta_cm"], timestamp, name)
+            delta = analysis["delta_cm"]
+            push_meta = {
+                "event_type": "gauge_change",
+                "title": "Pegeländerung",
+                "body": (
+                    f"Pegel: {name}\nAktuell: {value_cm} cm\n"
+                    f"Veränderung: {delta:+d} cm\nStand: {_push_ts(timestamp)}"
+                ),
+                "url": "/",
+                "gauge_id": uuid,
+                "current_cm": value_cm,
+                "previous_cm": analysis["previous_cm"],
+            }
+            success = telegram.send_message(msg, push_meta=push_meta)
+            if success:
+                logger.info("Pegel [%s]: Änderungsmeldung gesendet.", name)
+            else:
+                logger.warning("Pegel [%s]: Änderungsmeldung konnte nicht gesendet werden.", name)
+
         else:
-            logger.warning("Pegel: Änderungsmeldung konnte nicht gesendet werden.")
+            logger.info("Pegel [%s]: Keine signifikante Änderung (< %d cm).",
+                        name, config.PEGEL_CHANGE_THRESHOLD_CM)
 
-    else:
-        logger.info("Pegel: Keine signifikante Änderung (< %d cm).",
-                    config.PEGEL_CHANGE_THRESHOLD_CM)
+        # Tagesbericht (nur Speyer, wie bisher)
+        if is_speyer:
+            now = datetime.now()
+            today_str = now.strftime("%Y-%m-%d")
+            last_report = state.get("last_daily_report_date")
+            if now.hour >= config.DAILY_REPORT_HOUR and last_report != today_str:
+                msg = pegel.format_daily_report_message(
+                    value_cm, timestamp, state.get("history", [])
+                )
+                success = telegram.send_message(msg)
+                if success:
+                    state["last_daily_report_date"] = today_str
+                    logger.info("Pegel: Tagesbericht gesendet.")
+                else:
+                    logger.warning("Pegel: Tagesbericht konnte nicht gesendet werden.")
 
-    # Tagesbericht prüfen
-    now = datetime.now()
-    today_str = now.strftime("%Y-%m-%d")
-    last_report = state.get("last_daily_report_date")
-
-    if now.hour >= config.DAILY_REPORT_HOUR and last_report != today_str:
-        msg = pegel.format_daily_report_message(
-            value_cm, timestamp, updated_state["history"]
-        )
-        success = telegram.send_message(msg)
-        if success:
-            updated_state["last_daily_report_date"] = today_str
-            logger.info("Pegel: Tagesbericht gesendet.")
-        else:
-            logger.warning("Pegel: Tagesbericht konnte nicht gesendet werden.")
-
-    return updated_state
+    state["gauges"] = gauge_states
+    return state
 
 
 def main() -> None:
@@ -314,12 +380,6 @@ def _git_commit_state() -> None:
     Kein force-push, damit parallele Schreiber (z.B. NfB-Monitor via Contents API)
     nicht überschrieben werden.  Da Wächter und NfB-Monitor unterschiedliche Dateien
     schreiben, entstehen dabei keine Merge-Konflikte.
-
-    Entwicklungsbranch-Schutz: Alle Git-Operationen (commit, fetch, reset, push)
-    finden ausschließlich auf dem Branch 'main' statt.  Ist ein anderer Branch
-    ausgecheckt, wird temporär zu 'main' gewechselt und danach im finally-Block
-    zuverlässig zurückgewechselt.  So kann 'git reset --hard FETCH_HEAD' niemals
-    lokale Entwicklungs-Commits auf anderen Branches zerstören.
     """
     import os
     import subprocess
@@ -330,21 +390,6 @@ def _git_commit_state() -> None:
 
     repo_url = f"https://x-access-token:{token}@github.com/5dbp6h96ch-droid/Reffenthal-waechter-.git"
     git_log = logging.getLogger("git")
-
-    # Zustandsdateien hier definieren, damit der finally-Block keinen
-    # NameError riskiert falls die Variable im try-Block nicht erreicht wird.
-    files = [
-        "reffenthal-waechter/state.json",
-        "reffenthal-waechter/seen.json",
-        "reffenthal-waechter/clubs_seen.json",
-        "reffenthal-waechter/run_status.json",
-        "reffenthal-waechter/nfb.json",
-        "reffenthal-waechter/nfb-state.json",
-        "reffenthal-waechter/mck.json",   # MCK Tankstellenpreise
-    ]
-
-    switched_branch = False
-    original_branch = "main"
 
     try:
         # Arbeitsverzeichnis ist das Repo-Root (eine Ebene über watcher.py)
@@ -358,31 +403,16 @@ def _git_commit_state() -> None:
         run(["git", "config", "user.email", "waechter@replit.local"])
         run(["git", "config", "user.name", "Reffenthal-Wächter"])
 
-        # ── Entwicklungsbranch-Schutz ─────────────────────────────────────
-        # Alle nachfolgenden Git-Operationen (inkl. reset --hard) dürfen NUR
-        # auf 'main' laufen.  Ist ein anderer Branch ausgecheckt, wechseln
-        # wir temporär zu 'main' und kehren im finally-Block zurück.
-        current = run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
-        original_branch = current.stdout.strip()
-
-        if original_branch not in ("", "HEAD", "main"):
-            checkout = run(["git", "checkout", "main"])
-            if checkout.returncode != 0:
-                git_log.warning(
-                    "Git: Branch-Wechsel von '%s' zu main fehlgeschlagen – "
-                    "State-Commit übersprungen. Entwicklungs-Commits bleiben erhalten.",
-                    original_branch,
-                )
-                return
-            switched_branch = True
-            git_log.debug(
-                "Git: Temporär zu main gewechselt (Entwicklungsbranch: %s).",
-                original_branch,
-            )
-
-        # Ab hier läuft alles garantiert auf 'main'.
-
         # Nur eigene Zustandsdateien stagen.
+        files = [
+            "reffenthal-waechter/state.json",
+            "reffenthal-waechter/seen.json",
+            "reffenthal-waechter/clubs_seen.json",
+            "reffenthal-waechter/run_status.json",
+            "reffenthal-waechter/nfb.json",
+            "reffenthal-waechter/nfb-state.json",
+            "reffenthal-waechter/mck.json",   # MCK Tankstellenpreise
+        ]
         run(["git", "add", "--force"] + files)
 
         # Prüfen ob es Änderungen gibt
@@ -396,8 +426,6 @@ def _git_commit_state() -> None:
         # Push mit Retry: bei Race Condition (remote ahead) Remote-Stand holen,
         # hart resetten und Datei-Änderungen neu committen – kein Rebase, der bei
         # Datei-Konflikten still fehlschlägt und git in einen kaputten Zustand bringt.
-        # Das 'git reset --hard FETCH_HEAD' ist sicher, weil wir garantiert auf
-        # 'main' sind (Entwicklungsbranch-Schutz oben).
         for attempt in range(1, 4):
             result = run(["git", "push", repo_url, "main"])
             if result.returncode == 0:
@@ -418,25 +446,8 @@ def _git_commit_state() -> None:
                     run(["git", "commit", "-m", "chore: Wächter-Zustand aktualisiert [skip ci]"])
 
         git_log.error("Git: Push nach 3 Versuchen gescheitert.")
-
     except Exception as exc:  # noqa: BLE001
         git_log.warning("Git: Fehler beim State-Commit: %s", exc)
-
-    finally:
-        # Immer zurück zum ursprünglichen Entwicklungsbranch wechseln.
-        if switched_branch:
-            run_back = subprocess.run(
-                ["git", "checkout", original_branch],
-                cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                capture_output=True, text=True, timeout=30,
-            )
-            if run_back.returncode == 0:
-                git_log.debug("Git: Zurück zu '%s' gewechselt.", original_branch)
-            else:
-                git_log.warning(
-                    "Git: Rückwechsel zu '%s' fehlgeschlagen: %s",
-                    original_branch, run_back.stderr[:200],
-                )
 
 
 if __name__ == "__main__":

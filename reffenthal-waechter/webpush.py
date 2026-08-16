@@ -1,4 +1,4 @@
-"""Web-Push bridge for the Reffenthal-Wächter."""
+"""Web-Push bridge for the watcher."""
 
 import logging
 import os
@@ -8,12 +8,68 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-SUPABASE_URL = os.environ.get(
-    "SUPABASE_URL",
-    "https://azssnqabyefqplnoehty.supabase.co",
-).rstrip("/")
-SUPABASE_SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY", "")
-PUSH_URL = f"{SUPABASE_URL}/functions/v1/send-event-push"
+_PROJECTS = [
+    ("production", "cazlpbdcwycpoftohvtq"),
+    ("test", "azssnqabyefqplnoehty"),
+]
+
+_MANAGEMENT_API = "https://api.supabase.com/v1/projects/{ref}/api-keys?reveal=true"
+_key_cache: dict[str, str | None] = {}
+
+
+def _service_key(ref: str) -> str | None:
+    """Bevorzugt den neuen sb_secret_…-Key; der legacy service_role-JWT wird
+    von send-event-push nachweislich mit 401 abgelehnt (live getestet)."""
+    if ref in _key_cache:
+        return _key_cache[ref]
+    token = os.environ.get("SUPABASE_ACCESS_TOKEN", "")
+    key: str | None = None
+    if token:
+        try:
+            resp = requests.get(
+                _MANAGEMENT_API.format(ref=ref),
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=15,
+            )
+            if resp.ok:
+                keys = resp.json()
+                key = next(
+                    (k.get("api_key") for k in keys if k.get("type") == "secret"),
+                    None,
+                ) or next(
+                    (k.get("api_key") for k in keys if k.get("name") == "service_role"),
+                    None,
+                )
+            else:
+                logger.warning("WebPush: Management-API %s fehlgeschlagen (%d).", ref, resp.status_code)
+        except requests.exceptions.RequestException as exc:
+            logger.warning("WebPush: Management-API-Fehler (%s): %s", ref, exc)
+    _key_cache[ref] = key
+    return key
+
+
+def _targets() -> list[tuple[str, str, str]]:
+    targets: list[tuple[str, str, str]] = []
+    env_pairs = [
+        ("production", "SUPABASE_URL", "SUPABASE_SECRET_KEY"),
+        ("test", "TEST_SUPABASE_URL", "TEST_SUPABASE_SECRET_KEY"),
+    ]
+    explicit = set()
+    for name, url_var, key_var in env_pairs:
+        url = os.environ.get(url_var, "").rstrip("/")
+        key = os.environ.get(key_var, "")
+        if url and key:
+            targets.append((name, f"{url}/functions/v1/send-event-push", key))
+            explicit.add(name)
+    for name, ref in _PROJECTS:
+        if name in explicit:
+            continue
+        key = _service_key(ref)
+        if key:
+            targets.append((name, f"https://{ref}.supabase.co/functions/v1/send-event-push", key))
+        else:
+            logger.info("WebPush: Kein Schlüssel für %s – Ziel übersprungen.", name)
+    return targets
 
 
 def _clean_markdown(text: str) -> str:
@@ -33,87 +89,81 @@ def _number_after(label: str, text: str) -> int | None:
 
 
 def classify_telegram(text: str) -> tuple[str, str, str, str, dict] | None:
-    """Map watcher alerts to Web-Push events and include alert metadata."""
     clean = _clean_markdown(text)
     url = _link(text)
-
     if text.startswith("⚓ *NfB "):
         return ("wsv_news", "Neue WSV-Meldung", clean[:240], url, {})
-
     if text.startswith("*Niedrigwasser-Warnung"):
-        current = _number_after("Aktuell", text)
-        threshold = _number_after("Unter Schwelle", text)
         return (
-            "threshold_crossed",
-            "Pegelwarnung",
-            clean[:240],
-            "/",
+            "threshold_crossed", "Pegelwarnung", clean[:240], "/",
             {
                 "gauge_id": "SPEYER",
-                "current_cm": current,
-                "threshold_cm": threshold,
+                "current_cm": _number_after("Aktuell", text),
+                "threshold_cm": _number_after("Unter Schwelle", text),
             },
         )
-
     if text.startswith("💧 *Pegel Speyer – Änderung*"):
-        current = _number_after("Aktuell", text)
         return (
-            "gauge_change",
-            "Pegeländerung",
-            clean[:240],
-            "/",
-            {"gauge_id": "SPEYER", "current_cm": current},
+            "gauge_change", "Pegeländerung", clean[:240], "/",
+            {"gauge_id": "SPEYER", "current_cm": _number_after("Aktuell", text)},
         )
-
     return None
 
 
-def send_for_alert(text: str) -> bool:
-    """Send the corresponding Web Push for a supported watcher alert."""
-    if not SUPABASE_SECRET_KEY:
-        logger.info("WebPush: SUPABASE_SECRET_KEY fehlt – Push übersprungen.")
-        return False
+def send_push(meta: dict) -> bool:
+    """Sendet einen Web-Push mit strukturierten Daten (ohne Telegram-Parsing).
 
+    Erwartete Felder in meta:
+        event_type, title, body, url (optional), gauge_id, current_cm,
+        threshold_cm (optional), previous_cm (optional).
+    """
+    payload = {
+        "event_type": meta["event_type"],
+        "title": meta["title"],
+        "body": meta["body"],
+        "url": meta.get("url", "/"),
+    }
+    for key in ("gauge_id", "current_cm", "threshold_cm", "previous_cm"):
+        if meta.get(key) is not None:
+            payload[key] = meta[key]
+    return _send_payload(payload)
+
+
+def send_for_alert(text: str) -> bool:
     event = classify_telegram(text)
     if event is None:
         return False
-
     event_type, title, body, url, metadata = event
-    payload = {
-        "event_type": event_type,
-        "title": title,
-        "body": body,
-        "url": url,
-        **metadata,
-    }
+    payload = {"event_type": event_type, "title": title, "body": body, "url": url, **metadata}
+    return _send_payload(payload)
 
-    try:
-        response = requests.post(
-            PUSH_URL,
-            json=payload,
-            headers={
-                "apikey": SUPABASE_SECRET_KEY,
-                "Authorization": f"Bearer {SUPABASE_SECRET_KEY}",
-            },
-            timeout=15,
-        )
-        if response.ok:
-            data = response.json()
-            logger.info(
-                "WebPush: %s – %d Push(s) gesendet.",
-                event_type,
-                int(data.get("sent", 0)),
+
+def _send_payload(payload: dict) -> bool:
+    targets = _targets()
+    if not targets:
+        logger.info("WebPush: Keine Ziele konfiguriert – Push übersprungen.")
+        return False
+    event_type = payload["event_type"]
+    any_ok = False
+    for name, push_url, secret_key in targets:
+        try:
+            response = requests.post(
+                push_url,
+                json=payload,
+                headers={
+                    "apikey": secret_key,
+                    "Authorization": f"Bearer {secret_key}",
+                },
+                timeout=15,
             )
-            return bool(data.get("ok"))
-        logger.warning(
-            "WebPush: %s fehlgeschlagen (%d): %s",
-            event_type,
-            response.status_code,
-            response.text[:300],
-        )
-    except requests.exceptions.RequestException as exc:
-        logger.warning("WebPush: Verbindungsfehler: %s", exc)
-    except ValueError as exc:
-        logger.warning("WebPush: Ungültige Antwort: %s", exc)
-
-    return False
+            if response.ok:
+                data = response.json()
+                logger.info("WebPush [%s]: %s – %d Push(s) gesendet.", name, event_type, int(data.get("sent", 0)))
+                any_ok = any_ok or bool(data.get("ok"))
+                continue
+            logger.warning("WebPush [%s]: %s fehlgeschlagen (%d): %s", name, event_type, response.status_code, response.text[:300])
+        except requests.exceptions.RequestException as exc:
+            logger.warning("WebPush [%s]: Verbindungsfehler: %s", name, exc)
+        except ValueError as exc:
+            logger.warning("WebPush [%s]: Ungültige Antwort: %s", name, exc)
+    return any_ok
