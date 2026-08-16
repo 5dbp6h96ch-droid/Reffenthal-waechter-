@@ -20,24 +20,13 @@ from config import (
 
 logger = logging.getLogger(__name__)
 
-# Maximale Einträge im Verlauf (WSV-API liefert 15-Min-Takt → 4 × 24 × 90 = 8640 für 90 Tage)
-MAX_HISTORY = 8640  # ~90 Tage bei 15-Minuten-Intervall
+MAX_HISTORY = 8640
 
 
 def fetch_pegel() -> dict | None:
-    """Ruft den aktuellen Pegel Speyer vom WSV-Pegelonline-API ab.
-
-    Returns:
-        Dict mit 'value_cm' (int) und 'timestamp' (str ISO8601),
-        oder None bei Fehler.
-    """
     headers = {"User-Agent": USER_AGENT}
     try:
-        response = requests.get(
-            PEGEL_API_URL,
-            headers=headers,
-            timeout=HTTP_TIMEOUT,
-        )
+        response = requests.get(PEGEL_API_URL, headers=headers, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
         data = response.json()
     except requests.exceptions.Timeout:
@@ -57,7 +46,6 @@ def fetch_pegel() -> dict | None:
         return None
 
     try:
-        # WSV API liefert Wert in cm
         value_cm = int(round(float(data["value"])))
         timestamp = data.get("timestamp", datetime.now().isoformat())
         logger.info("Pegel: %d cm (%s)", value_cm, timestamp)
@@ -68,11 +56,6 @@ def fetch_pegel() -> dict | None:
 
 
 def fetch_history(days: int = 30) -> list[dict]:
-    """Lädt die historischen Pegel-Messwerte der letzten N Tage von Pegelonline.
-
-    Returns:
-        Liste von {'cm': int, 'ts': str} – chronologisch aufsteigend.
-    """
     url = (
         "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/"
         f"SPEYER/W/measurements.json?start=P{days}D"
@@ -85,40 +68,21 @@ def fetch_history(days: int = 30) -> list[dict]:
         history = []
         for m in data:
             try:
-                history.append({
-                    "cm": int(round(float(m["value"]))),
-                    "ts": m["timestamp"],
-                })
+                history.append({"cm": int(round(float(m["value"]))), "ts": m["timestamp"]})
             except (KeyError, TypeError, ValueError):
                 continue
-        logger.info(
-            "Pegel: %d historische Messwerte geladen (%d Tage).", len(history), days
-        )
+        logger.info("Pegel: %d historische Messwerte geladen (%d Tage).", len(history), days)
         return history
-    except Exception as exc:  # pylint: disable=broad-except
+    except Exception as exc:
         logger.warning("Pegel: Historische Daten konnten nicht geladen werden: %s", exc)
         return []
 
 
 def analyze_pegel(current: dict, state: dict) -> dict:
-    """Vergleicht den aktuellen Pegel mit dem gespeicherten Zustand.
-
-    Args:
-        current: Aktueller Pegel {'value_cm': int, 'timestamp': str}.
-        state: Gespeicherter Zustand mit 'last_pegel_cm', 'last_pegel_time', 'history'.
-
-    Returns:
-        Dict mit:
-            - 'changed': bool – ob Änderung die Schwelle überschreitet
-            - 'low_alert': bool – ob Pegel unter Alarm-Schwelle
-            - 'delta_cm': int|None – Differenz zum letzten Wert
-            - 'updated_state': dict – neuer Zustand zum Speichern
-    """
     value_cm = current["value_cm"]
     timestamp = current["timestamp"]
     last_cm = state.get("last_pegel_cm")
 
-    # Verlauf aktualisieren
     history: list = state.get("history", [])
     history.append({"cm": value_cm, "ts": timestamp})
     if len(history) > MAX_HISTORY:
@@ -137,17 +101,15 @@ def analyze_pegel(current: dict, state: dict) -> dict:
         changed = abs(delta_cm) >= PEGEL_CHANGE_THRESHOLD_CM
         if changed:
             direction = "gestiegen" if delta_cm > 0 else "gefallen"
-            logger.info(
-                "Pegel: %d → %d cm (%+d cm, %s).",
-                last_cm,
-                value_cm,
-                delta_cm,
-                direction,
-            )
+            logger.info("Pegel: %d → %d cm (%+d cm, %s).", last_cm, value_cm, delta_cm, direction)
     else:
         logger.info("Pegel: Erster Messwert (%d cm).", value_cm)
 
-    low_alert = value_cm < PEGEL_LOW_THRESHOLD_CM
+    # Alarm nur beim tatsächlichen Unterschreiten der Schwelle.
+    # Dadurch wird derselbe Niedrigwasser-Push nicht bei jedem Lauf erneut gesendet.
+    low_alert = value_cm < PEGEL_LOW_THRESHOLD_CM and (
+        last_cm is None or last_cm >= PEGEL_LOW_THRESHOLD_CM
+    )
     if low_alert:
         logger.warning(
             "Pegel: WARNUNG – Pegel %d cm unter Schwelle %d cm!",
@@ -159,25 +121,22 @@ def analyze_pegel(current: dict, state: dict) -> dict:
         "changed": changed,
         "low_alert": low_alert,
         "delta_cm": delta_cm,
+        "previous_cm": last_cm,
         "updated_state": updated_state,
     }
 
 
 def format_change_message(value_cm: int, delta_cm: int | None, timestamp: str) -> str:
-    """Formatiert eine Pegel-Änderungs-Nachricht für Telegram."""
     if delta_cm is not None:
         direction = "⬆️ gestiegen" if delta_cm > 0 else "⬇️ gefallen"
         delta_str = f"\n📊 Veränderung: {delta_cm:+d} cm ({direction})"
     else:
         delta_str = ""
-
-    # Timestamp lesbar machen
     try:
         dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         ts_str = dt.strftime("%d.%m.%Y %H:%M Uhr")
     except (ValueError, AttributeError):
         ts_str = timestamp
-
     return (
         f"💧 *Pegel Speyer – Änderung*\n\n"
         f"🌊 Aktuell: *{value_cm} cm*{delta_str}\n"
@@ -186,14 +145,11 @@ def format_change_message(value_cm: int, delta_cm: int | None, timestamp: str) -
 
 
 def format_daily_report_message(value_cm: int, timestamp: str, history: list) -> str:
-    """Formatiert den täglichen Pegel-Bericht für Telegram."""
     try:
         dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         ts_str = dt.strftime("%d.%m.%Y %H:%M Uhr")
     except (ValueError, AttributeError):
         ts_str = timestamp
-
-    # Trend aus den letzten Einträgen (max. 6 = ~3 Stunden)
     trend = ""
     if len(history) >= 2:
         recent = history[-6:]
@@ -204,11 +160,9 @@ def format_daily_report_message(value_cm: int, timestamp: str, history: list) ->
             trend = f"\n📉 Tendenz: fallend ({delta:+d} cm)"
         else:
             trend = "\n➡️ Tendenz: stabil"
-
     status = ""
     if value_cm < PEGEL_LOW_THRESHOLD_CM:
         status = f"\n⚠️ Unter Schwelle ({PEGEL_LOW_THRESHOLD_CM} cm)!"
-
     return (
         f"🌅 *Täglicher Pegel-Bericht – Speyer*\n\n"
         f"🌊 Aktuell: *{value_cm} cm*{trend}{status}\n"
@@ -217,13 +171,11 @@ def format_daily_report_message(value_cm: int, timestamp: str, history: list) ->
 
 
 def format_low_alert_message(value_cm: int, timestamp: str) -> str:
-    """Formatiert eine Niedrigwasser-Warnung für Telegram."""
     try:
         dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         ts_str = dt.strftime("%d.%m.%Y %H:%M Uhr")
     except (ValueError, AttributeError):
         ts_str = timestamp
-
     return (
         f"*Niedrigwasser-Warnung – Pegel Speyer*\n\n"
         f"Aktuell: *{value_cm} cm*\n"
