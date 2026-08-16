@@ -124,7 +124,13 @@ Deno.serve(async (req) => {
         .select("user_id, selected_gauge_id")
         .in("user_id", userIds);
       if (userSettingsError) {
-        console.warn("[send-event-push] user_settings nicht verfügbar – Filter übersprungen", userSettingsError);
+        // Nur bei "Tabelle existiert nicht" (PostgREST PGRST205 / Postgres 42P01)
+        // ausweichen; alle anderen Fehler bleiben harte Fehler (fail closed).
+        const code = (userSettingsError as { code?: string }).code ?? "";
+        const missingTable = code === "PGRST205" || code === "42P01" ||
+          /relation .* does not exist|Could not find the table/i.test(userSettingsError.message ?? "");
+        if (!missingTable) throw userSettingsError;
+        console.warn("[send-event-push] user_settings-Tabelle fehlt – Filter übersprungen", userSettingsError);
         selectedFilterActive = false;
       }
 
