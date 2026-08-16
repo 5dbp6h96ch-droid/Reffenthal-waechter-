@@ -61,4 +61,9 @@ jobs:
             reffenthal-waechter/nfb-state.json \
             reffenthal-waechter/mck.json
           git diff --staged --quiet || git commit -m "chore: Wächter-Zustand aktualisiert [skip ci]"
-          git push
+          # Push mit Retry: der Replit-Wächter pusht denselben Branch –
+          # bei einem Wettlauf Remote-Stand holen und erneut versuchen.
+          for i in 1 2 3; do
+            git push && break
+            git pull --rebase -X ours || { git rebase --abort; git pull --rebase -X theirs; }
+          done
