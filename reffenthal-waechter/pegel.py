@@ -225,9 +225,8 @@ def format_low_alert_message(value_cm: int, timestamp: str) -> str:
         ts_str = timestamp
 
     return (
-        f"⚠️ *Niedrigwasser-Warnung – Pegel Speyer*\n\n"
-        f"🌊 Aktuell: *{value_cm} cm*\n"
-        f"🚨 Unter Schwelle: {PEGEL_LOW_THRESHOLD_CM} cm\n"
-        f"🕐 Stand: {ts_str}\n\n"
-        f"_Einfahrt in den Reffenthal möglicherweise erschwert!_"
+        f"*Niedrigwasser-Warnung – Pegel Speyer*\n\n"
+        f"Aktuell: *{value_cm} cm*\n"
+        f"Unter Schwelle: {PEGEL_LOW_THRESHOLD_CM} cm\n"
+        f"Stand: {ts_str}"
     )
