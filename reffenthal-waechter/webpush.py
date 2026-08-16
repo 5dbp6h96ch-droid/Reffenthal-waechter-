@@ -43,7 +43,7 @@ def _service_key(ref: str) -> str | None:
             else:
                 logger.warning("WebPush: Management-API %s fehlgeschlagen (%d).", ref, resp.status_code)
         except requests.exceptions.RequestException as exc:
-            logger.warning("WebPush: Management-API-Fehler (%s): %s", exc)
+            logger.warning("WebPush: Management-API-Fehler (%s): %s", ref, exc)
     _key_cache[ref] = key
     return key
 
