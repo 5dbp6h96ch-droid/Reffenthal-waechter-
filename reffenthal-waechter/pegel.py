@@ -20,17 +20,11 @@ from config import (
 
 logger = logging.getLogger(__name__)
 
-# Maximale Einträge im Verlauf (WSV-API liefert 15-Min-Takt → 4 × 24 × 90 = 8640 für 90 Tage)
-MAX_HISTORY = 8640  # ~90 Tage bei 15-Minuten-Intervall
+MAX_HISTORY = 8640
 
 
 def fetch_pegel() -> dict | None:
-    """Ruft den aktuellen Pegel Speyer vom WSV-Pegelonline-API ab.
-
-    Returns:
-        Dict mit 'value_cm' (int) und 'timestamp' (str ISO8601),
-        oder None bei Fehler.
-    """
+    """Ruft den aktuellen Pegel Speyer vom WSV-Pegelonline-API ab."""
     headers = {"User-Agent": USER_AGENT}
     try:
         response = requests.get(
@@ -57,7 +51,6 @@ def fetch_pegel() -> dict | None:
         return None
 
     try:
-        # WSV API liefert Wert in cm
         value_cm = int(round(float(data["value"])))
         timestamp = data.get("timestamp", datetime.now().isoformat())
         logger.info("Pegel: %d cm (%s)", value_cm, timestamp)
@@ -68,11 +61,7 @@ def fetch_pegel() -> dict | None:
 
 
 def fetch_history(days: int = 30) -> list[dict]:
-    """Lädt die historischen Pegel-Messwerte der letzten N Tage von Pegelonline.
-
-    Returns:
-        Liste von {'cm': int, 'ts': str} – chronologisch aufsteigend.
-    """
+    """Lädt historische Pegel-Messwerte der letzten N Tage von Pegelonline."""
     url = (
         "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/"
         f"SPEYER/W/measurements.json?start=P{days}D"
@@ -95,30 +84,17 @@ def fetch_history(days: int = 30) -> list[dict]:
             "Pegel: %d historische Messwerte geladen (%d Tage).", len(history), days
         )
         return history
-    except Exception as exc:  # pylint: disable=broad-except
+    except Exception as exc:
         logger.warning("Pegel: Historische Daten konnten nicht geladen werden: %s", exc)
         return []
 
 
 def analyze_pegel(current: dict, state: dict) -> dict:
-    """Vergleicht den aktuellen Pegel mit dem gespeicherten Zustand.
-
-    Args:
-        current: Aktueller Pegel {'value_cm': int, 'timestamp': str}.
-        state: Gespeicherter Zustand mit 'last_pegel_cm', 'last_pegel_time', 'history'.
-
-    Returns:
-        Dict mit:
-            - 'changed': bool – ob Änderung die Schwelle überschreitet
-            - 'low_alert': bool – ob Pegel unter Alarm-Schwelle
-            - 'delta_cm': int|None – Differenz zum letzten Wert
-            - 'updated_state': dict – neuer Zustand zum Speichern
-    """
+    """Vergleicht den aktuellen Pegel mit dem gespeicherten Zustand."""
     value_cm = current["value_cm"]
     timestamp = current["timestamp"]
     last_cm = state.get("last_pegel_cm")
 
-    # Verlauf aktualisieren
     history: list = state.get("history", [])
     history.append({"cm": value_cm, "ts": timestamp})
     if len(history) > MAX_HISTORY:
@@ -171,7 +147,6 @@ def format_change_message(value_cm: int, delta_cm: int | None, timestamp: str) -
     else:
         delta_str = ""
 
-    # Timestamp lesbar machen
     try:
         dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         ts_str = dt.strftime("%d.%m.%Y %H:%M Uhr")
@@ -193,7 +168,6 @@ def format_daily_report_message(value_cm: int, timestamp: str, history: list) ->
     except (ValueError, AttributeError):
         ts_str = timestamp
 
-    # Trend aus den letzten Einträgen (max. 6 = ~3 Stunden)
     trend = ""
     if len(history) >= 2:
         recent = history[-6:]
@@ -225,9 +199,8 @@ def format_low_alert_message(value_cm: int, timestamp: str) -> str:
         ts_str = timestamp
 
     return (
-        f"⚠️ *Niedrigwasser-Warnung – Pegel Speyer*\n\n"
-        f"🌊 Aktuell: *{value_cm} cm*\n"
-        f"🚨 Unter Schwelle: {PEGEL_LOW_THRESHOLD_CM} cm\n"
-        f"🕐 Stand: {ts_str}\n\n"
-        f"_Einfahrt in den Reffenthal möglicherweise erschwert!_"
+        f"*Niedrigwasser-Warnung – Pegel Speyer*\n\n"
+        f"Aktuell: *{value_cm} cm*\n"
+        f"Unter Schwelle: {PEGEL_LOW_THRESHOLD_CM} cm\n"
+        f"Stand: {ts_str}"
     )
