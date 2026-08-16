@@ -27,9 +27,9 @@ WEB_SEARCH_QUERIES: list[str] = [
 
 # Boote-Forum wird ausschließlich über RSS überwacht (rss.py) –
 # dort greift der 7-Tage-Filter zuverlässig.
-# site:-Suchen bei DuckDuckGo ignorieren timelimit="w" oft und liefern
-# jahrelang alte Threads zurück. Deshalb werden Web-Treffer zusätzlich
-# anhand des von DuckDuckGo gelieferten Veröffentlichungsdatums geprüft.
+# Die Websuche verwendet DuckDuckGo News, damit jedes Ergebnis ein
+# Veröffentlichungsdatum liefert. Zusätzlich wird dieses Datum unten
+# strikt auf die letzten 7 Tage geprüft.
 
 # Gezielte Suche auf Facebook (nur öffentliche Seiten & Gruppen)
 FACEBOOK_SEARCH_QUERIES: list[str] = [
@@ -82,7 +82,7 @@ def _is_recent(date_value: object, days: int = 7) -> bool:
     """Prüft, ob ein Treffer höchstens 'days' Tage alt ist.
 
     Treffer ohne verwertbares Veröffentlichungsdatum werden verworfen,
-    damit alte Beiträge nicht trotz DuckDuckGo-timelimit durchrutschen.
+    damit alte Beiträge nicht trotz Suchmaschinenfilter durchrutschen.
     """
     if not date_value:
         return False
@@ -107,11 +107,11 @@ def _is_recent(date_value: object, days: int = 7) -> bool:
 
 
 def search_web(query: str, max_results: int = 5) -> list[dict]:
-    """Durchsucht DuckDuckGo nach einer Suchanfrage."""
+    """Durchsucht DuckDuckGo News nach aktuellen Meldungen."""
     results: list[dict] = []
     try:
         with DDGS() as ddgs:
-            raw = ddgs.text(
+            raw = ddgs.news(
                 query,
                 max_results=max_results,
                 timelimit="w",  # letzte Woche
@@ -126,8 +126,8 @@ def search_web(query: str, max_results: int = 5) -> list[dict]:
                     continue
                 results.append({
                     "title": item.get("title", ""),
-                    "link": item.get("href", ""),
-                    "body": item.get("body", ""),
+                    "link": item.get("url") or item.get("href", ""),
+                    "body": item.get("body", "") or item.get("snippet", ""),
                     "query": query,
                     "date": published_date,
                 })
@@ -142,7 +142,7 @@ def check_web() -> list[dict]:
     """Führt alle Web-Suchanfragen durch und gibt relevante Treffer zurück.
 
     Dedupliziert nach URL und filtert nach Relevanz.
-    Durchsucht allgemeines Web sowie gezielt boote-forum.de.
+    Durchsucht allgemeine News sowie gezielt Facebook.
     """
     seen_links: set[str] = set()
     all_results: list[dict] = []
