@@ -168,7 +168,7 @@ def _check_gauge(gauge: dict, state: dict, gauge_states: dict) -> tuple[dict, di
                 f"Pegel: {name}\nAktuell: {value_cm} cm\n"
                 f"Unter Schwelle: {thr_used} cm\nStand: {_push_ts(timestamp)}"
             ),
-            "url": "/",
+            "url": "https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/",
             "gauge_id": uuid,
             "gauge_name": name,
             "current_cm": value_cm,
@@ -193,7 +193,7 @@ def _check_gauge(gauge: dict, state: dict, gauge_states: dict) -> tuple[dict, di
                 f"Pegel: {name}\nAktuell: {value_cm} cm\n"
                 f"Veränderung: {delta:+d} cm\nStand: {_push_ts(timestamp)}"
             ),
-            "url": "/",
+            "url": "https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/",
             "gauge_id": uuid,
             "gauge_name": name,
             "current_cm": value_cm,
