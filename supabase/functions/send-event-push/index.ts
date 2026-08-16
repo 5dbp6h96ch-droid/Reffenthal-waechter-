@@ -22,6 +22,7 @@ interface EventPayload {
   current_cm?: number;
   previous_cm?: number;
   threshold_cm?: number;
+  timestamp?: string;
 }
 
 function json(data: unknown, status = 200) {
@@ -53,6 +54,25 @@ function isAuthorized(req: Request): boolean {
   return candidates.some((candidate) => candidate === supplied);
 }
 
+function formatThresholdBody(payload: EventPayload): string {
+  const current = payload.current_cm != null ? `${payload.current_cm} cm` : "—";
+  const threshold = payload.threshold_cm != null ? `${payload.threshold_cm} cm` : "—";
+  const stand = payload.timestamp
+    ? new Date(payload.timestamp).toLocaleString("de-DE", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : new Date().toLocaleString("de-DE", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+  return `Aktuell: ${current}\nUnter Schwelle: ${threshold}\nStand: ${stand}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -62,6 +82,10 @@ Deno.serve(async (req) => {
     const payload = await req.json() as EventPayload;
     if (!payload.event_type || !payload.title || !payload.body) {
       return json({ error: "event_type, title and body are required" }, 400);
+    }
+
+    if (payload.event_type === "threshold_crossed" && !payload.gauge_id) {
+      return json({ error: "gauge_id is required for threshold_crossed" }, 400);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -84,22 +108,41 @@ Deno.serve(async (req) => {
     if (subError) throw subError;
 
     let targets = subscriptions ?? [];
+    const thresholdByUser = new Map<string, number>();
 
-    if (payload.event_type === "threshold_crossed" && payload.gauge_id) {
-      const { data: settings, error: settingsError } = await admin
+    if (payload.event_type === "threshold_crossed") {
+      const userIds = [...new Set((subscriptions ?? []).map((sub) => sub.user_id))];
+
+      const { data: userSettings, error: userSettingsError } = await admin
+        .from("user_settings")
+        .select("user_id, selected_gauge_id")
+        .in("user_id", userIds);
+      if (userSettingsError) throw userSettingsError;
+
+      const { data: gaugeSettings, error: settingsError } = await admin
         .from("user_gauge_settings")
-        .select("user_id, alert_enabled, alert_threshold_cm")
-        .eq("gauge_id", payload.gauge_id);
+        .select("user_id, gauge_id, alert_enabled, alert_threshold_cm")
+        .eq("gauge_id", payload.gauge_id!);
       if (settingsError) throw settingsError;
 
-      const byUser = new Map((settings ?? []).map((row) => [row.user_id, row]));
+      const selectedByUser = new Map((userSettings ?? []).map((row) => [row.user_id, row]));
+      const alertByUser = new Map((gaugeSettings ?? []).map((row) => [row.user_id, row]));
+
       targets = targets.filter((sub) => {
-        const setting = byUser.get(sub.user_id);
-        if (!setting) return true;
-        if (!setting.alert_enabled) return false;
+        const selected = selectedByUser.get(sub.user_id);
+        const setting = alertByUser.get(sub.user_id);
+
+        // A threshold warning is sent only for the gauge the user currently selected.
+        if (!selected || selected.selected_gauge_id !== payload.gauge_id) return false;
+        if (!setting?.alert_enabled) return false;
+
         const threshold = Number(setting.alert_threshold_cm ?? payload.threshold_cm ?? 225);
-        return payload.current_cm !== undefined && payload.current_cm < threshold &&
-          (payload.previous_cm === undefined || payload.previous_cm >= threshold);
+        if (payload.current_cm === undefined || payload.current_cm >= threshold) return false;
+        if (payload.previous_cm !== undefined && payload.previous_cm < threshold) return false;
+
+        // Each user can have a different threshold for the same selected gauge.
+        thresholdByUser.set(sub.user_id, threshold);
+        return true;
       });
     }
 
@@ -117,24 +160,31 @@ Deno.serve(async (req) => {
       vapidKeys,
     });
 
-    const notification = {
-      title: payload.title,
-      body: payload.body,
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
-      navigate: payload.url ?? "/",
-    };
-    const wirePayload = JSON.stringify({
-      web_push: "8030",
-      notification,
-      title: payload.title,
-      body: payload.body,
-      url: payload.url ?? "/",
-    });
-
     const results: Array<{ endpoint: string; user_id: string; ok: boolean; status?: number; reason?: string }> = [];
     for (const subscription of targets) {
       try {
+        const notificationBody = payload.event_type === "threshold_crossed"
+          ? formatThresholdBody({
+              ...payload,
+              threshold_cm: thresholdByUser.get(subscription.user_id) ?? payload.threshold_cm,
+            })
+          : payload.body;
+
+        const notification = {
+          title: payload.title,
+          body: notificationBody,
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          navigate: payload.url ?? "/",
+        };
+        const wirePayload = JSON.stringify({
+          web_push: "8030",
+          notification,
+          title: payload.title,
+          body: notificationBody,
+          url: payload.url ?? "/",
+        });
+
         const subscriber = appServer.subscribe({
           endpoint: subscription.endpoint,
           keys: { p256dh: subscription.p256dh, auth: subscription.auth },
