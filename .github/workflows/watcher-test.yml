@@ -38,6 +38,7 @@ jobs:
           # Production-Keys, kein GITHUB_TOKEN → kein State-Commit.
           # Der Testmodus erlaubt Web-Push bei einem relevanten Wächter-Event
           # auch ohne Telegram-Zugangsdaten.
+          WATCH_ENV: "test"
           TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
           TEST_SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
           WEBPUSH_WITHOUT_TELEGRAM: "1"
@@ -46,6 +47,7 @@ jobs:
 
       - name: Echter Pegelwarnungs-Pfad (nur Test-Supabase)
         env:
+          WATCH_ENV: "test"
           TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
           TEST_SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
           WEBPUSH_WITHOUT_TELEGRAM: "1"
