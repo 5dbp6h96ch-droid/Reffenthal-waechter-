@@ -59,7 +59,10 @@ jobs:
               "title": "Pegelwarnung",
               "body": "TESTALARM – Pegel Mannheim\nAktuell: 76 cm\nUnter Schwelle: 100 cm",
               "url": "/",
-              "gauge_id": "TEST-MANNHEIM",
+              # Echte PEGELONLINE-UUID für MANNHEIM.
+              # Kein künstlicher Test-Identifier, damit der Edge-Function-
+              # Filter für selected_gauge_id / user_gauge_settings greift.
+              "gauge_id": "57090802-c51a-4d09-8340-b4453cd0e1f5",
               "gauge_name": "Mannheim",
               "current_cm": 76,
               "previous_cm": 101,
