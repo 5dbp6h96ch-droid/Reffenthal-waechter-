@@ -123,7 +123,7 @@ def send_push(meta: dict) -> bool:
         "body": meta["body"],
         "url": meta.get("url", "/"),
     }
-    for key in ("gauge_id", "current_cm", "threshold_cm", "previous_cm", "timestamp"):
+    for key in ("gauge_id", "gauge_name", "current_cm", "threshold_cm", "previous_cm", "timestamp"):
         if meta.get(key) is not None:
             payload[key] = meta[key]
     return _send_payload(payload)
