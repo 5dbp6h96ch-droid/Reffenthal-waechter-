@@ -7,6 +7,7 @@ zu konfigurierten Suchbegriffen. Kein API-Key erforderlich.
 
 import logging
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 
 from ddgs import DDGS
 
@@ -67,6 +68,7 @@ FACEBOOK_SEARCH_QUERIES: list[str] = [
 REQUIRED_TERMS: list[str] = [
     "reffenthal",
     "otterstädter altrhein",
+    "angellofer altrhein",
     "angelhofer altrhein",
     "berghäuser altrhein",
     "reffenthaler",
@@ -74,40 +76,77 @@ REQUIRED_TERMS: list[str] = [
 ]
 
 # Mindestens eines dieser Wörter muss vorkommen (Boot-Bezug).
-# Ausnahme: Ergebnisse von boote-forum.de sind immer relevant.
+# Ausnahme: boote-forum.de und ausdrücklich relevante News-Domains werden separat zugelassen.
 BOAT_TERMS: list[str] = [
-    # Fahrzeugtypen
     "boot", "boote", "yacht", "yachten", "sportboot", "motorboot",
     "segelboot", "hausboot", "kajak", "kanu", "schiff",
-    # Nautik & Infrastruktur
     "tiefgang", "slipanlage", "slip", "anker", "ankern",
     "liegeplatz", "marina", "schleuse", "fahrwasser", "fahrrinne",
-    # Gewässer & Pegelzustand
     "einfahrt", "zufahrt", "wassertiefe", "versandung",
     "pegelstand", "wasserstand", "niedrigwasser", "pegel",
+    "schifffahrt", "rhein", "rheinalarm",
+]
+
+# Seiten, die keine News sind und deshalb niemals als Web-News-Treffer durchgelassen werden.
+BLOCKED_HOSTS = {
+    "wetter.com",
+    "wetteronline.de",
+    "wetter.de",
+    "webcamgalore.com",
+    "webcam-travelling.com",
+    "webcam-4insiders.com",
+}
+
+BLOCKED_TITLE_TERMS = [
+    "7-tage prognose",
+    "7 tage prognose",
+    "wettervorhersage",
+    "wetter forecast",
+    "live webcam",
+    "webcam",
+    "wetter heute",
 ]
 
 
-def _is_relevant(title: str, body: str, link: str = "") -> bool:
-    """Prüft ob ein Suchergebnis Orts- UND Boot-Bezug hat.
-
-    Ergebnisse von boote-forum.de sind immer relevant (Boot-Kontext gesichert).
-    """
+def _is_news_like(title: str, body: str, link: str) -> bool:
+    """Verwirft offensichtliche Wetter-, Webcam-, Übersichts- und Nicht-News-Seiten."""
     combined = f"{title} {body}".lower()
+    if any(term in combined for term in BLOCKED_TITLE_TERMS):
+        return False
+
+    try:
+        host = (urlparse(link).hostname or "").lower().removeprefix("www.")
+    except ValueError:
+        host = ""
+
+    return not any(host == blocked or host.endswith("." + blocked) for blocked in BLOCKED_HOSTS)
+
+
+def _is_relevant(title: str, body: str, link: str = "") -> bool:
+    """Prüft ob ein Suchergebnis Orts- UND Boot-/Rhein-Bezug hat."""
+    if not _is_news_like(title, body, link):
+        return False
+
+    combined = f"{title} {body} {link}".lower()
     has_location = any(term.lower() in combined for term in REQUIRED_TERMS)
     if not has_location:
-        return False
+        # Regionale Rhein-Suchbegriffe dürfen auch Treffer ohne den Namen
+        # Reffenthal enthalten, wenn sie klaren Rhein-/Schifffahrtsbezug haben.
+        regional = any(term in combined for term in (
+            "rhein mannheim", "rhein speyer", "rhein ludwigshafen",
+            "rhein altlußheim", "rhein ketsch", "rhein brühl",
+            "rhein altrip", "rheinalarm",
+        ))
+        if not regional:
+            return False
+
     if "boote-forum.de" in link.lower():
         return True
     return any(term in combined for term in BOAT_TERMS)
 
 
 def _is_recent(date_value: object, days: int = 7) -> bool:
-    """Prüft, ob ein Treffer höchstens 'days' Tage alt ist.
-
-    Treffer ohne verwertbares Veröffentlichungsdatum werden verworfen,
-    damit alte Beiträge nicht trotz Suchmaschinenfilter durchrutschen.
-    """
+    """Prüft, ob ein Treffer höchstens 'days' Tage alt ist."""
     if not date_value:
         return False
 
@@ -138,7 +177,7 @@ def search_web(query: str, max_results: int = 5) -> list[dict]:
             raw = ddgs.news(
                 query,
                 max_results=max_results,
-                timelimit="w",  # letzte Woche
+                timelimit="w",
             )
             for item in raw:
                 published_date = item.get("date") or item.get("published")
