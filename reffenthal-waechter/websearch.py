@@ -73,7 +73,6 @@ def _is_relevant(title: str, body: str, link: str = "") -> bool:
     has_location = any(term.lower() in combined for term in REQUIRED_TERMS)
     if not has_location:
         return False
-    # Boote-Forum-Treffer brauchen keinen weiteren Boot-Check
     if "boote-forum.de" in link.lower():
         return True
     return any(term in combined for term in BOAT_TERMS)
@@ -148,7 +147,7 @@ def check_web() -> list[dict]:
     seen_links: set[str] = set()
     all_results: list[dict] = []
 
-    for query in WEB_SEARCH_QUERIES + FACEBOOK_SEARCH_SEARCH_QUERIES:
+    for query in WEB_SEARCH_QUERIES + FACEBOOK_SEARCH_QUERIES:
         entries = search_web(query)
         for entry in entries:
             link = entry.get("link", "")
