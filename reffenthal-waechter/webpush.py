@@ -1,17 +1,4 @@
-"""Web-Push bridge for the watcher.
-
-Sendet Web-Push-Nachrichten an BEIDE Systeme (Production + Test).
-
-Schlüsselbeschaffung (in dieser Reihenfolge):
-1. Explizite Runtime-Umgebung (`SUPABASE_URL` + `SUPABASE_SECRET_KEY`,
-   optional `TEST_SUPABASE_URL` + `TEST_SUPABASE_SECRET_KEY`).
-2. Fallback: service_role-Key wird zur Laufzeit über die Supabase-
-   Management-API mit `SUPABASE_ACCESS_TOKEN` geholt (einmalig gecacht,
-   nie geloggt, nie auf Platte geschrieben).
-
-Fehlt beides, wird Web Push für das jeweilige Ziel übersprungen –
-Telegram bleibt unberührt.
-"""
+"""Web-Push bridge for the watcher."""
 
 import logging
 import os
@@ -21,7 +8,6 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# Feste Projekt-Referenzen (öffentlich, keine Geheimnisse)
 _PROJECTS = [
     ("production", "cazlpbdcwycpoftohvtq"),
     ("test", "azssnqabyefqplnoehty"),
@@ -32,7 +18,7 @@ _key_cache: dict[str, str | None] = {}
 
 
 def _service_key(ref: str) -> str | None:
-    """service_role-Key für ein Projekt holen (Management-API, gecacht)."""
+    """Prefer legacy service_role because send-event-push authorizes it."""
     if ref in _key_cache:
         return _key_cache[ref]
     token = os.environ.get("SUPABASE_ACCESS_TOKEN", "")
@@ -46,18 +32,15 @@ def _service_key(ref: str) -> str | None:
             )
             if resp.ok:
                 keys = resp.json()
-                # Bevorzugt den neuen Secret-Key (sb_secret_…), Fallback legacy service_role.
                 key = next(
-                    (k.get("api_key") for k in keys if k.get("type") == "secret"),
+                    (k.get("api_key") for k in keys if k.get("name") == "service_role"),
                     None,
                 ) or next(
-                    (k.get("api_key") for k in keys if k.get("name") == "service_role"),
+                    (k.get("api_key") for k in keys if k.get("type") == "secret"),
                     None,
                 )
             else:
-                logger.warning(
-                    "WebPush: Management-API %s fehlgeschlagen (%d).", ref, resp.status_code
-                )
+                logger.warning("WebPush: Management-API %s fehlgeschlagen (%d).", ref, resp.status_code)
         except requests.exceptions.RequestException as exc:
             logger.warning("WebPush: Management-API-Fehler (%s): %s", ref, exc)
     _key_cache[ref] = key
@@ -65,10 +48,7 @@ def _service_key(ref: str) -> str | None:
 
 
 def _targets() -> list[tuple[str, str, str]]:
-    """Liste der Push-Ziele: (Name, PUSH_URL, Secret-Key)."""
     targets: list[tuple[str, str, str]] = []
-
-    # 1) Explizit konfigurierte Umgebung (z. B. GitHub Secrets) hat Vorrang.
     env_pairs = [
         ("production", "SUPABASE_URL", "SUPABASE_SECRET_KEY"),
         ("test", "TEST_SUPABASE_URL", "TEST_SUPABASE_SECRET_KEY"),
@@ -80,19 +60,14 @@ def _targets() -> list[tuple[str, str, str]]:
         if url and key:
             targets.append((name, f"{url}/functions/v1/send-event-push", key))
             explicit.add(name)
-
-    # 2) Fallback über Management-API für alle noch fehlenden Ziele.
     for name, ref in _PROJECTS:
         if name in explicit:
             continue
         key = _service_key(ref)
         if key:
-            targets.append(
-                (name, f"https://{ref}.supabase.co/functions/v1/send-event-push", key)
-            )
+            targets.append((name, f"https://{ref}.supabase.co/functions/v1/send-event-push", key))
         else:
             logger.info("WebPush: Kein Schlüssel für %s – Ziel übersprungen.", name)
-
     return targets
 
 
@@ -107,92 +82,63 @@ def _link(text: str) -> str:
     return match.group(1) if match else "/"
 
 
-def classify_telegram(text: str) -> tuple[str, str, str, str] | None:
-    """Map existing watcher alerts to the three requested Web-Push events."""
+def _number_after(label: str, text: str) -> int | None:
+    match = re.search(rf"{re.escape(label)}\s*:?\s*(\d+)\s*cm", text, re.IGNORECASE)
+    return int(match.group(1)) if match else None
+
+
+def classify_telegram(text: str) -> tuple[str, str, str, str, dict] | None:
     clean = _clean_markdown(text)
     url = _link(text)
-
     if text.startswith("⚓ *NfB "):
+        return ("wsv_news", "Neue WSV-Meldung", clean[:240], url, {})
+    if text.startswith("*Niedrigwasser-Warnung"):
         return (
-            "wsv_news",
-            "Neue WSV-Meldung",
-            clean[:240],
-            url,
+            "threshold_crossed", "Pegelwarnung", clean[:240], "/",
+            {
+                "gauge_id": "SPEYER",
+                "current_cm": _number_after("Aktuell", text),
+                "threshold_cm": _number_after("Unter Schwelle", text),
+            },
         )
-
-    if text.startswith("⚠️ *Niedrigwasser-Warnung"):
-        return (
-            "threshold_crossed",
-            "Pegelwarnung",
-            clean[:240],
-            "/",
-        )
-
     if text.startswith("💧 *Pegel Speyer – Änderung*"):
         return (
-            "gauge_change",
-            "Pegeländerung",
-            clean[:240],
-            "/",
+            "gauge_change", "Pegeländerung", clean[:240], "/",
+            {"gauge_id": "SPEYER", "current_cm": _number_after("Aktuell", text)},
         )
-
     return None
 
 
 def send_for_alert(text: str) -> bool:
-    """Send the corresponding Web Push for a supported watcher alert.
-
-    Sendet an alle konfigurierten Ziele (Production + Test). Liefert True,
-    wenn mindestens ein Ziel erfolgreich war.
-    """
     event = classify_telegram(text)
     if event is None:
         return False
-
     targets = _targets()
     if not targets:
         logger.info("WebPush: Keine Ziele konfiguriert – Push übersprungen.")
         return False
-
-    event_type, title, body, url = event
-    payload = {
-        "event_type": event_type,
-        "title": title,
-        "body": body,
-        "url": url,
-        "gauge_id": "SPEYER",
-        "threshold_cm": 225,
-    }
-
+    event_type, title, body, url, metadata = event
+    payload = {"event_type": event_type, "title": title, "body": body, "url": url, **metadata}
     any_ok = False
     for name, push_url, secret_key in targets:
         try:
             response = requests.post(
                 push_url,
                 json=payload,
-                headers={"apikey": secret_key},
+                headers={
+                    "apikey": secret_key,
+                    "Authorization": f"Bearer {secret_key}",
+                },
                 timeout=15,
             )
             if response.ok:
                 data = response.json()
-                logger.info(
-                    "WebPush [%s]: %s – %d Push(s) gesendet.",
-                    name,
-                    event_type,
-                    int(data.get("sent", 0)),
-                )
+                logger.info("WebPush [%s]: %s – %d Push(s) gesendet.", name, event_type, int(data.get("sent", 0)))
                 any_ok = any_ok or bool(data.get("ok"))
                 continue
-            logger.warning(
-                "WebPush [%s]: %s fehlgeschlagen (%d): %s",
-                name,
-                event_type,
-                response.status_code,
-                response.text[:300],
-            )
+            logger.warning("WebPush [%s]: %s fehlgeschlagen (%d): %s", name, event_type, response.status_code, response.text[:300])
         except requests.exceptions.RequestException as exc:
             logger.warning("WebPush [%s]: Verbindungsfehler: %s", name, exc)
         except ValueError as exc:
             logger.warning("WebPush [%s]: Ungültige Antwort: %s", name, exc)
-
     return any_ok
