@@ -14,15 +14,39 @@ from config import HTTP_TIMEOUT, SEARCH_TERMS
 
 logger = logging.getLogger(__name__)
 
-# Suchbegriffe speziell für die Web-Recherche (möglichst präzise)
+# Suchbegriffe speziell für die Web-Recherche (regional erweitert)
 WEB_SEARCH_QUERIES: list[str] = [
-    '"Reffenthal"',
-    '"Reffenthal" Pegel',
-    '"Otterstädter Altrhein"',
-    '"Otterstädter Altrhein" Wasserstand',
-    '"Angelhofer Altrhein"',
-    '"Berghäuser Altrhein"',
-    '"Kiefweiher" Speyer',
+    "Reffenthal",
+    "Reffenthal Pegel",
+    "Reffenthal Wasserstand",
+    "Reffenthal Boote",
+    "Reffenthal Schifffahrt",
+    "Otterstädter Altrhein",
+    "Otterstädter Altrhein Wasserstand",
+    "Otterstädter Altrhein Pegel",
+    "Otterstädter Altrhein Boote",
+    "Otterstädter Altrhein Schifffahrt",
+    "Angelhofer Altrhein",
+    "Angelhofer Altrhein Wasserstand",
+    "Berghäuser Altrhein",
+    "Berghäuser Altrhein Wasserstand",
+    "Berghäuser Altrhein Boote",
+    "Kiefweiher Speyer",
+    "Kiefweiher Boote",
+    "Altrhein Speyer Boot",
+    "Altrhein Speyer Wasserstand",
+    "Altrhein Speyer Schifffahrt",
+    "Rhein Speyer Sportboot",
+    "Rhein Speyer Niedrigwasser",
+    "Rhein Mannheim Schifffahrt",
+    "Rhein Speyer Schifffahrt",
+    "Rhein Ludwigshafen Schifffahrt",
+    "Rhein Altlußheim Schifffahrt",
+    "Rhein Ketsch Schifffahrt",
+    "Rhein Brühl Schifffahrt",
+    "Rhein Altrip Schifffahrt",
+    "Rhein Mannheim Ludwigshafen Schifffahrt",
+    "Rheinalarm",
 ]
 
 # Boote-Forum wird ausschließlich über RSS überwacht (rss.py) –
@@ -33,10 +57,10 @@ WEB_SEARCH_QUERIES: list[str] = [
 
 # Gezielte Suche auf Facebook (nur öffentliche Seiten & Gruppen)
 FACEBOOK_SEARCH_QUERIES: list[str] = [
-    'site:facebook.com Reffenthal',
+    "site:facebook.com Reffenthal",
     'site:facebook.com "Otterstädter Altrhein"',
     'site:facebook.com "Berghäuser Altrhein"',
-    'site:facebook.com Kiefweiher Speyer',
+    "site:facebook.com Kiefweiher Speyer",
 ]
 
 # Begriffe, die zwingend im Ergebnis vorkommen müssen (Orts-Bezug)
