@@ -1,0 +1,51 @@
+name: Produktions-Push-Test
+
+# Einmaliger manueller Diagnosetest für den PROD-Web-Push.
+# Keine Pegeldaten, kein Telegram, kein State-Commit.
+# Dieses Workflow-File wird nach erfolgreichem Test wieder entfernt.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-push-test:
+    name: Produktions-Web-Push Smoke-Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python 3.12 einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Abhängigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r reffenthal-waechter/requirements.txt
+
+      - name: PROD-Push senden
+        env:
+          WATCH_ENV: "production"
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          cd reffenthal-waechter
+          python - <<'PY'
+          import webpush
+
+          ok = webpush.send_push({
+              "event_type": "test",
+              "title": "Reffenthal-Wächter – PRODUKTIV-TEST",
+              "body": "Produktions-Web-Push funktioniert. Dieser Test wurde manuell ausgelöst.",
+              "url": "/",
+          })
+          if not ok:
+              raise SystemExit("Produktions-Push konnte nicht gesendet werden")
+          print("Produktions-Push erfolgreich ausgelöst.")
+          PY
