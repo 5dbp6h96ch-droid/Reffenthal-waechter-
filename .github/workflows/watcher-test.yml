@@ -44,22 +44,29 @@ jobs:
         run: |
           cd reffenthal-waechter && python watcher.py
 
-      - name: Web-Push Smoke-Test (nur Test-Supabase)
+      - name: Pegelwarnung-Test (kompletter Alert-Pfad, nur Test-Supabase)
         env:
           TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
           TEST_SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
+          WEBPUSH_WITHOUT_TELEGRAM: "1"
         run: |
           cd reffenthal-waechter
           python - <<'PY'
-          from webpush import send_push
+          from telegram import send_message
 
-          ok = send_push({
-              "event_type": "test_push",
-              "title": "Reffenthal-Wächter Test",
-              "body": "Test-Push aus dem GitHub-Testlauf.",
+          meta = {
+              "event_type": "threshold_crossed",
+              "title": "Pegelwarnung",
+              "body": "TESTALARM – Pegel Mannheim\nAktuell: 76 cm\nUnter Schwelle: 100 cm",
               "url": "/",
-          })
+              "gauge_id": "TEST-MANNHEIM",
+              "gauge_name": "Mannheim",
+              "current_cm": 76,
+              "previous_cm": 101,
+              "threshold_cm": 100,
+          }
+          ok = send_message("TESTALARM: Pegelwarnung Mannheim", push_meta=meta)
           if not ok:
-              raise SystemExit("Test-Push konnte nicht gesendet werden")
-          print("Test-Push erfolgreich ausgelöst.")
+              raise SystemExit("Pegelwarnung-Test konnte nicht gesendet werden")
+          print("Pegelwarnung-Test erfolgreich ausgelöst.")
           PY
