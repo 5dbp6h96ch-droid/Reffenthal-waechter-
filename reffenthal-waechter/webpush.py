@@ -158,7 +158,11 @@ def _send_payload(payload: dict) -> bool:
             )
             if response.ok:
                 data = response.json()
-                logger.info("WebPush [%s]: %s – %d Push(s) gesendet.", name, event_type, int(data.get("sent", 0)))
+                logger.info(
+                    "WebPush [%s]: %s – HTTP %d, %d Abo(s) angesprochen, %d Push(s) gesendet.",
+                    name, event_type, response.status_code,
+                    int(data.get("targeted", 0)), int(data.get("sent", 0)),
+                )
                 any_ok = any_ok or bool(data.get("ok"))
                 continue
             logger.warning("WebPush [%s]: %s fehlgeschlagen (%d): %s", name, event_type, response.status_code, response.text[:300])

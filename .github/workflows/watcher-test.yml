@@ -1,0 +1,42 @@
+name: Reffenthal-Wächter (Test)
+
+# Manueller Testlauf gegen das TEST-Supabase-Projekt.
+# Nutzt ausschließlich das GitHub Environment "test" – Production-Secrets
+# werden NICHT verwendet, es wird kein Zustand committet und kein
+# Telegram gesendet. Web-Push geht nur an das Test-Projekt.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  watch-test:
+    name: Wächter-Testlauf (nur Test-Supabase)
+    runs-on: ubuntu-latest
+    environment: test
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python 3.12 einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Abhängigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r reffenthal-waechter/requirements.txt
+
+      - name: Wächter ausführen (nur Test-Ziel)
+        env:
+          # Bewusst NUR Test-Supabase: kein TELEGRAM_BOT_TOKEN, keine
+          # Production-Keys, kein GITHUB_TOKEN → kein State-Commit.
+          TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+          TEST_SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
+        run: |
+          cd reffenthal-waechter && python watcher.py
