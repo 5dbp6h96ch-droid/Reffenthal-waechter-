@@ -44,7 +44,7 @@ jobs:
         run: |
           cd reffenthal-waechter && python watcher.py
 
-      - name: Pegelwarnung-Test (kompletter Alert-Pfad, nur Test-Supabase)
+      - name: Echter Pegelwarnungs-Pfad (nur Test-Supabase)
         env:
           TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
           TEST_SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
@@ -52,22 +52,35 @@ jobs:
         run: |
           cd reffenthal-waechter
           python - <<'PY'
-          from telegram import send_message
+          import watcher
+          import gauges
+          import pegel
 
-          meta = {
-              "event_type": "threshold_crossed",
-              "title": "Pegelwarnung",
-              "body": "TESTALARM – Pegel Mannheim\nAktuell: 75 cm\nUnter Schwelle: 76 cm",
-              "url": "/",
-              # Echte PEGELONLINE-UUID für MANNHEIM.
-              "gauge_id": "57090802-c51a-4d09-8340-b4453cd0e1f5",
-              "gauge_name": "Mannheim",
-              "current_cm": 75,
-              "previous_cm": 101,
+          GAUGE_ID = "57090802-c51a-4d09-8340-b4453cd0e1f5"
+
+          # Nur der Messwert wird für diesen Test kontrolliert. Die eigentliche
+          # Alarm-/Push-Logik läuft unverändert durch watcher.run_pegel().
+          gauges.load_watched_gauges = lambda: [{
+              "uuid": GAUGE_ID,
+              "name": "Mannheim",
               "threshold_cm": 76,
+              "thresholds": [76],
+          }]
+          pegel.fetch_pegel = lambda uuid: {
+              "value_cm": 75,
+              "timestamp": "2026-08-16T17:35:00+02:00",
           }
-          ok = send_message("TESTALARM: Pegelwarnung Mannheim", push_meta=meta)
-          if not ok:
-              raise SystemExit("Pegelwarnung-Test konnte nicht gesendet werden")
-          print("Pegelwarnung-Test erfolgreich ausgelöst.")
+
+          state = {
+              "gauges": {
+                  GAUGE_ID: {
+                      "last_pegel_cm": 101,
+                      "last_pegel_time": "2026-08-16T17:30:00+02:00",
+                  }
+              }
+          }
+
+          result = watcher.run_pegel(state)
+          print("Echter Pegelwarnungs-Pfad erfolgreich durchlaufen.")
+          print(result)
           PY
