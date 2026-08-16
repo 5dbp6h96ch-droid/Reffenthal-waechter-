@@ -10,16 +10,21 @@ import logging
 import requests
 
 from config import HTTP_TIMEOUT, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, USER_AGENT
-from webpush import send_for_alert
+from webpush import send_for_alert, send_push
 
 logger = logging.getLogger(__name__)
 
 
-def send_message(text: str) -> bool:
+def send_message(text: str, push_meta: dict | None = None) -> bool:
     """Sendet eine Textnachricht an den konfigurierten Telegram-Chat.
 
     Bei Pegeländerung, Niedrigwasser-Schwelle und WSV/NfB-News wird nach
     erfolgreichem Telegram-Versand zusätzlich der Web-Push ausgelöst.
+
+    Args:
+        push_meta: Strukturierte Push-Daten (dynamischer Pegel, sachlicher
+            Text). Falls gesetzt, wird der Push daraus gebaut statt aus dem
+            Telegram-Text; ein Push-Fehler bricht den Lauf nie ab.
     """
     if not TELEGRAM_BOT_TOKEN:
         logger.error("Telegram: TELEGRAM_BOT_TOKEN ist nicht gesetzt.")
@@ -48,7 +53,10 @@ def send_message(text: str) -> bool:
         response.raise_for_status()
         logger.info("Telegram: Nachricht gesendet (%d Zeichen).", len(text))
         try:
-            send_for_alert(text)
+            if push_meta is not None:
+                send_push(push_meta)
+            else:
+                send_for_alert(text)
         except Exception as exc:  # noqa: BLE001
             logger.warning("WebPush: unerwarteter Fehler: %s", exc)
         return True

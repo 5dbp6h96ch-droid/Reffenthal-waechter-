@@ -18,7 +18,8 @@ _key_cache: dict[str, str | None] = {}
 
 
 def _service_key(ref: str) -> str | None:
-    """Prefer legacy service_role because send-event-push authorizes it."""
+    """Bevorzugt den neuen sb_secret_…-Key; der legacy service_role-JWT wird
+    von send-event-push nachweislich mit 401 abgelehnt (live getestet)."""
     if ref in _key_cache:
         return _key_cache[ref]
     token = os.environ.get("SUPABASE_ACCESS_TOKEN", "")
@@ -33,10 +34,10 @@ def _service_key(ref: str) -> str | None:
             if resp.ok:
                 keys = resp.json()
                 key = next(
-                    (k.get("api_key") for k in keys if k.get("name") == "service_role"),
+                    (k.get("api_key") for k in keys if k.get("type") == "secret"),
                     None,
                 ) or next(
-                    (k.get("api_key") for k in keys if k.get("type") == "secret"),
+                    (k.get("api_key") for k in keys if k.get("name") == "service_role"),
                     None,
                 )
             else:
@@ -109,16 +110,40 @@ def classify_telegram(text: str) -> tuple[str, str, str, str, dict] | None:
     return None
 
 
+def send_push(meta: dict) -> bool:
+    """Sendet einen Web-Push mit strukturierten Daten (ohne Telegram-Parsing).
+
+    Erwartete Felder in meta:
+        event_type, title, body, url (optional), gauge_id, current_cm,
+        threshold_cm (optional), previous_cm (optional).
+    """
+    payload = {
+        "event_type": meta["event_type"],
+        "title": meta["title"],
+        "body": meta["body"],
+        "url": meta.get("url", "/"),
+    }
+    for key in ("gauge_id", "current_cm", "threshold_cm", "previous_cm"):
+        if meta.get(key) is not None:
+            payload[key] = meta[key]
+    return _send_payload(payload)
+
+
 def send_for_alert(text: str) -> bool:
     event = classify_telegram(text)
     if event is None:
         return False
+    event_type, title, body, url, metadata = event
+    payload = {"event_type": event_type, "title": title, "body": body, "url": url, **metadata}
+    return _send_payload(payload)
+
+
+def _send_payload(payload: dict) -> bool:
     targets = _targets()
     if not targets:
         logger.info("WebPush: Keine Ziele konfiguriert – Push übersprungen.")
         return False
-    event_type, title, body, url, metadata = event
-    payload = {"event_type": event_type, "title": title, "body": body, "url": url, **metadata}
+    event_type = payload["event_type"]
     any_ok = False
     for name, push_url, secret_key in targets:
         try:

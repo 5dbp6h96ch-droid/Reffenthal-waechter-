@@ -17,6 +17,7 @@ from datetime import datetime
 import clubs
 import config
 import db
+import gauges
 import mck
 import nfb
 import pegel
@@ -71,71 +72,136 @@ def run_rss(seen: set[str]) -> set[str]:
     return seen
 
 
-def run_pegel(state: dict) -> dict:
-    """Prüft den Pegel Speyer und sendet Telegram-Alarm bei Bedarf.
+def _push_ts(timestamp: str) -> str:
+    """Zeitstempel für den sachlichen Push-Text formatieren."""
+    try:
+        dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        return dt.strftime("%d.%m.%Y %H:%M")
+    except (ValueError, AttributeError):
+        return timestamp
 
-    Args:
-        state: Gespeicherter Pegel-Zustand.
+
+def run_pegel(state: dict) -> dict:
+    """Prüft alle von Benutzern gewählten Pegel und alarmiert bei Bedarf.
+
+    Der zu überwachende Pegel ist NICHT mehr fest Speyer: Die Auswahl kommt
+    dynamisch aus `user_gauge_settings` (Test + Production); ohne Auswahl
+    gilt der Fallback Speyer. Für Speyer bleiben die bisherigen
+    Top-Level-Zustandsfelder (history …) erhalten, damit App/Verlauf
+    weiter funktionieren.
 
     Returns:
         Aktualisierter Zustand.
     """
     logger.info("─── Pegel-Check startet ───")
-    current = pegel.fetch_pegel()
 
-    if current is None:
-        logger.warning("Pegel: Kein Messwert – überspringe.")
-        return state
+    try:
+        watched = gauges.load_watched_gauges()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Pegelauswahl: Fehler (%s) – Fallback Speyer.", exc)
+        watched = [{
+            "uuid": gauges.SPEYER_UUID,
+            "name": "Speyer",
+            "threshold_cm": config.PEGEL_LOW_THRESHOLD_CM,
+        }]
 
-    value_cm = current["value_cm"]
-    timestamp = current["timestamp"]
-    logger.info("Pegel: %d cm", value_cm)
+    gauge_states: dict = state.get("gauges", {})
 
-    analysis = pegel.analyze_pegel(current, state)
-    updated_state = analysis["updated_state"]
+    for gauge in watched:
+        uuid = gauge["uuid"]
+        name = gauge["name"]
+        threshold_cm = gauge["threshold_cm"]
+        is_speyer = uuid == gauges.SPEYER_UUID
 
-    # Dauerhaft in Datenbank speichern (Wochen-/Monatstrends)
-    db.save_pegel(value_cm, timestamp)
+        current = pegel.fetch_pegel(uuid)
+        if current is None:
+            logger.warning("Pegel [%s]: Kein Messwert – überspringe.", name)
+            continue
 
-    # Niedrigwasser-Warnung hat Vorrang
-    if analysis["low_alert"]:
-        msg = pegel.format_low_alert_message(value_cm, timestamp)
-        success = telegram.send_message(msg)
-        if success:
-            logger.info("Pegel: Niedrigwasser-Alarm gesendet.")
+        value_cm = current["value_cm"]
+        timestamp = current["timestamp"]
+        logger.info("Pegel [%s]: %d cm (Schwelle %d cm)", name, value_cm, threshold_cm)
+
+        # Zustand: Speyer nutzt die bisherigen Top-Level-Felder (Kompatibilität
+        # mit App-Verlauf), andere Pegel liegen unter state["gauges"][uuid].
+        gstate = state if is_speyer else gauge_states.get(uuid, {})
+        analysis = pegel.analyze_pegel(current, gstate, threshold_cm)
+        if is_speyer:
+            state = {**state, **analysis["updated_state"]}
         else:
-            logger.warning("Pegel: Niedrigwasser-Alarm konnte nicht gesendet werden.")
+            gauge_states[uuid] = analysis["updated_state"]
 
-    # Nur bei signifikanter Änderung und kein Alarm (Doppelnachricht vermeiden)
-    elif analysis["changed"]:
-        msg = pegel.format_change_message(value_cm, analysis["delta_cm"], timestamp)
-        success = telegram.send_message(msg)
-        if success:
-            logger.info("Pegel: Änderungsmeldung gesendet.")
+        # Dauerhaft in Datenbank speichern (Wochen-/Monatstrends, nur Speyer –
+        # pegel_history ist eine Ein-Pegel-Tabelle)
+        if is_speyer:
+            db.save_pegel(value_cm, timestamp)
+
+        # Niedrigwasser-Warnung hat Vorrang
+        if analysis["low_alert"]:
+            msg = pegel.format_low_alert_message(value_cm, timestamp, name, threshold_cm)
+            push_meta = {
+                "event_type": "threshold_crossed",
+                "title": "Pegelwarnung",
+                "body": (
+                    f"Pegel: {name}\nAktuell: {value_cm} cm\n"
+                    f"Unter Schwelle: {threshold_cm} cm\nStand: {_push_ts(timestamp)}"
+                ),
+                "url": "/",
+                "gauge_id": uuid,
+                "current_cm": value_cm,
+                "previous_cm": analysis["previous_cm"],
+                "threshold_cm": threshold_cm,
+            }
+            success = telegram.send_message(msg, push_meta=push_meta)
+            if success:
+                logger.info("Pegel [%s]: Niedrigwasser-Alarm gesendet.", name)
+            else:
+                logger.warning("Pegel [%s]: Niedrigwasser-Alarm konnte nicht gesendet werden.", name)
+
+        # Nur bei signifikanter Änderung und kein Alarm (Doppelnachricht vermeiden)
+        elif analysis["changed"]:
+            msg = pegel.format_change_message(value_cm, analysis["delta_cm"], timestamp, name)
+            delta = analysis["delta_cm"]
+            push_meta = {
+                "event_type": "gauge_change",
+                "title": "Pegeländerung",
+                "body": (
+                    f"Pegel: {name}\nAktuell: {value_cm} cm\n"
+                    f"Veränderung: {delta:+d} cm\nStand: {_push_ts(timestamp)}"
+                ),
+                "url": "/",
+                "gauge_id": uuid,
+                "current_cm": value_cm,
+                "previous_cm": analysis["previous_cm"],
+            }
+            success = telegram.send_message(msg, push_meta=push_meta)
+            if success:
+                logger.info("Pegel [%s]: Änderungsmeldung gesendet.", name)
+            else:
+                logger.warning("Pegel [%s]: Änderungsmeldung konnte nicht gesendet werden.", name)
+
         else:
-            logger.warning("Pegel: Änderungsmeldung konnte nicht gesendet werden.")
+            logger.info("Pegel [%s]: Keine signifikante Änderung (< %d cm).",
+                        name, config.PEGEL_CHANGE_THRESHOLD_CM)
 
-    else:
-        logger.info("Pegel: Keine signifikante Änderung (< %d cm).",
-                    config.PEGEL_CHANGE_THRESHOLD_CM)
+        # Tagesbericht (nur Speyer, wie bisher)
+        if is_speyer:
+            now = datetime.now()
+            today_str = now.strftime("%Y-%m-%d")
+            last_report = state.get("last_daily_report_date")
+            if now.hour >= config.DAILY_REPORT_HOUR and last_report != today_str:
+                msg = pegel.format_daily_report_message(
+                    value_cm, timestamp, state.get("history", [])
+                )
+                success = telegram.send_message(msg)
+                if success:
+                    state["last_daily_report_date"] = today_str
+                    logger.info("Pegel: Tagesbericht gesendet.")
+                else:
+                    logger.warning("Pegel: Tagesbericht konnte nicht gesendet werden.")
 
-    # Tagesbericht prüfen
-    now = datetime.now()
-    today_str = now.strftime("%Y-%m-%d")
-    last_report = state.get("last_daily_report_date")
-
-    if now.hour >= config.DAILY_REPORT_HOUR and last_report != today_str:
-        msg = pegel.format_daily_report_message(
-            value_cm, timestamp, updated_state["history"]
-        )
-        success = telegram.send_message(msg)
-        if success:
-            updated_state["last_daily_report_date"] = today_str
-            logger.info("Pegel: Tagesbericht gesendet.")
-        else:
-            logger.warning("Pegel: Tagesbericht konnte nicht gesendet werden.")
-
-    return updated_state
+    state["gauges"] = gauge_states
+    return state
 
 
 def main() -> None:
