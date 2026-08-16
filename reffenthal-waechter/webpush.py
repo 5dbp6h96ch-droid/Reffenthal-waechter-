@@ -1,8 +1,16 @@
-"""Web-Push bridge for the TEST watcher.
+"""Web-Push bridge for the watcher.
 
-The private Supabase server key is read only from the runtime environment.
-If it is not configured, the watcher keeps its existing Telegram behaviour and
-logs that Web Push is skipped.
+Sendet Web-Push-Nachrichten an BEIDE Systeme (Production + Test).
+
+Schlüsselbeschaffung (in dieser Reihenfolge):
+1. Explizite Runtime-Umgebung (`SUPABASE_URL` + `SUPABASE_SECRET_KEY`,
+   optional `TEST_SUPABASE_URL` + `TEST_SUPABASE_SECRET_KEY`).
+2. Fallback: service_role-Key wird zur Laufzeit über die Supabase-
+   Management-API mit `SUPABASE_ACCESS_TOKEN` geholt (einmalig gecacht,
+   nie geloggt, nie auf Platte geschrieben).
+
+Fehlt beides, wird Web Push für das jeweilige Ziel übersprungen –
+Telegram bleibt unberührt.
 """
 
 import logging
@@ -13,11 +21,79 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# Beide Werte kommen ausschließlich aus der Runtime-Umgebung (GitHub Secrets).
-# Fehlt einer, wird Web Push übersprungen – Telegram bleibt unberührt.
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPABASE_SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY", "")
-PUSH_URL = f"{SUPABASE_URL}/functions/v1/send-event-push" if SUPABASE_URL else ""
+# Feste Projekt-Referenzen (öffentlich, keine Geheimnisse)
+_PROJECTS = [
+    ("production", "cazlpbdcwycpoftohvtq"),
+    ("test", "azssnqabyefqplnoehty"),
+]
+
+_MANAGEMENT_API = "https://api.supabase.com/v1/projects/{ref}/api-keys?reveal=true"
+_key_cache: dict[str, str | None] = {}
+
+
+def _service_key(ref: str) -> str | None:
+    """service_role-Key für ein Projekt holen (Management-API, gecacht)."""
+    if ref in _key_cache:
+        return _key_cache[ref]
+    token = os.environ.get("SUPABASE_ACCESS_TOKEN", "")
+    key: str | None = None
+    if token:
+        try:
+            resp = requests.get(
+                _MANAGEMENT_API.format(ref=ref),
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=15,
+            )
+            if resp.ok:
+                keys = resp.json()
+                # Bevorzugt den neuen Secret-Key (sb_secret_…), Fallback legacy service_role.
+                key = next(
+                    (k.get("api_key") for k in keys if k.get("type") == "secret"),
+                    None,
+                ) or next(
+                    (k.get("api_key") for k in keys if k.get("name") == "service_role"),
+                    None,
+                )
+            else:
+                logger.warning(
+                    "WebPush: Management-API %s fehlgeschlagen (%d).", ref, resp.status_code
+                )
+        except requests.exceptions.RequestException as exc:
+            logger.warning("WebPush: Management-API-Fehler (%s): %s", ref, exc)
+    _key_cache[ref] = key
+    return key
+
+
+def _targets() -> list[tuple[str, str, str]]:
+    """Liste der Push-Ziele: (Name, PUSH_URL, Secret-Key)."""
+    targets: list[tuple[str, str, str]] = []
+
+    # 1) Explizit konfigurierte Umgebung (z. B. GitHub Secrets) hat Vorrang.
+    env_pairs = [
+        ("production", "SUPABASE_URL", "SUPABASE_SECRET_KEY"),
+        ("test", "TEST_SUPABASE_URL", "TEST_SUPABASE_SECRET_KEY"),
+    ]
+    explicit = set()
+    for name, url_var, key_var in env_pairs:
+        url = os.environ.get(url_var, "").rstrip("/")
+        key = os.environ.get(key_var, "")
+        if url and key:
+            targets.append((name, f"{url}/functions/v1/send-event-push", key))
+            explicit.add(name)
+
+    # 2) Fallback über Management-API für alle noch fehlenden Ziele.
+    for name, ref in _PROJECTS:
+        if name in explicit:
+            continue
+        key = _service_key(ref)
+        if key:
+            targets.append(
+                (name, f"https://{ref}.supabase.co/functions/v1/send-event-push", key)
+            )
+        else:
+            logger.info("WebPush: Kein Schlüssel für %s – Ziel übersprungen.", name)
+
+    return targets
 
 
 def _clean_markdown(text: str) -> str:
@@ -64,15 +140,18 @@ def classify_telegram(text: str) -> tuple[str, str, str, str] | None:
 
 
 def send_for_alert(text: str) -> bool:
-    """Send the corresponding Web Push for a supported watcher alert."""
-    if not SUPABASE_URL or not SUPABASE_SECRET_KEY:
-        logger.info(
-            "WebPush: SUPABASE_URL/SUPABASE_SECRET_KEY fehlt – Push übersprungen."
-        )
-        return False
+    """Send the corresponding Web Push for a supported watcher alert.
 
+    Sendet an alle konfigurierten Ziele (Production + Test). Liefert True,
+    wenn mindestens ein Ziel erfolgreich war.
+    """
     event = classify_telegram(text)
     if event is None:
+        return False
+
+    targets = _targets()
+    if not targets:
+        logger.info("WebPush: Keine Ziele konfiguriert – Push übersprungen.")
         return False
 
     event_type, title, body, url = event
@@ -85,30 +164,35 @@ def send_for_alert(text: str) -> bool:
         "threshold_cm": 225,
     }
 
-    try:
-        response = requests.post(
-            PUSH_URL,
-            json=payload,
-            headers={"apikey": SUPABASE_SECRET_KEY},
-            timeout=15,
-        )
-        if response.ok:
-            data = response.json()
-            logger.info(
-                "WebPush: %s – %d Push(s) gesendet.",
-                event_type,
-                int(data.get("sent", 0)),
+    any_ok = False
+    for name, push_url, secret_key in targets:
+        try:
+            response = requests.post(
+                push_url,
+                json=payload,
+                headers={"apikey": secret_key},
+                timeout=15,
             )
-            return bool(data.get("ok"))
-        logger.warning(
-            "WebPush: %s fehlgeschlagen (%d): %s",
-            event_type,
-            response.status_code,
-            response.text[:300],
-        )
-    except requests.exceptions.RequestException as exc:
-        logger.warning("WebPush: Verbindungsfehler: %s", exc)
-    except ValueError as exc:
-        logger.warning("WebPush: Ungültige Antwort: %s", exc)
+            if response.ok:
+                data = response.json()
+                logger.info(
+                    "WebPush [%s]: %s – %d Push(s) gesendet.",
+                    name,
+                    event_type,
+                    int(data.get("sent", 0)),
+                )
+                any_ok = any_ok or bool(data.get("ok"))
+                continue
+            logger.warning(
+                "WebPush [%s]: %s fehlgeschlagen (%d): %s",
+                name,
+                event_type,
+                response.status_code,
+                response.text[:300],
+            )
+        except requests.exceptions.RequestException as exc:
+            logger.warning("WebPush [%s]: Verbindungsfehler: %s", name, exc)
+        except ValueError as exc:
+            logger.warning("WebPush [%s]: Ungültige Antwort: %s", name, exc)
 
-    return False
+    return any_ok
