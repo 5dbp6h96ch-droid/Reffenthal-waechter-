@@ -28,7 +28,8 @@ WEB_SEARCH_QUERIES: list[str] = [
 # Boote-Forum wird ausschließlich über RSS überwacht (rss.py) –
 # dort greift der 7-Tage-Filter zuverlässig.
 # site:-Suchen bei DuckDuckGo ignorieren timelimit="w" oft und liefern
-# jahrelang alte Threads zurück.
+# jahrelang alte Threads zurück. Deshalb werden Web-Treffer zusätzlich
+# anhand des von DuckDuckGo gelieferten Veröffentlichungsdatums geprüft.
 
 # Gezielte Suche auf Facebook (nur öffentliche Seiten & Gruppen)
 FACEBOOK_SEARCH_QUERIES: list[str] = [
@@ -78,16 +79,36 @@ def _is_relevant(title: str, body: str, link: str = "") -> bool:
     return any(term in combined for term in BOAT_TERMS)
 
 
-def search_web(query: str, max_results: int = 5) -> list[dict]:
-    """Durchsucht DuckDuckGo nach einer Suchanfrage.
+def _is_recent(date_value: object, days: int = 7) -> bool:
+    """Prüft, ob ein Treffer höchstens 'days' Tage alt ist.
 
-    Args:
-        query: Suchbegriff.
-        max_results: Maximale Anzahl Ergebnisse pro Suche.
-
-    Returns:
-        Liste mit Ergebnissen als Dicts mit 'title', 'href', 'body', 'date'.
+    Treffer ohne verwertbares Veröffentlichungsdatum werden verworfen,
+    damit alte Beiträge nicht trotz DuckDuckGo-timelimit durchrutschen.
     """
+    if not date_value:
+        return False
+
+    try:
+        if isinstance(date_value, datetime):
+            published = date_value.replace(tzinfo=None)
+        else:
+            value = str(date_value).strip()
+            if value.endswith("Z"):
+                value = value[:-1] + "+00:00"
+            published = datetime.fromisoformat(value)
+            if published.tzinfo is not None:
+                published = published.astimezone().replace(tzinfo=None)
+
+        now = datetime.now()
+        cutoff = now - timedelta(days=days)
+        return cutoff <= published <= now
+    except (TypeError, ValueError, OverflowError) as exc:
+        logger.debug("Websuche: Ungültiges Veröffentlichungsdatum '%s': %s", date_value, exc)
+        return False
+
+
+def search_web(query: str, max_results: int = 5) -> list[dict]:
+    """Durchsucht DuckDuckGo nach einer Suchanfrage."""
     results: list[dict] = []
     try:
         with DDGS() as ddgs:
@@ -97,11 +118,19 @@ def search_web(query: str, max_results: int = 5) -> list[dict]:
                 timelimit="w",  # letzte Woche
             )
             for item in raw:
+                published_date = item.get("date") or item.get("published")
+                if not _is_recent(published_date):
+                    logger.debug(
+                        "Websuche: Übersprungen (älter als 7 Tage oder ohne Datum): %s",
+                        item.get("title", ""),
+                    )
+                    continue
                 results.append({
                     "title": item.get("title", ""),
                     "link": item.get("href", ""),
                     "body": item.get("body", ""),
                     "query": query,
+                    "date": published_date,
                 })
         logger.debug("Websuche '%s': %d Ergebnisse", query, len(results))
     except Exception as exc:  # noqa: BLE001
@@ -119,13 +148,12 @@ def check_web() -> list[dict]:
     seen_links: set[str] = set()
     all_results: list[dict] = []
 
-    for query in WEB_SEARCH_QUERIES + FACEBOOK_SEARCH_QUERIES:
+    for query in WEB_SEARCH_QUERIES + FACEBOOK_SEARCH_SEARCH_QUERIES:
         entries = search_web(query)
         for entry in entries:
             link = entry.get("link", "")
             if not link or link in seen_links:
                 continue
-            # Nur Ergebnisse mit Pflichtbegriffen durchlassen
             if not _is_relevant(entry.get("title", ""), entry.get("body", ""), entry.get("link", "")):
                 logger.debug("Websuche: Übersprungen (nicht relevant): %s", entry.get("title"))
                 continue
@@ -150,7 +178,6 @@ def format_telegram_message(entry: dict) -> str:
     body = entry.get("body", "")
     query = _escape_md(entry.get("query", ""))
 
-    # Vorschautext kürzen
     snippet = body[:200].strip()
     if len(body) > 200:
         snippet += "…"
