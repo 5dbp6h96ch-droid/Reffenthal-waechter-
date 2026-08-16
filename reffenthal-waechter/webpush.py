@@ -43,7 +43,7 @@ def _service_key(ref: str) -> str | None:
             else:
                 logger.warning("WebPush: Management-API %s fehlgeschlagen (%d).", ref, resp.status_code)
         except requests.exceptions.RequestException as exc:
-            logger.warning("WebPush: Management-API-Fehler (%s): %s", ref, exc)
+            logger.warning("WebPush: Management-API-Fehler (%s): %s", exc)
     _key_cache[ref] = key
     return key
 
@@ -103,11 +103,11 @@ def classify_telegram(text: str) -> tuple[str, str, str, str, dict] | None:
     clean = _clean_markdown(text)
     url = _link(text)
     if text.startswith("⚓ *NfB "):
-        # Production push always opens the installed/Home screen web app.
-        return (
-            "wsv_news", "Neue WSV-Meldung", clean[:240],
-            "https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/", {},
-        )
+        # Production pushes open the installed/Home screen web app;
+        # test keeps the existing article-link behaviour.
+        if os.environ.get("WATCH_ENV", "").strip().lower() == "production":
+            url = "https://5dbp6h96ch-droid.github.io/Reffenthal-waechter-/"
+        return ("wsv_news", "Neue WSV-Meldung", clean[:240], url, {})
     if text.startswith("*Niedrigwasser-Warnung"):
         return (
             "threshold_crossed", "Pegelwarnung", clean[:240], "/",
