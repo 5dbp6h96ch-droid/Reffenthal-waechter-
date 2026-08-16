@@ -1,9 +1,4 @@
-"""Web-Push bridge for the TEST watcher.
-
-The private Supabase server key is read only from the runtime environment.
-If it is not configured, the watcher keeps its existing Telegram behaviour and
-logs that Web Push is skipped.
-"""
+"""Web-Push bridge for the Reffenthal-Wächter."""
 
 import logging
 import os
@@ -32,33 +27,42 @@ def _link(text: str) -> str:
     return match.group(1) if match else "/"
 
 
-def classify_telegram(text: str) -> tuple[str, str, str, str] | None:
-    """Map existing watcher alerts to the three requested Web-Push events."""
+def _number_after(label: str, text: str) -> int | None:
+    match = re.search(rf"{re.escape(label)}\s*:?\s*(\d+)\s*cm", text, re.IGNORECASE)
+    return int(match.group(1)) if match else None
+
+
+def classify_telegram(text: str) -> tuple[str, str, str, str, dict] | None:
+    """Map watcher alerts to Web-Push events and include alert metadata."""
     clean = _clean_markdown(text)
     url = _link(text)
 
     if text.startswith("⚓ *NfB "):
-        return (
-            "wsv_news",
-            "Neue WSV-Meldung",
-            clean[:240],
-            url,
-        )
+        return ("wsv_news", "Neue WSV-Meldung", clean[:240], url, {})
 
-    if text.startswith("⚠️ *Niedrigwasser-Warnung"):
+    if text.startswith("*Niedrigwasser-Warnung"):
+        current = _number_after("Aktuell", text)
+        threshold = _number_after("Unter Schwelle", text)
         return (
             "threshold_crossed",
             "Pegelwarnung",
             clean[:240],
             "/",
+            {
+                "gauge_id": "SPEYER",
+                "current_cm": current,
+                "threshold_cm": threshold,
+            },
         )
 
     if text.startswith("💧 *Pegel Speyer – Änderung*"):
+        current = _number_after("Aktuell", text)
         return (
             "gauge_change",
             "Pegeländerung",
             clean[:240],
             "/",
+            {"gauge_id": "SPEYER", "current_cm": current},
         )
 
     return None
@@ -74,21 +78,23 @@ def send_for_alert(text: str) -> bool:
     if event is None:
         return False
 
-    event_type, title, body, url = event
+    event_type, title, body, url, metadata = event
     payload = {
         "event_type": event_type,
         "title": title,
         "body": body,
         "url": url,
-        "gauge_id": "SPEYER",
-        "threshold_cm": 225,
+        **metadata,
     }
 
     try:
         response = requests.post(
             PUSH_URL,
             json=payload,
-            headers={"apikey": SUPABASE_SECRET_KEY},
+            headers={
+                "apikey": SUPABASE_SECRET_KEY,
+                "Authorization": f"Bearer {SUPABASE_SECRET_KEY}",
+            },
             timeout=15,
         )
         if response.ok:
