@@ -19,6 +19,7 @@ interface EventPayload {
   body: string;
   url?: string;
   gauge_id?: string;
+  gauge_name?: string;
   current_cm?: number;
   previous_cm?: number;
   threshold_cm?: number;
@@ -70,7 +71,8 @@ function formatThresholdBody(payload: EventPayload): string {
         hour: "2-digit",
         minute: "2-digit",
       });
-  return `Aktuell: ${current}\nUnter Schwelle: ${threshold}\nStand: ${stand}`;
+  const namePrefix = payload.gauge_name ? `Pegel: ${payload.gauge_name}\n` : "";
+  return `${namePrefix}Aktuell: ${current}\nUnter Schwelle: ${threshold}\nStand: ${stand}`;
 }
 
 Deno.serve(async (req) => {
@@ -113,11 +115,18 @@ Deno.serve(async (req) => {
     if (payload.event_type === "threshold_crossed") {
       const userIds = [...new Set((subscriptions ?? []).map((sub) => sub.user_id))];
 
+      // user_settings existiert nicht in jedem Projekt (z.B. Test): dann
+      // wird der "gewählter Pegel"-Filter übersprungen statt mit 500 zu
+      // scheitern – alert_enabled je Pegel filtert weiterhin.
+      let selectedFilterActive = true;
       const { data: userSettings, error: userSettingsError } = await admin
         .from("user_settings")
         .select("user_id, selected_gauge_id")
         .in("user_id", userIds);
-      if (userSettingsError) throw userSettingsError;
+      if (userSettingsError) {
+        console.warn("[send-event-push] user_settings nicht verfügbar – Filter übersprungen", userSettingsError);
+        selectedFilterActive = false;
+      }
 
       const { data: gaugeSettings, error: settingsError } = await admin
         .from("user_gauge_settings")
@@ -133,7 +142,7 @@ Deno.serve(async (req) => {
         const setting = alertByUser.get(sub.user_id);
 
         // A threshold warning is sent only for the gauge the user currently selected.
-        if (!selected || selected.selected_gauge_id !== payload.gauge_id) return false;
+        if (selectedFilterActive && (!selected || selected.selected_gauge_id !== payload.gauge_id)) return false;
         if (!setting?.alert_enabled) return false;
 
         const threshold = Number(setting.alert_threshold_cm ?? payload.threshold_cm ?? 225);
@@ -170,8 +179,12 @@ Deno.serve(async (req) => {
             })
           : payload.body;
 
+        const notificationTitle = payload.event_type === "threshold_crossed" && payload.gauge_name
+          ? `Pegelwarnung ${payload.gauge_name}`
+          : payload.title;
+
         const notification = {
-          title: payload.title,
+          title: notificationTitle,
           body: notificationBody,
           icon: "/icon-192.png",
           badge: "/icon-192.png",
@@ -180,7 +193,7 @@ Deno.serve(async (req) => {
         const wirePayload = JSON.stringify({
           web_push: "8030",
           notification,
-          title: payload.title,
+          title: notificationTitle,
           body: notificationBody,
           url: payload.url ?? "/",
         });
