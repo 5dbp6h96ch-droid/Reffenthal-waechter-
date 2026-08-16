@@ -6,6 +6,7 @@ Wächter-Alerts zusätzlich Web Push aus.
 """
 
 import logging
+import os
 
 import requests
 
@@ -16,21 +17,34 @@ logger = logging.getLogger(__name__)
 
 
 def send_message(text: str, push_meta: dict | None = None) -> bool:
-    """Sendet eine Textnachricht an den konfigurierten Telegram-Chat.
+    """Sendet Telegram und – bei relevanten Alerts – zusätzlich Web Push.
 
-    Bei Pegeländerung, Niedrigwasser-Schwelle und WSV/NfB-News wird nach
-    erfolgreichem Telegram-Versand zusätzlich der Web-Push ausgelöst.
-
-    Args:
-        push_meta: Strukturierte Push-Daten (dynamischer Pegel, sachlicher
-            Text). Falls gesetzt, wird der Push daraus gebaut statt aus dem
-            Telegram-Text; ein Push-Fehler bricht den Lauf nie ab.
+    Im isolierten Testlauf kann WEBPUSH_WITHOUT_TELEGRAM=1 gesetzt werden.
+    Dann wird ein strukturierter Web-Push auch ohne Telegram-Zugangsdaten
+    ausgelöst. Diese Ausnahme ist bewusst über eine eigene Umgebungsvariable
+    opt-in und wird in Production nicht gesetzt.
     """
+    push_without_telegram = os.environ.get("WEBPUSH_WITHOUT_TELEGRAM") == "1"
+
     if not TELEGRAM_BOT_TOKEN:
+        if push_without_telegram and push_meta is not None:
+            logger.info("Testmodus: Telegram fehlt – WebPush wird direkt ausgelöst.")
+            try:
+                return bool(send_push(push_meta))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("WebPush: unerwarteter Fehler: %s", exc)
+                return False
         logger.error("Telegram: TELEGRAM_BOT_TOKEN ist nicht gesetzt.")
         return False
 
     if not TELEGRAM_CHAT_ID:
+        if push_without_telegram and push_meta is not None:
+            logger.info("Testmodus: Telegram-Chat-ID fehlt – WebPush wird direkt ausgelöst.")
+            try:
+                return bool(send_push(push_meta))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("WebPush: unerwarteter Fehler: %s", exc)
+                return False
         logger.error("Telegram: TELEGRAM_CHAT_ID ist nicht konfiguriert.")
         return False
 
