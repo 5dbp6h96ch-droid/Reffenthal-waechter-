@@ -43,17 +43,27 @@ def _service_key(ref: str) -> str | None:
             else:
                 logger.warning("WebPush: Management-API %s fehlgeschlagen (%d).", ref, resp.status_code)
         except requests.exceptions.RequestException as exc:
-            logger.warning("WebPush: Management-API-Fehler (%s): %s", ref, exc)
+            logger.warning("WebPush: Management-API-Fehler (%s): %s", exc)
     _key_cache[ref] = key
     return key
 
 
 def _targets() -> list[tuple[str, str, str]]:
+    """Liefert nur das ausdrücklich gewählte Ziel.
+
+    WATCH_ENV=production oder WATCH_ENV=test verhindert, dass die Settings
+    und Push-Abos der jeweils anderen Umgebung in den Lauf hineinbluten.
+    Ohne WATCH_ENV bleibt der bisherige Dual-Target-Modus erhalten.
+    """
     targets: list[tuple[str, str, str]] = []
     env_pairs = [
         ("production", "SUPABASE_URL", "SUPABASE_SECRET_KEY"),
         ("test", "TEST_SUPABASE_URL", "TEST_SUPABASE_SECRET_KEY"),
     ]
+    watch_env = os.environ.get("WATCH_ENV", "").strip().lower()
+    if watch_env in {"production", "test"}:
+        env_pairs = [pair for pair in env_pairs if pair[0] == watch_env]
+
     explicit = set()
     for name, url_var, key_var in env_pairs:
         url = os.environ.get(url_var, "").rstrip("/")
@@ -61,8 +71,9 @@ def _targets() -> list[tuple[str, str, str]]:
         if url and key:
             targets.append((name, f"{url}/functions/v1/send-event-push", key))
             explicit.add(name)
+
     for name, ref in _PROJECTS:
-        if name in explicit:
+        if name in explicit or (watch_env and name != watch_env):
             continue
         key = _service_key(ref)
         if key:
