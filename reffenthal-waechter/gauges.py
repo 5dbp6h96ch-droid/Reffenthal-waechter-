@@ -103,9 +103,11 @@ def load_watched_gauges() -> list[dict]:
             uuid, display = station
             thr = int(row.get("alert_threshold_cm") or config.PEGEL_LOW_THRESHOLD_CM)
             entry = resolved.setdefault(
-                uuid, {"uuid": uuid, "name": display, "threshold_cm": thr}
+                uuid,
+                {"uuid": uuid, "name": display, "threshold_cm": thr, "thresholds": set()},
             )
             entry["threshold_cm"] = max(entry["threshold_cm"], thr)
+            entry["thresholds"].add(thr)
 
     if not resolved:
         logger.info(
@@ -115,9 +117,12 @@ def load_watched_gauges() -> list[dict]:
         resolved = {SPEYER_UUID: {
             "uuid": SPEYER_UUID, "name": "Speyer",
             "threshold_cm": config.PEGEL_LOW_THRESHOLD_CM,
+            "thresholds": {config.PEGEL_LOW_THRESHOLD_CM},
         }}
 
     gauges = list(resolved.values())
+    for g in gauges:
+        g["thresholds"] = sorted(g["thresholds"])
     logger.info(
         "Pegelauswahl: %d Pegel überwacht: %s",
         len(gauges),
