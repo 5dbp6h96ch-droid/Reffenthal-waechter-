@@ -112,7 +112,7 @@ const CARD_PADDING = 16;
 const CHART_W = SCREEN_W - CARD_PADDING * 2 - 32;
 const CHART_H = 140;
 const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
-const BOTTOM_NAV_HEIGHT = 36;
+const BOTTOM_NAV_HEIGHT = 30;
 
 // ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
 
@@ -714,7 +714,7 @@ export default function HomeScreen() {
             marginLeft: 8, flexShrink: 0,
           }}>
             <Text style={{
-              fontSize: 10, fontFamily: 'SpaceGrotesk_700Bold',
+              fontSize: 9, fontFamily: 'SpaceGrotesk_700Bold',
               color: '#FFFFFF', letterSpacing: 2,
             }}>
               {statusLabel}
@@ -953,7 +953,7 @@ export default function HomeScreen() {
 
             {pegelStationId == null ? (
               <View style={{ alignItems: 'center', paddingVertical: 18, gap: 6 }}>
-                <Feather name="alert-circle" size={18} color={colors.primaryForeground} style={{ opacity: 0.55 }} />
+                <Feather name="alert-circle" size={17} color={colors.primaryForeground} style={{ opacity: 0.55 }} />
                 <Text style={{
                   fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular',
                   color: colors.mutedForeground, textAlign: 'center',
@@ -1067,7 +1067,7 @@ export default function HomeScreen() {
                         if (!gifUrl) {
                           return (
                             <View style={{ alignItems: 'center', paddingVertical: 24, gap: 8 }}>
-                              <Feather name="info" size={18} color={colors.mutedForeground} />
+                              <Feather name="info" size={17} color={colors.mutedForeground} />
                               <Text style={{
                                 fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular',
                                 color: colors.mutedForeground, textAlign: 'center',
@@ -2807,14 +2807,14 @@ export default function HomeScreen() {
               }}
             >
               <View style={{
-                width: 36, height: 28,
+                width: 34, height: 24,
                 alignItems: 'center', justifyContent: 'center',
                 borderRadius: 14,
                 backgroundColor: isActive ? colors.primary + '18' : 'transparent',
               }}>
                 <Feather
                   name={icon}
-                  size={18}
+                  size={17}
                   color={isActive ? colors.primary : colors.mutedForeground}
                 />
               </View>
@@ -2841,14 +2841,14 @@ export default function HomeScreen() {
           }}
         >
           <View style={{
-            width: 36, height: 28,
+            width: 34, height: 24,
             alignItems: 'center', justifyContent: 'center',
             borderRadius: 14,
             backgroundColor: 'transparent',
           }}>
             <Feather
               name="log-out"
-              size={18}
+              size={17}
               color={colors.mutedForeground}
             />
           </View>
