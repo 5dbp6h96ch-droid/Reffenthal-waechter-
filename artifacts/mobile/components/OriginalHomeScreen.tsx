@@ -1156,7 +1156,7 @@ export default function HomeScreen() {
                         <Feather name="alert-circle" size={11} color="#E8620A" />
                       )}
                       <Text style={{
-                        fontSize: 10,
+                        fontSize: 9,
                         fontFamily: 'SpaceGrotesk_400Regular',
                         color: nfbError ? '#E8620A' : colors.mutedForeground,
                         opacity: nfbError ? 1 : 0.7,
