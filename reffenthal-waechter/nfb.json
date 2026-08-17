@@ -186,8 +186,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2352",
       "expired": false,
       "first_seen": "2026-08-17T08:05:35.791127+00:00"
+    },
+    {
+      "nfb_id": "2026/2360",
+      "titel": "Nachricht wegen Veranstaltung: Sog und Wellenschlag vermeiden, besondere Vorsicht",
+      "km_von": 163.7,
+      "km_bis": 170.0,
+      "gueltig_ab": "6. Sep. 2026 09:00\n                                Uhr",
+      "gueltig_bis": "6. Sep. 2026 13:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2360",
+      "expired": false,
+      "first_seen": "2026-08-17T14:02:42.761462+00:00"
     }
   ],
-  "count": 17,
-  "updated_at": "2026-08-17T11:59:12.484184+00:00"
+  "count": 18,
+  "updated_at": "2026-08-17T14:02:52.593491+00:00"
 }
