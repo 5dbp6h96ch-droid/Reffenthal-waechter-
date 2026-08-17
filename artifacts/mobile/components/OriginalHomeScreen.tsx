@@ -112,7 +112,7 @@ const CARD_PADDING = 16;
 const CHART_W = SCREEN_W - CARD_PADDING * 2 - 32;
 const CHART_H = 140;
 const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
-const BOTTOM_NAV_HEIGHT = 48;
+const BOTTOM_NAV_HEIGHT = 36;
 
 // ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
 
