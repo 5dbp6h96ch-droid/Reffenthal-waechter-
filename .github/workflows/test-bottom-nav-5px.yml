@@ -1,0 +1,47 @@
+name: Test bottom nav 5px
+
+on:
+  push:
+    branches:
+      - test
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message != 'test: set bottom nav top spacing to 5px'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout test
+        uses: actions/checkout@v4
+        with:
+          ref: test
+
+      - name: Set top spacing to 5px
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('artifacts/mobile/components/OriginalHomeScreen.tsx')
+          s = p.read_text()
+          old = "gap: 2,\n                paddingTop: 0,"
+          new = "gap: 2,\n                paddingTop: 5,"
+          if old not in s:
+              raise SystemExit('Target bottom-nav block not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+
+      - name: Remove temporary workflow and commit
+        run: |
+          rm -f .github/workflows/test-bottom-nav-5px.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/mobile/components/OriginalHomeScreen.tsx .github/workflows/test-bottom-nav-5px.yml
+          git commit -m 'test: set bottom nav top spacing to 5px'
+          git push origin HEAD:test
+
+      - name: Trigger test deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-test.yml --repo "${{ github.repository }}" --ref test
