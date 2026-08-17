@@ -1,1 +1,69 @@
-placeholder
+name: Reffenthal Mobile → GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "artifacts/mobile/**"
+      - "lib/api-client-react/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Web-Export bauen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: pnpm einrichten
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: Abhängigkeiten installieren
+        run: pnpm install --frozen-lockfile
+      - name: Expo Web exportieren
+        env:
+          EXPO_ROUTER_BASE_URL: /Reffenthal-waechter-
+          EXPO_PUBLIC_ORIGIN: https://${{ github.repository_owner }}.github.io
+          EXPO_PUBLIC_STATIC_DATA: "true"
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_KEY }}
+        run: |
+          cd artifacts/mobile
+          pnpm exec expo export --platform web --output-dir dist
+      - name: Service Worker versionieren und in dist kopieren
+        run: |
+          VERSION=$(git rev-parse --short HEAD)
+          sed "s/__CACHE_VERSION__/${VERSION}/g" artifacts/mobile/sw-template.js > artifacts/mobile/dist/sw.js
+          DIST=artifacts/mobile/dist
+          cp artifacts/mobile/public/icon-192.png "$DIST/icon-192.png"
+          cp artifacts/mobile/public/icon-512.png "$DIST/icon-512.png"
+          cp artifacts/mobile/public/apple-touch-icon.png "$DIST/apple-touch-icon.png"
+          cp artifacts/mobile/public/favicon.png "$DIST/favicon.png"
+          cp artifacts/mobile/public/manifest.webmanifest "$DIST/manifest.webmanifest"
+          cp artifacts/mobile/public/leaflet.css "$DIST/leaflet.css"
+      - name: SPA-Routen für GitHub Pages erstellen
+        run: |
+          DIST=artifacts/mobile/dist
+          mkdir -p "$DIST/test"
+          cp "$DIST/index.html" "$DIST/test/index.html"
+          mkdir -p "$DIST/redesign"
+          cp "$DIST/index.html" "$DIST/redesign/index.html"
+          cp "$DIST/index.html" "$DIST/404.html"
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/deploy-pages@v4
