@@ -909,7 +909,7 @@ export default function HomeScreen() {
               justifyContent: 'space-between',
             }}>
               <Text style={{
-                fontSize: 10,
+                fontSize: 9,
                 fontFamily: 'SpaceGrotesk_600SemiBold',
                 color: colors.mutedForeground,
                 letterSpacing: 2,
