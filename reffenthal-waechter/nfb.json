@@ -197,8 +197,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2360",
       "expired": false,
       "first_seen": "2026-08-17T14:02:42.761462+00:00"
+    },
+    {
+      "nfb_id": "2026/2366",
+      "titel": "Nachricht wegen Inspektion",
+      "km_von": 493.6,
+      "km_bis": 493.6,
+      "gueltig_ab": "24. Aug. 2026 07:00\n                                Uhr",
+      "gueltig_bis": "3. Sep. 2026 23:59\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2366",
+      "expired": false,
+      "first_seen": "2026-08-18T09:54:52.915593+00:00"
     }
   ],
-  "count": 18,
-  "updated_at": "2026-08-18T08:04:43.113060+00:00"
+  "count": 19,
+  "updated_at": "2026-08-18T09:55:00.446272+00:00"
 }
