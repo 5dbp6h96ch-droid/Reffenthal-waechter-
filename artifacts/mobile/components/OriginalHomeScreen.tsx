@@ -1743,7 +1743,7 @@ export default function HomeScreen() {
                   }}>
                     <Feather name="alert-triangle" size={11} color={colors.alarm} />
                     <Text style={{
-                      fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold',
+                      fontSize: 9, fontFamily: 'SpaceGrotesk_600SemiBold',
                       color: colors.alarm, letterSpacing: 1,
                     }}>INAKTIV</Text>
                   </View>
