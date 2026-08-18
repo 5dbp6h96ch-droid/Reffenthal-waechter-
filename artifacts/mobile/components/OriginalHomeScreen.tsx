@@ -1465,7 +1465,7 @@ export default function HomeScreen() {
                             padding: 12, alignItems: 'center', gap: 2,
                           }}>
                             <Text style={{
-                              fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold',
+                              fontSize: 9, fontFamily: 'SpaceGrotesk_600SemiBold',
                               color: colors.mutedForeground,
                               textTransform: 'uppercase', letterSpacing: 1.5,
                             }}>{label}</Text>
