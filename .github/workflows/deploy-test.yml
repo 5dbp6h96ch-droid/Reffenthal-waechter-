@@ -53,7 +53,8 @@ jobs:
           cp artifacts/mobile/public/favicon.png "$DIST/favicon.png"
           cp artifacts/mobile/public/manifest.webmanifest "$DIST/manifest.webmanifest"
           cp artifacts/mobile/public/leaflet.css "$DIST/leaflet.css"
-          echo "✓ PWA-Dateien und Service Worker vorbereitet"
+          cp artifacts/mobile/public/test-layout.html "$DIST/test-layout.html"
+          echo "✓ PWA-Dateien, Layout-Editor und Service Worker vorbereitet"
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
