@@ -17,7 +17,7 @@ jobs:
       - name: Checkout test
         uses: actions/checkout@v4
 
-      - name: Apply exact editor values
+      - name: Apply smaller icon values
         shell: bash
         run: |
           python3 - <<'PY'
@@ -25,17 +25,18 @@ jobs:
           p = Path('artifacts/mobile/components/OriginalHomeScreen.tsx')
           s = p.read_text()
 
-          # Exact requested bottom-navigation spacing.
+          # Keep the already requested bottom-navigation spacing.
           s = s.replace('paddingBottom: botPad + 1,', 'paddingBottom: 1,', 1)
           s = s.replace('paddingBottom: botPad,', 'paddingBottom: 1,', 1)
 
-          # Exact requested icon size: 22 x 22 px.
-          s = s.replace('width: 29, height: 29,', 'width: 22, height: 22,', 1)
-          s = s.replace('width: 34, height: 24,', 'width: 22, height: 22,', 1)
-          s = s.replace('name={icon}\n                  size={29}', 'name={icon}\n                  size={22}', 1)
-          s = s.replace('name="log-out"\n              size={29}', 'name="log-out"\n              size={22}', 1)
-          s = s.replace('name={icon}\n                  size={17}', 'name={icon}\n                  size={22}', 1)
-          s = s.replace('name="log-out"\n              size={17}', 'name="log-out"\n              size={22}', 1)
+          # Smaller bottom-navigation icons: 18 x 18 px.
+          s = s.replace('width: 22, height: 22,', 'width: 18, height: 18,', 1)
+          s = s.replace('width: 29, height: 29,', 'width: 18, height: 18,', 1)
+          s = s.replace('width: 34, height: 24,', 'width: 18, height: 18,', 1)
+          s = s.replace('name={icon}\n                  size={22}', 'name={icon}\n                  size={18}', 1)
+          s = s.replace('name="log-out"\n              size={22}', 'name="log-out"\n              size={18}', 1)
+          s = s.replace('name={icon}\n                  size={29}', 'name={icon}\n                  size={18}', 1)
+          s = s.replace('name="log-out"\n              size={29}', 'name="log-out"\n              size={18}', 1)
 
           p.write_text(s)
           PY
@@ -47,5 +48,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add artifacts/mobile/components/OriginalHomeScreen.tsx
           git rm .github/workflows/apply-bottom-nav-final.yml
-          git commit -m 'Apply bottom nav 22px icons and exact spacing'
+          git commit -m 'Test: bottom nav icons smaller at 18px'
           git push origin test
