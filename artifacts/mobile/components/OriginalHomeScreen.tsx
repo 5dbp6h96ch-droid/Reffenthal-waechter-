@@ -1476,7 +1476,7 @@ export default function HomeScreen() {
                               {price != null ? price.toFixed(3).replace('.', ',') : '–'}
                             </Text>
                             <Text style={{
-                              fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular',
+                              fontSize: 9, fontFamily: 'SpaceGrotesk_400Regular',
                               color: colors.mutedForeground,
                             }}>€/l</Text>
                           </View>
