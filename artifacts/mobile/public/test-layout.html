@@ -1,57 +1,46 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>R(h)einschiffer – Layout-Editor</title>
-  <style>
-    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#16191d;background:#eef6fc}
-    *{box-sizing:border-box}body{margin:0;padding:20px 16px 40px}
-    h1{font-size:24px;margin:8px 0 4px}.sub{color:#68727c;margin:0 0 18px}
-    .card{background:#fff;border:1px solid #cfe1ee;border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 2px 10px #0000000b}
-    .row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0}.row label{font-weight:600}.value{min-width:54px;text-align:right;font-variant-numeric:tabular-nums}
-    input[type=range]{width:100%;accent-color:#147df5}.range{flex:1}.note{font-size:13px;color:#6b747c;line-height:1.4}
-    button{border:0;border-radius:12px;padding:11px 14px;font-weight:700;background:#147df5;color:#fff}.secondary{background:#eaf3fb;color:#147df5}
-    .preview{height:260px;border-radius:16px;overflow:hidden;background:#f5f8fa;position:relative;border:1px solid #d8e4ec}
-    .screen{height:100%;display:flex;align-items:center;justify-content:center;color:#8a939b}.nav{position:absolute;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #d4e0e8;padding:var(--top) 18px var(--bottom);display:grid;grid-template-columns:repeat(4,1fr);text-align:center;gap:8px}
-    .item{font-size:12px;color:#8b8f93}.icon{width:var(--icon);height:var(--icon);margin:0 auto 4px;border:2px solid #999;border-radius:50%;display:grid;place-items:center;font-size:12px}
-    .buttons{display:flex;gap:8px;flex-wrap:wrap}.code{font-family:ui-monospace,monospace;font-size:12px;background:#f4f6f8;padding:10px;border-radius:10px;white-space:pre-wrap}
-  </style>
-</head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>R(h)einschiffer – Layout-Editor</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#16191d;background:#eef6fc}
+*{box-sizing:border-box}body{margin:0;padding:20px 16px 40px}h1{font-size:24px;margin:8px 0 4px}.sub{color:#68727c;margin:0 0 18px}
+.card{background:#fff;border:1px solid #cfe1ee;border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 2px 10px #0000000b}
+.row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0}.row label{font-weight:600}.value{min-width:54px;text-align:right;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:#147df5;display:block}.range{flex:1}.note{font-size:13px;color:#6b747c;line-height:1.4}
+button{border:0;border-radius:12px;padding:11px 14px;font-weight:700;background:#147df5;color:#fff}.secondary{background:#eaf3fb;color:#147df5}
+.preview{height:260px;border-radius:16px;overflow:hidden;background:#f5f8fa;position:relative;border:1px solid #d8e4ec}.screen{height:100%;display:flex;align-items:center;justify-content:center;color:#8a939b}
+.nav{position:absolute;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #d4e0e8;padding:var(--top) 18px var(--bottom);display:grid;grid-template-columns:repeat(4,1fr);text-align:center;gap:8px}
+.item{font-size:12px;color:#8b8f93}.icon{width:var(--icon);height:var(--icon);margin:0 auto 4px;border:2px solid #999;border-radius:50%;display:grid;place-items:center;font-size:12px}
+.buttons{display:flex;gap:8px;flex-wrap:wrap}.code{font-family:ui-monospace,monospace;font-size:12px;background:#f4f6f8;padding:10px;border-radius:10px;white-space:pre-wrap}
+</style></head>
 <body>
-  <h1>Bottom-Navigation Layout-Editor</h1>
-  <p class="sub">Separater Testbereich – Änderungen hier verändern die App noch nicht.</p>
-  <section class="card">
-    <div class="row"><label for="top">Oberer Abstand</label><span class="value"><b id="topV">5</b> px</span></div>
-    <input id="top" type="range" min="0" max="20" value="5">
-    <div class="row"><label for="bottom">Unterer Abstand</label><span class="value"><b id="bottomV">3</b> px</span></div>
-    <input id="bottom" type="range" min="0" max="20" value="3">
-    <div class="row"><label for="icon">Icon-Größe</label><span class="value"><b id="iconV">28</b> px</span></div>
-    <input id="icon" type="range" min="20" max="44" value="28">
-  </section>
-  <section class="card">
-    <strong>Vorschau</strong>
-    <div class="preview" id="preview">
-      <div class="screen">Nur Vorschau – keine App-Änderung</div>
-      <nav class="nav" id="nav">
-        <div class="item"><div class="icon">⌂</div>Konto</div>
-        <div class="item"><div class="icon">☷</div>Preferences</div>
-        <div class="item"><div class="icon">?</div>Help</div>
-        <div class="item"><div class="icon">↪</div>Exit</div>
-      </nav>
-    </div>
-  </section>
-  <section class="card">
-    <div class="buttons"><button class="secondary" id="reset">Zurücksetzen</button><button id="copy">CSS kopieren</button></div>
-    <p class="note">Die Werte gelten nur für diese Vorschau. Erst wenn wir uns auf die Optik geeinigt haben, übertragen wir sie gezielt in den Teststand.</p>
-    <div class="code" id="css"></div>
-  </section>
+<h1>Bottom-Navigation Layout-Editor</h1><p class="sub">Separater Testbereich – Änderungen hier verändern die App noch nicht.</p>
+<section class="card">
+<div class="row"><label for="top">Oberer Abstand</label><span class="value"><b id="topV">5</b> px</span></div><input id="top" type="range" min="0" max="20" value="5">
+<div class="row"><label for="bottom">Unterer Abstand</label><span class="value"><b id="bottomV">3</b> px</span></div><input id="bottom" type="range" min="0" max="20" value="3">
+<div class="row"><label for="icon">Icon-Größe</label><span class="value"><b id="iconV">28</b> px</span></div><input id="icon" type="range" min="20" max="44" value="28">
+</section>
+<section class="card"><strong>Vorschau</strong><div class="preview"><div class="screen">Nur Vorschau – keine App-Änderung</div><nav class="nav" id="nav"><div class="item"><div class="icon">⌂</div>Konto</div><div class="item"><div class="icon">☷</div>Preferences</div><div class="item"><div class="icon">?</div>Help</div><div class="item"><div class="icon">↪</div>Exit</div></nav></div></section>
+<section class="card"><div class="buttons"><button class="secondary" id="reset">Zurücksetzen</button><button id="copy">CSS kopieren</button></div><p class="note">Die Werte gelten nur für diese Vorschau. Erst wenn wir uns auf die Optik geeinigt haben, übertragen wir sie gezielt in den Teststand.</p><div class="code" id="css"></div></section>
 <script>
-const top=document.getElementById('top'),bottom=document.getElementById('bottom'),icon=document.getElementById('icon');
-const update=()=>{document.documentElement.style.setProperty('--top',top.value+'px');document.documentElement.style.setProperty('--bottom',bottom.value+'px');document.documentElement.style.setProperty('--icon',icon.value+'px');topV.textContent=top.value;bottomV.textContent=bottom.value;iconV.textContent=icon.value;css.textContent=`padding-top: ${top.value}px;\npadding-bottom: ${bottom.value}px;\n.icon { width: ${icon.value}px; height: ${icon.value}px; }`};
-[top,bottom,icon].forEach(x=>x.addEventListener('input',update));
-reset.onclick=()=>{top.value=5;bottom.value=3;icon.value=28;update()};
-copy.onclick=async()=>{await navigator.clipboard.writeText(css.textContent);copy.textContent='Kopiert ✓';setTimeout(()=>copy.textContent='CSS kopieren',1200)};update();
+(function(){
+ const topEl=document.getElementById('top'), bottomEl=document.getElementById('bottom'), iconEl=document.getElementById('icon');
+ const topVEl=document.getElementById('topV'), bottomVEl=document.getElementById('bottomV'), iconVEl=document.getElementById('iconV');
+ const cssEl=document.getElementById('css'), resetEl=document.getElementById('reset'), copyEl=document.getElementById('copy');
+ function update(){
+  const t=Number(topEl.value), b=Number(bottomEl.value), i=Number(iconEl.value);
+  document.documentElement.style.setProperty('--top',t+'px');
+  document.documentElement.style.setProperty('--bottom',b+'px');
+  document.documentElement.style.setProperty('--icon',i+'px');
+  topVEl.textContent=t; bottomVEl.textContent=b; iconVEl.textContent=i;
+  cssEl.textContent='padding-top: '+t+'px;\npadding-bottom: '+b+'px;\n.icon { width: '+i+'px; height: '+i+'px; }';
+ }
+ [topEl,bottomEl,iconEl].forEach(function(el){el.addEventListener('input',update);el.addEventListener('change',update);});
+ resetEl.addEventListener('click',function(){topEl.value=5;bottomEl.value=3;iconEl.value=28;update();});
+ copyEl.addEventListener('click',async function(){try{await navigator.clipboard.writeText(cssEl.textContent);copyEl.textContent='Kopiert ✓';setTimeout(function(){copyEl.textContent='CSS kopieren'},1200);}catch(e){}});
+ update();
+})();
 </script>
-</body>
-</html>
+</body></html>
