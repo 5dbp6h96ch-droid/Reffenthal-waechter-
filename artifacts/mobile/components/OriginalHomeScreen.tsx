@@ -112,7 +112,7 @@ const CARD_PADDING = 16;
 const CHART_W = SCREEN_W - CARD_PADDING * 2 - 32;
 const CHART_H = 140;
 const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
-const BOTTOM_NAV_HEIGHT = 30;
+const BOTTOM_NAV_HEIGHT = 48;
 
 // ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
 
@@ -2789,7 +2789,8 @@ export default function HomeScreen() {
         backgroundColor: colors.card,
         borderTopWidth: 1,
         borderTopColor: colors.border,
-        paddingBottom: botPad,
+        paddingTop: 4,
+        paddingBottom: botPad + 1,
       }}>
         {items.map(({ tab, icon, label }) => {
           const isActive = activeTab === tab;
@@ -2807,14 +2808,14 @@ export default function HomeScreen() {
               }}
             >
               <View style={{
-                width: 34, height: 24,
+                width: 34, height: 29,
                 alignItems: 'center', justifyContent: 'center',
                 borderRadius: 14,
                 backgroundColor: isActive ? colors.primary + '18' : 'transparent',
               }}>
                 <Feather
                   name={icon}
-                  size={17}
+                  size={29}
                   color={isActive ? colors.primary : colors.mutedForeground}
                 />
               </View>
@@ -2841,14 +2842,14 @@ export default function HomeScreen() {
           }}
         >
           <View style={{
-            width: 34, height: 24,
+            width: 34, height: 29,
             alignItems: 'center', justifyContent: 'center',
             borderRadius: 14,
             backgroundColor: 'transparent',
           }}>
             <Feather
               name="log-out"
-              size={17}
+              size={29}
               color={colors.mutedForeground}
             />
           </View>
