@@ -2854,7 +2854,7 @@ export default function HomeScreen() {
             />
           </View>
           <Text style={{
-            fontSize: 10,
+            fontSize: 9,
             fontFamily: 'SpaceGrotesk_400Regular',
             color: colors.mutedForeground,
             letterSpacing: 0.2,
