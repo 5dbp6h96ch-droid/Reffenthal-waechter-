@@ -1493,7 +1493,7 @@ export default function HomeScreen() {
                         </Text>
                       )}
                       {mckData.checkedAt && (
-                        <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                        <Text style={{ fontSize: 9, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
                           Zuletzt geprüft: {new Date(mckData.checkedAt).toLocaleString('de-DE', {
                             day: '2-digit', month: '2-digit',
                             hour: '2-digit', minute: '2-digit',
