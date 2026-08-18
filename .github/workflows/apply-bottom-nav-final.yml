@@ -1,0 +1,54 @@
+name: Apply bottom nav final values
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - '.github/workflows/apply-bottom-nav-final.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout test
+        uses: actions/checkout@v4
+
+      - name: Apply exact editor values
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('artifacts/mobile/components/OriginalHomeScreen.tsx')
+          s = p.read_text()
+
+          if 'const BOTTOM_NAV_HEIGHT = 30;' not in s:
+              raise SystemExit('Expected bottom-nav height marker not found')
+          s = s.replace('const BOTTOM_NAV_HEIGHT = 30;', 'const BOTTOM_NAV_HEIGHT = 30;', 1)
+
+          old = 'borderTopColor: colors.border,\n        paddingBottom: botPad,'
+          new = 'borderTopColor: colors.border,\n        paddingTop: 4,\n        paddingBottom: 1,'
+          if old not in s:
+              raise SystemExit('Expected bottom-nav padding block not found')
+          s = s.replace(old, new, 1)
+
+          s = s.replace('width: 34, height: 24,', 'width: 29, height: 29,', 1)
+          s = s.replace('name={icon}\n                  size={17}', 'name={icon}\n                  size={29}', 1)
+          s = s.replace('name="log-out"\n              size={17}', 'name="log-out"\n              size={29}', 1)
+
+          p.write_text(s)
+          PY
+
+      - name: Commit app change and remove one-off workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/mobile/components/OriginalHomeScreen.tsx
+          git rm .github/workflows/apply-bottom-nav-final.yml
+          git commit -m 'Apply bottom nav editor values'
+          git push origin test
