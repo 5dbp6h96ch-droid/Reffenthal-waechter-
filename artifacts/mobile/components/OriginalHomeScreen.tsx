@@ -1783,7 +1783,7 @@ export default function HomeScreen() {
                     </View>
                     {!neverRan && (
                       <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
+                        <Text style={{ fontSize: 9, fontFamily: 'SpaceGrotesk_400Regular', color: colors.mutedForeground }}>
                           Neue Treffer
                         </Text>
                         <Text style={{
