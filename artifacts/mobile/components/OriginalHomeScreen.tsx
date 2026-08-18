@@ -2820,7 +2820,7 @@ export default function HomeScreen() {
                 />
               </View>
               <Text style={{
-                fontSize: 10,
+                fontSize: 9,
                 fontFamily: isActive ? 'SpaceGrotesk_600SemiBold' : 'SpaceGrotesk_400Regular',
                 color: isActive ? colors.primary : colors.mutedForeground,
                 letterSpacing: 0.2,
