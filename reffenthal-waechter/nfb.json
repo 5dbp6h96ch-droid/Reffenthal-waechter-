@@ -219,8 +219,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2373",
       "expired": false,
       "first_seen": "2026-08-18T14:09:35.430266+00:00"
+    },
+    {
+      "nfb_id": "2026/2377",
+      "titel": "Nachricht wegen Feuerwerk: Sperre, Ankerverbot, Stillliegeverbot",
+      "km_von": 777.0,
+      "km_bis": 783.0,
+      "gueltig_ab": "21. Aug. 2026 22:00\n                                Uhr",
+      "gueltig_bis": "21. Aug. 2026 23:59\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2377",
+      "expired": false,
+      "first_seen": "2026-08-18T15:52:11.752926+00:00"
     }
   ],
-  "count": 20,
-  "updated_at": "2026-08-18T14:09:45.365767+00:00"
+  "count": 21,
+  "updated_at": "2026-08-18T15:52:18.805399+00:00"
 }
