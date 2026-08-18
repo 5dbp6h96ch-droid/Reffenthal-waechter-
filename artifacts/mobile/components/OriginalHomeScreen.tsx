@@ -112,7 +112,7 @@ const CARD_PADDING = 16;
 const CHART_W = SCREEN_W - CARD_PADDING * 2 - 32;
 const CHART_H = 140;
 const PAD = { top: 10, right: 36, bottom: 26, left: 38 };
-const BOTTOM_NAV_HEIGHT = 48;
+const BOTTOM_NAV_HEIGHT = 30;
 
 // ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
 
@@ -1816,7 +1816,7 @@ export default function HomeScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Feather name="x-circle" size={13} color={colors.destructive} />
                       <Text style={{
-                        fontSize: 10, fontFamily: 'SpaceGrotesk_600SemiBold',
+                        fontSize: 9, fontFamily: 'SpaceGrotesk_600SemiBold',
                         color: colors.destructive, letterSpacing: 1.5,
                         textTransform: 'uppercase',
                       }}>Letzter Fehler</Text>
