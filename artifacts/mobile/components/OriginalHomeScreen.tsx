@@ -2790,7 +2790,7 @@ export default function HomeScreen() {
         borderTopWidth: 1,
         borderTopColor: colors.border,
         paddingTop: 4,
-        paddingBottom: botPad + 1,
+        paddingBottom: 1,
       }}>
         {items.map(({ tab, icon, label }) => {
           const isActive = activeTab === tab;
@@ -2815,7 +2815,7 @@ export default function HomeScreen() {
               }}>
                 <Feather
                   name={icon}
-                  size={29}
+                  size={18}
                   color={isActive ? colors.primary : colors.mutedForeground}
                 />
               </View>
@@ -2849,7 +2849,7 @@ export default function HomeScreen() {
           }}>
             <Feather
               name="log-out"
-              size={29}
+              size={18}
               color={colors.mutedForeground}
             />
           </View>
