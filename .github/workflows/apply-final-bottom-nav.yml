@@ -1,0 +1,51 @@
+name: Apply final bottom nav layout
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - '.github/workflows/apply-final-bottom-nav.yml'
+      - 'artifacts/mobile/components/OriginalHomeScreen.tsx'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'Apply final bottom nav layout values'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout test branch
+        uses: actions/checkout@v4
+
+      - name: Apply exact editor values
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('artifacts/mobile/components/OriginalHomeScreen.tsx')
+          s = p.read_text()
+
+          replacements = [
+              ('const BOTTOM_NAV_HEIGHT = 30;', 'const BOTTOM_NAV_HEIGHT = 48;'),
+              ('borderTopColor: colors.border,\n        paddingBottom: botPad,', 'borderTopColor: colors.border,\n        paddingTop: 4,\n        paddingBottom: botPad + 1,'),
+              ('width: 34, height: 24,', 'width: 34, height: 29,'),
+              ('name={icon}\n                  size={17}', 'name={icon}\n                  size={29}'),
+              ('name="log-out"\n              size={17}', 'name="log-out"\n              size={29}'),
+          ]
+
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit(f'Missing expected pattern: {old!r}')
+              s = s.replace(old, new)
+
+          p.write_text(s)
+          PY
+
+      - name: Commit exact bottom nav layout
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/mobile/components/OriginalHomeScreen.tsx
+          git commit -m 'Apply final bottom nav layout values'
+          git push origin test
