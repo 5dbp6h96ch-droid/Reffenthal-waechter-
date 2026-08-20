@@ -1,30 +1,57 @@
-name: One-off gauge UI fix
+name: Apply production pegel card to test
 
 on:
   push:
     branches: [test]
+    paths:
+      - '.github/workflows/oneoff-gauge-ui.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
   actions: write
 
 jobs:
-  fix:
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+  apply:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout test
+        uses: actions/checkout@v4
         with:
           ref: test
-      - name: Patch test UI
+
+      - name: Match production pegel card
+        shell: bash
         run: |
-          python3 -c 'from pathlib import Path; p=Path("artifacts/mobile/components/OriginalHomeScreen.tsx"); s=p.read_text(); s=s.replace("onPress={() => selectGauge(g.id)}", "onPress={() => { selectGauge(g.id); setGaugeListOpen(false); }}", 1); marker="        {gaugeListOpen && ("; insert="        {!gaugeListOpen && selectedGauge && (<View style={{padding:14, marginTop:8, backgroundColor:colors.card, borderRadius:12, borderWidth:1, borderColor:colors.border}}><Text style={{fontSize:15, fontFamily:\"SpaceGrotesk_700Bold\", color:colors.primary}}>{selectedGauge.name}</Text></View>)}\n\n        {gaugeListOpen && ("; s=s.replace(marker, insert, 1) if "{!gaugeListOpen && selectedGauge && (" not in s else s; s=s.replace("const BOTTOM_NAV_HEIGHT = 48;", "const BOTTOM_NAV_HEIGHT = 36;"); s=s.replace("const BOTTOM_NAV_HEIGHT = 36;", "const BOTTOM_NAV_HEIGHT = 30;"); s=s.replace("width: 36, height: 28,", "width: 34, height: 24,"); s=s.replace("size={18}", "size={17}"); s=s.replace("fontSize: 10,", "fontSize: 9,", 1); p.write_text(s)'
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('artifacts/mobile/components/OriginalHomeScreen.tsx')
+          s = p.read_text()
+          old = """            <Text style={{
+              fontSize: 9, fontFamily: 'SpaceGrotesk_700Bold',
+              color: '#FFFFFF', letterSpacing: 2,
+            }}>"""
+          new = """            <Text style={{
+              fontSize: 10, fontFamily: 'SpaceGrotesk_700Bold',
+              color: '#FFFFFF', letterSpacing: 2,
+            }}>"""
+          if old not in s:
+              raise SystemExit('Expected test status badge block not found; aborting without broad replacements')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+
+      - name: Commit app change and remove one-off workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add artifacts/mobile/components/OriginalHomeScreen.tsx
-          git diff --cached --quiet || git commit -m "Make test bottom navigation thinner [skip ci]"
+          git rm .github/workflows/oneoff-gauge-ui.yml
+          git commit -m 'Test: match production pegel card [skip ci]'
           git push origin test
-      - name: Trigger test deployment
+
+      - name: Deploy updated test build
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run deploy-test.yml --ref test
