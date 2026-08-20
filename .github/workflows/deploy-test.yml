@@ -31,6 +31,26 @@ jobs:
         with:
           version: 10
 
+      - name: Match production pegel card in test build
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('artifacts/mobile/components/OriginalHomeScreen.tsx')
+          s = p.read_text()
+          old = """            <Text style={{
+              fontSize: 9, fontFamily: 'SpaceGrotesk_700Bold',
+              color: '#FFFFFF', letterSpacing: 2,
+            }}>"""
+          new = """            <Text style={{
+              fontSize: 10, fontFamily: 'SpaceGrotesk_700Bold',
+              color: '#FFFFFF', letterSpacing: 2,
+            }}>"""
+          if old in s:
+              s = s.replace(old, new, 1)
+              p.write_text(s)
+          PY
+
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
