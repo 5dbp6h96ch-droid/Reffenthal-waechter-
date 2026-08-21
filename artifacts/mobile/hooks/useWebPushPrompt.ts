@@ -47,10 +47,32 @@ export function useWebPushPrompt() {
       if (Notification.permission !== 'granted') return;
 
       try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) return;
+
         const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
         const activeRegistration = await waitForActiveServiceWorker(registration);
         const existing = await activeRegistration.pushManager.getSubscription();
-        if (existing && !cancelled) setStatus('active');
+        if (!existing || cancelled) return;
+
+        const json = existing.toJSON();
+        if (json.endpoint && json.keys?.p256dh && json.keys?.auth) {
+          await supabase.from('web_push_subscriptions').upsert({
+            user_id: userData.user.id,
+            endpoint: json.endpoint,
+            p256dh: json.keys.p256dh,
+            auth: json.keys.auth,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'endpoint' });
+
+          await supabase.from('user_settings').upsert({
+            user_id: userData.user.id,
+            push_enabled: true,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
+        }
+
+        if (!cancelled) setStatus('active');
       } catch (error) {
         console.warn('[WebPush] Vorhandene Subscription konnte nicht wiederhergestellt werden:', error);
       }
@@ -109,6 +131,13 @@ export function useWebPushPrompt() {
         updated_at: new Date().toISOString(),
       }, { onConflict: 'endpoint' });
       if (saveError) throw saveError;
+
+      const { error: settingsError } = await supabase.from('user_settings').upsert({
+        user_id: currentUserId,
+        push_enabled: true,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+      if (settingsError) throw settingsError;
 
       const { error: testError } = await supabase.functions.invoke('send-test-push');
       if (testError) throw testError;
