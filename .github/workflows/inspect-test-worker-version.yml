@@ -26,47 +26,45 @@ jobs:
         with:
           ref: test
 
-      - name: Inspect push POST validation safely
+      - name: Snapshot public page modules and API map
         run: |
           set -euo pipefail
-          mkdir -p .diagnostics/public-app
+          ROOT='.diagnostics/public-app'
+          mkdir -p "$ROOT/pages"
           BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
-          : > .diagnostics/public-app/push-post-validation.txt
-          probe_post() {
-            path="$1"; body="$2"
-            echo "=== POST $path ===" >> .diagnostics/public-app/push-post-validation.txt
-            curl -sS -i -X POST \
-              -A 'Mozilla/5.0' \
-              -H 'Accept: application/json' \
-              -H 'Content-Type: application/json' \
-              -H 'x-rheinschiffer-device-id: diagnostic-invalid-payload' \
-              --data "$body" \
-              "$BASE$path" \
-              | sed -E 's/^(set-cookie:).*/\1 [redacted]/I' \
-              >> .diagnostics/public-app/push-post-validation.txt
-            echo >> .diagnostics/public-app/push-post-validation.txt
-          }
-          probe_post /api/push/subscribe '{}'
-          probe_post /api/push/unsubscribe '{}'
-          echo "=== GET diagnostic settings after invalid POSTs ===" >> .diagnostics/public-app/push-post-validation.txt
-          curl -sS -i \
-            -A 'Mozilla/5.0' \
-            -H 'Accept: application/json' \
-            -H 'x-rheinschiffer-device-id: diagnostic-invalid-payload' \
-            "$BASE/api/settings" \
-            | sed -E 's/^(set-cookie:).*/\1 [redacted]/I' \
-            >> .diagnostics/public-app/push-post-validation.txt
+          modules='start pegel vorhersage nfb tankstelle clubs rhein-karte news waechter help settings konto passwort'
+          for m in $modules; do
+            curl -fsS -A 'Mozilla/5.0' -e "$BASE/" "$BASE/pages/$m.js" -o "$ROOT/pages/$m.js"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json,hashlib
+          root=Path('.diagnostics/public-app/pages')
+          report={'files':{},'api_paths':{},'push_related':{}}
+          for p in sorted(root.glob('*.js')):
+            text=p.read_text(errors='replace')
+            paths=sorted(set(re.findall(r"['\"](/api/[A-Za-z0-9_./?=&:-]+)['\"]",text)))
+            report['files'][p.name]={'size_bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
+            if paths: report['api_paths'][p.name]=paths
+            hits=[]
+            for term in ['push','vapid','subscribe','unsubscribe','notification','test push','send push']:
+              if term.lower() in text.lower(): hits.append(term)
+            if hits:
+              report['push_related'][p.name]=hits
+          Path('.diagnostics/public-app/frontend-api-map.json').write_text(json.dumps(report,indent=2,ensure_ascii=False))
+          print(json.dumps(report,indent=2,ensure_ascii=False))
+          PY
 
-      - name: Commit push POST validation to test branch
+      - name: Commit public frontend snapshot to test branch
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f .diagnostics/public-app/push-post-validation.txt
+          git add -f .diagnostics/public-app/pages .diagnostics/public-app/frontend-api-map.json
           if git diff --cached --quiet; then
             echo "No diagnostic changes"
             exit 0
           fi
-          git commit -m "chore(test): save push POST validation diagnostics [skip ci]"
+          git commit -m "chore(test): snapshot active frontend modules [skip ci]"
           git push origin HEAD:test
