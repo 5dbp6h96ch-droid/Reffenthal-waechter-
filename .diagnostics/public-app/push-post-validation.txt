@@ -1,0 +1,39 @@
+=== POST /api/push/subscribe ===
+HTTP/2 400 
+date: Fri, 21 Aug 2026 18:40:05 GMT
+content-type: application/json; charset=utf-8
+content-length: 38
+cache-control: no-store
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=%2FXO97cUofVeQr0wvtl61eNiB6ss7lL%2F%2FHNQH%2Bmkp2hKJ3YFhY41P7qgxQBPzusIudnSTXKJPylAH7tVL4RZGrGxZAaijx%2FGACH6rXMNLJSY9yK13mAxKm9UhuufpMJxnpaSjmra%2BXoFHPkz2bpvQHSCW0KHOSce7BquNrw%3D%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+server: cloudflare
+cf-ray: a2ebc3a1af918423-STL
+alt-svc: h3=":443"; ma=86400
+
+{"error":"Invalid push subscription."}
+=== POST /api/push/unsubscribe ===
+HTTP/2 400 
+date: Fri, 21 Aug 2026 18:40:05 GMT
+content-type: application/json; charset=utf-8
+content-length: 29
+cache-control: no-store
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=m%2FNU6vY0Ycc2F%2FgX7n%2F4YTAYZ%2BtJns6y7fTdHbxQdMI76fTEubrWRAyawov3ftWDqWNFEsGBitBHpKpNnQ15p1BiMcy3qHNiZc5shRGMz29s2dblGd%2FDYkvRjZkXywzS8BCdQ9yD2YPHQHqvkASbb9vI5uKpTuMEYiVlsA%3D%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+server: cloudflare
+cf-ray: a2ebc3a22f7ecb99-STL
+alt-svc: h3=":443"; ma=86400
+
+{"error":"endpoint required"}
+=== GET diagnostic settings after invalid POSTs ===
+HTTP/2 200 
+date: Fri, 21 Aug 2026 18:40:05 GMT
+content-type: application/json; charset=utf-8
+content-length: 146
+cache-control: no-store
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=sGt%2FrM3FtSJ6Mv1rkJX84jWjtARWBUuRPECSYMVKDlkZ%2BTYF9Rk7UMPyCJ6RK20wMtYbt80BZuF0ReSUGFWYpWJTvtrnWWXUebYYzHs90ZJ4Eo1e06IHwi2qvWHCCa9aeH7JsYW9tZJXpUycHWTIhP%2FwD5rZZz08XtN61w%3D%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+server: cloudflare
+cf-ray: a2ebc3a2ba4f8638-STL
+alt-svc: h3=":443"; ma=86400
+
+{"device_id":"diagnostic-invalid-payload","selected_gauge_id":null,"threshold_cm":225,"push_enabled":false,"nfb_enabled":true,"news_enabled":true}
