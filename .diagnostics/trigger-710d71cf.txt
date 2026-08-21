@@ -13,3 +13,4 @@ Snapshot active public settings.js.
 Inspect push API read-only.
 Retry public push API inspection without environment gate.
 Inspect push POST validation with invalid payloads.
+Snapshot all active public frontend modules and API routes.
