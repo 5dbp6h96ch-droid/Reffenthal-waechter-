@@ -49,11 +49,27 @@ def _service_key(ref: str) -> str | None:
 
 
 def _targets() -> list[tuple[str, str, str]]:
-    targets: list[tuple[str, str, str]] = []
+    """Ermittelt die Push-Ziele und respektiert WATCH_ENV strikt.
+
+    Insbesondere darf ein Testlauf niemals über Management-API-Fallback ein
+    Produktionsziel ergänzen. Das schützt die bestehende Produktivwelt auch
+    dann, wenn in einer Runner-Umgebung zusätzliche Secrets vorhanden sind.
+    """
+    watch_env = os.environ.get("WATCH_ENV", "").strip().lower()
+    if watch_env not in {"", "test", "production"}:
+        logger.warning("WebPush: Unbekanntes WATCH_ENV=%r – Versand deaktiviert.", watch_env)
+        return []
+
     env_pairs = [
         ("production", "SUPABASE_URL", "SUPABASE_SECRET_KEY"),
         ("test", "TEST_SUPABASE_URL", "TEST_SUPABASE_SECRET_KEY"),
     ]
+    projects = list(_PROJECTS)
+    if watch_env:
+        env_pairs = [item for item in env_pairs if item[0] == watch_env]
+        projects = [item for item in projects if item[0] == watch_env]
+
+    targets: list[tuple[str, str, str]] = []
     explicit = set()
     for name, url_var, key_var in env_pairs:
         url = os.environ.get(url_var, "").rstrip("/")
@@ -61,7 +77,8 @@ def _targets() -> list[tuple[str, str, str]]:
         if url and key:
             targets.append((name, f"{url}/functions/v1/send-event-push", key))
             explicit.add(name)
-    for name, ref in _PROJECTS:
+
+    for name, ref in projects:
         if name in explicit:
             continue
         key = _service_key(ref)
