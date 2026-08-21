@@ -27,39 +27,66 @@ jobs:
         with:
           ref: test
 
-      - name: Inspect D1 metadata and schema read-only
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Inspect public test app read-only
         run: |
           set -euo pipefail
-          mkdir -p .diagnostics
-          DB_ID="51255b8b-b4f6-48f4-b630-82093749ea3a"
-          curl -fsS \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database/${DB_ID}" \
-            > .diagnostics/d1-metadata.json
-          curl -fsS \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data '{"sql":"SELECT type, name, tbl_name, sql FROM sqlite_master WHERE type IN (\"table\",\"index\") ORDER BY type, name;"}' \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database/${DB_ID}/query" \
-            > .diagnostics/d1-schema.json
-          echo "D1 metadata:"
-          cat .diagnostics/d1-metadata.json
-          echo "D1 schema:"
-          cat .diagnostics/d1-schema.json
+          mkdir -p .diagnostics/public-app
+          BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
+          curl -fsS "$BASE/" -o .diagnostics/public-app/index.html
+          for p in push-sw.js sw.js manifest.webmanifest; do
+            code=$(curl -sS -o ".diagnostics/public-app/$p" -w '%{http_code}' "$BASE/$p" || true)
+            echo "$p $code" >> .diagnostics/public-app/status.txt
+            if [ "$code" != "200" ]; then rm -f ".diagnostics/public-app/$p"; fi
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, json, hashlib, urllib.parse, urllib.request
+          root=Path('.diagnostics/public-app')
+          html=(root/'index.html').read_text(errors='replace')
+          base='https://rheinschiffer-test.5dbp6h96ch.workers.dev/'
+          urls=[]
+          for m in re.finditer(r'<script[^>]+src=["\']([^"\']+)["\']', html, re.I):
+              urls.append(urllib.parse.urljoin(base,m.group(1)))
+          for m in re.finditer(r'<link[^>]+href=["\']([^"\']+)["\']', html, re.I):
+              u=urllib.parse.urljoin(base,m.group(1))
+              if u.endswith('.js'): urls.append(u)
+          urls=list(dict.fromkeys(urls))
+          report={'index_sha256':hashlib.sha256(html.encode()).hexdigest(),'script_urls':urls,'files':{},'api_paths':[],'snippets':{}}
+          terms=['Push deaktivieren','Push-Nachrichten','Persönliche Einstellungen','Tankstellen','serviceWorker','pushManager','Notification','/api/','web_push','vapid','subscribe','unsubscribe']
+          for i,u in enumerate(urls):
+              try:
+                  data=urllib.request.urlopen(u,timeout=20).read()
+              except Exception as e:
+                  report['files'][u]={'error':str(e)}; continue
+              text=data.decode('utf-8','ignore')
+              report['files'][u]={'size_bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'term_hits':{t:text.count(t) for t in terms}}
+              for p in re.findall(r'["\'](/api/[A-Za-z0-9_./?=&:-]+)["\']', text):
+                  if p not in report['api_paths']: report['api_paths'].append(p)
+              for t in terms:
+                  pos=text.find(t)
+                  if pos>=0 and t not in report['snippets']:
+                      start=max(0,pos-180); end=min(len(text),pos+len(t)+260)
+                      report['snippets'][t]=text[start:end]
+          for p in ['push-sw.js','sw.js','manifest.webmanifest']:
+              f=root/p
+              if f.exists():
+                  text=f.read_text(errors='replace')
+                  report['files'][p]={'size_bytes':f.stat().st_size,'sha256':hashlib.sha256(f.read_bytes()).hexdigest(),'term_hits':{t:text.count(t) for t in terms}}
+                  report['snippets'][p]=text[:6000]
+          (root/'report.json').write_text(json.dumps(report,indent=2,ensure_ascii=False))
+          print(json.dumps({'script_urls':report['script_urls'],'api_paths':report['api_paths'],'files':report['files']},indent=2,ensure_ascii=False))
+          PY
 
-      - name: Commit D1 read-only inspection to test branch
+      - name: Commit public-app inspection to test branch
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .diagnostics/d1-metadata.json .diagnostics/d1-schema.json
+          git add .diagnostics/public-app/index.html .diagnostics/public-app/status.txt .diagnostics/public-app/report.json .diagnostics/public-app/push-sw.js .diagnostics/public-app/sw.js .diagnostics/public-app/manifest.webmanifest 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No diagnostic changes"
             exit 0
           fi
-          git commit -m "chore(test): save read-only D1 schema diagnostics [skip ci]"
+          git commit -m "chore(test): save public app inspection [skip ci]"
           git push origin HEAD:test
