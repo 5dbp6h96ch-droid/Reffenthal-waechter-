@@ -1,0 +1,26 @@
+{
+  "size_bytes": 10665,
+  "sha256": "8809c17bb37a2dc6deedacba803640f799b1732162ff15c3214bda5f8fa17619",
+  "term_hits": {
+    "Push deaktivieren": 0,
+    "Push-Nachrichten": 0,
+    "Persönliche Einstellungen": 0,
+    "Tankstellen": 0,
+    "serviceWorker": 0,
+    "pushManager": 0,
+    "Notification": 0,
+    "subscribe": 0,
+    "unsubscribe": 0,
+    "vapid": 0,
+    "web_push": 0,
+    "/api/": 4
+  },
+  "api_paths": [
+    "/api/auth/me",
+    "/api/gauges",
+    "/api/settings"
+  ],
+  "snippets": {
+    "/api/": "empty\">Daten werden geladen…</div></section>`}\nfunction errorView(title,e){app.innerHTML=`<section class=\"card\"><div class=\"eyebrow\">${esc(title)}</div><div class=\"error\">${esc(e.message)}</div></section>`}\nasync function refreshAuth(){try{const me=await api('/api/auth/me');state.user=me.user||null}catch{state.user=null}state.authLoaded=true;if(bottomNav)bottomNav.style.display=state.user?'':'none';return state.user}\nfunction isAuthenticated(){return Boolean(state.user)}\nasync function loadPersistentSettings(){if(state.settingsLoaded)return;try{const settings=await api('/api/settings');if(Number.isFinite(Number(settings.threshold_cm)))state.threshold=Number(settings.threshold_cm);if(settings.selected_gauge_id)localStorage.setItem('selected_gauge_id',setti"
+  }
+}
