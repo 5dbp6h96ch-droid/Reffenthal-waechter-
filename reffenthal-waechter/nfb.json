@@ -230,8 +230,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2377",
       "expired": false,
       "first_seen": "2026-08-18T15:52:11.752926+00:00"
+    },
+    {
+      "nfb_id": "2026/2413",
+      "titel": "Nachricht wegen Reparaturarbeiten: Sperre",
+      "km_von": 429.2,
+      "km_bis": 429.2,
+      "gueltig_ab": "24. Aug. 2026 00:00\n                                Uhr",
+      "gueltig_bis": "7. Sep. 2026 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2413",
+      "expired": false,
+      "first_seen": "2026-08-21T10:00:25.994361+00:00"
     }
   ],
-  "count": 21,
-  "updated_at": "2026-08-21T08:02:08.057436+00:00"
+  "count": 22,
+  "updated_at": "2026-08-21T10:00:34.465822+00:00"
 }
