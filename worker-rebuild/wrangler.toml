@@ -1,0 +1,17 @@
+name = "rheinschiffer-next-test"
+main = "src/index.ts"
+compatibility_date = "2026-08-21"
+compatibility_flags = ["nodejs_compat"]
+
+# The parallel D1 database is intentionally not bound yet.
+# It will be created only after the isolated Worker passes CI checks.
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "rheinschiffer-next-test-db"
+# database_id = "<created-by-bootstrap-workflow>"
+
+# Static assets from the reconstructed public app will be copied into ./public
+# before the first parallel deployment.
+# [assets]
+# directory = "./public"
+# binding = "ASSETS"
