@@ -1,3 +1,6 @@
 push-sw.js 404
 sw.js 200
 manifest.webmanifest 404
+push-sw.js 404
+sw.js 200
+manifest.webmanifest 404
