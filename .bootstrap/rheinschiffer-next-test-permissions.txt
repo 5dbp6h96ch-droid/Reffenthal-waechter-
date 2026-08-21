@@ -1,1 +1,2 @@
 Read-only permission probe for the future parallel worker rheinschiffer-next-test. No deploy and no resource creation.
+Run through protected GitHub environment: test.
