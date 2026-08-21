@@ -1,0 +1,38 @@
+name: Inspect test Worker version
+
+on:
+  push:
+    branches:
+      - test
+    paths:
+      - '.github/workflows/inspect-test-worker-version.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Read Cloudflare Worker version metadata
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest versions view 710d71cf --name rheinschiffer-test --json > worker-version-710d71cf.json
+          cat worker-version-710d71cf.json
+
+      - name: Upload inspection result
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-version-710d71cf
+          path: worker-version-710d71cf.json
+          retention-days: 7
