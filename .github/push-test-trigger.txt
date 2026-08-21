@@ -1,1 +1,1 @@
-Push-Test 2026-08-21 16:xx Europe/Berlin
+Push-Test 2026-08-21 17:04 Europe/Berlin - new workers.dev subscription
