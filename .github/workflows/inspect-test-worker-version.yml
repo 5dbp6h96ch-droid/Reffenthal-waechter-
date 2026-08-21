@@ -27,81 +27,39 @@ jobs:
         with:
           ref: test
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Inspect active Worker download safely
+      - name: Inspect D1 metadata and schema read-only
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           mkdir -p .diagnostics
+          DB_ID="51255b8b-b4f6-48f4-b630-82093749ea3a"
           curl -fsS \
-            -D .diagnostics/worker-download-headers.txt \
-            -o .diagnostics/worker-download.bin \
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test"
-          python3 - <<'PY'
-          from pathlib import Path
-          import hashlib, json, re
-          body = Path('.diagnostics/worker-download.bin').read_bytes()
-          headers = Path('.diagnostics/worker-download-headers.txt').read_text(errors='replace')
-          ct = ''
-          for line in headers.splitlines():
-              if line.lower().startswith('content-type:'):
-                  ct = line.split(':',1)[1].strip()
-          report = {
-              'size_bytes': len(body),
-              'sha256': hashlib.sha256(body).hexdigest(),
-              'content_type': ct,
-              'multipart_parts': [],
-              'term_hits': {},
-          }
-          boundary = None
-          m = re.search(r'boundary=(?:"([^"]+)"|([^;\s]+))', ct, re.I)
-          if m:
-              boundary = (m.group(1) or m.group(2)).encode()
-          if boundary:
-              for chunk in body.split(b'--'+boundary):
-                  if b'\r\n\r\n' not in chunk:
-                      continue
-                  head, data = chunk.split(b'\r\n\r\n',1)
-                  data = data.rstrip(b'\r\n-')
-                  htxt = head.decode('utf-8','replace')
-                  name = None
-                  filename = None
-                  nm = re.search(r'name="([^"]+)"', htxt)
-                  fm = re.search(r'filename="([^"]+)"', htxt)
-                  if nm: name = nm.group(1)
-                  if fm: filename = fm.group(1)
-                  report['multipart_parts'].append({
-                      'name': name,
-                      'filename': filename,
-                      'size_bytes': len(data),
-                      'sha256': hashlib.sha256(data).hexdigest(),
-                      'headers': [ln for ln in htxt.splitlines() if ln.strip()][:6],
-                  })
-          text = body.decode('utf-8','ignore').lower()
-          for term in ['push', 'vapid', 'einstellungen', 'tankstellen', 'supabase', 'd1', 'hashchange', 'location.hash', 'serviceworker', 'scheduled', 'sqlite', 'web_push_subscriptions']:
-              report['term_hits'][term] = text.count(term.lower())
-          Path('.diagnostics/worker-download-report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False))
-          print(json.dumps(report, indent=2, ensure_ascii=False))
-          PY
-          rm -f .diagnostics/worker-download.bin
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database/${DB_ID}" \
+            > .diagnostics/d1-metadata.json
+          curl -fsS \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{"sql":"SELECT type, name, tbl_name, sql FROM sqlite_master WHERE type IN (\"table\",\"index\") ORDER BY type, name;"}' \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database/${DB_ID}/query" \
+            > .diagnostics/d1-schema.json
+          echo "D1 metadata:"
+          cat .diagnostics/d1-metadata.json
+          echo "D1 schema:"
+          cat .diagnostics/d1-schema.json
 
-      - name: Commit safe inspection report to test branch
+      - name: Commit D1 read-only inspection to test branch
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .diagnostics/worker-download-report.json .diagnostics/worker-download-headers.txt
+          git add .diagnostics/d1-metadata.json .diagnostics/d1-schema.json
           if git diff --cached --quiet; then
             echo "No diagnostic changes"
             exit 0
           fi
-          git commit -m "chore(test): save safe Worker download inspection [skip ci]"
+          git commit -m "chore(test): save read-only D1 schema diagnostics [skip ci]"
           git push origin HEAD:test
