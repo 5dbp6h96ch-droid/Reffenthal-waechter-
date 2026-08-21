@@ -1,0 +1,36 @@
+name: Probe current test push routes
+
+on:
+  pull_request:
+    branches:
+      - test
+    paths:
+      - '.diagnostics/probe-current-push-routes.txt'
+      - '.github/workflows/probe-current-push-routes.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe candidate routes without sending
+        run: |
+          set -euo pipefail
+          BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
+          for path in \
+            /api/push/test \
+            /api/push/send-test \
+            /api/push/test-send \
+            /api/push/send-test-push \
+            /api/push/test-notification \
+            /api/admin/push \
+            /api/admin/push/test; do
+            echo "===== $path ====="
+            echo '-- GET --'
+            curl -sS -i -X GET -A 'Mozilla/5.0' -H 'Accept: application/json' -H 'x-rheinschiffer-device-id: diagnostic-no-subscription' "$BASE$path" | head -n 20
+            echo '-- OPTIONS --'
+            curl -sS -i -X OPTIONS -A 'Mozilla/5.0' -H 'Accept: application/json' -H 'x-rheinschiffer-device-id: diagnostic-no-subscription' "$BASE$path" | head -n 20
+            echo
+          done
