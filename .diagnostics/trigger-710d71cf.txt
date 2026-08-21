@@ -7,3 +7,4 @@ Inspect active Worker download safely.
 Inspect D1 metadata and schema read-only.
 Inspect active public test app read-only.
 Force-add public app diagnostics.
+Inspect active app.js push logic read-only.
