@@ -1,91 +1,91 @@
 === GET /api/push/vapid-public-key ===
 HTTP/2 200 
-date: Fri, 21 Aug 2026 18:36:01 GMT
+date: Fri, 21 Aug 2026 18:39:04 GMT
 content-type: application/json; charset=utf-8
 content-length: 121
 cache-control: no-store
-report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=xG6Y8geHIi7v3pgJbFvKEo1P6D5HoDQP5ZynqlYOJBSMgTppDupsUviA9jhoyzR54Lch1L%2BcCFbe7SWcQLGQ%2Bunn4psS3mYOKVezUpDcMaNb6purxrOsTGOnr1pwsJtu2WaKJH%2B4IgRckvrE0LPVR1tqzFN2cudyJVfByg%3D%3D"}]}
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=VFQek9EZJsBG7vrxRrK3Xyy43H2D1LPaZKlNJqxhIxz6LVy9T4OPhzzaB3qrNRCgUuSngoOEiIkzEYgLrhkDlGBymRDx1wNsPgPrYtDuRrS7dnUQzCG8k%2Bk5imJzv3qJnCIQ7AQnPF93KQ6s7%2F8l5Mb3fS67hvMyExL9Rw%3D%3D"}]}
 nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
 server: cloudflare
-cf-ray: a2ebbdac3c7c8662-STL
+cf-ray: a2ebc22518d6e604-IAD
 alt-svc: h3=":443"; ma=86400
 
 {"publicKey":"BHwzw6InkoboPY7bWDsR_3c6ta4cfPOYJBVc0p5maAf3uUDdDf6Xhr5JGCvDMSkATAMYwsaWM4faP002HQo9Hx4","configured":true}
 === GET /api/auth/me ===
 HTTP/2 200 
-date: Fri, 21 Aug 2026 18:36:01 GMT
+date: Fri, 21 Aug 2026 18:39:04 GMT
 content-type: application/json; charset=utf-8
 content-length: 13
 cache-control: no-store
-report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=jXWtIWk5tXkw%2FGN0sxD2%2B2rPUezoh9ACFaAJayI7EyjV59%2F4HhXFdRlpCtc7sxy7gXONRMRC4CcIRUybQHrrcr03lSXLbmuOe2xQCj50WqKCJImcWGDxyi4BtC9ObXFek%2FCvvirSXwumI0lAwJr2Cqg%2Bgw2d08zSXmRJMw%3D%3D"}]}
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=CU98vM4zKkQgqyLoZyKifon5nYxS9ek8MhVr98rrw4aRrOOyTAR4GIsy4DUpXzD7rb%2BAzK%2FLVi1t%2BJoRUz0tVmsNAzTjRXKIyCOQzfyU9%2FcDt0V4Qj%2BQo7JWf3xNEOApnzgLy90qV5rzI1OYK9AD711nYOAZATO1slQVRw%3D%3D"}]}
 nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
 server: cloudflare
-cf-ray: a2ebbdad09b745a4-STL
+cf-ray: a2ebc225ccb84e70-IAD
 alt-svc: h3=":443"; ma=86400
 
 {"user":null}
 === GET /api/settings ===
 HTTP/2 200 
-date: Fri, 21 Aug 2026 18:36:01 GMT
+date: Fri, 21 Aug 2026 18:39:04 GMT
 content-type: application/json; charset=utf-8
 content-length: 140
 cache-control: no-store
-report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=Cv48Z5r9QY9rx4fNHbxXqidNSGvsesf7R%2BxQKTdlT%2BSJ70bRpvgB86GhyfZFexoU6oHAltxPA75N6Mu6Rq5vXXWCD1hJDu2OB7COBKToeimPpo%2BkXC%2F4v1JliRhFnAMNwaSSJxX11WaBE9e0CPyF%2F40nbIG5BWd1r1mb0w%3D%3D"}]}
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=g%2Fzj5GN15k4LSiHyf4X5O7UEoOpzhXFPnEmqqeSIt8nAjqGknI9oAhBwjFpaEZp3%2BhJlZHf1aBh%2B1BEtety1i0%2Fic2tD3WmPvWbas2ohqjvL4IGsxk0Luj71csdOPdvUY60vvBjVZxXKl2OW5H9viyNfQ7w2Fh5%2FhsBSbg%3D%3D"}]}
 nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
 server: cloudflare
-cf-ray: a2ebbdad8c41a8ce-STL
+cf-ray: a2ebc2265ab9b560-IAD
 alt-svc: h3=":443"; ma=86400
 
 {"device_id":"diagnostic-read-only","selected_gauge_id":null,"threshold_cm":225,"push_enabled":false,"nfb_enabled":true,"news_enabled":true}
 === OPTIONS /api/push/subscribe ===
 HTTP/2 404 
-date: Fri, 21 Aug 2026 18:36:01 GMT
+date: Fri, 21 Aug 2026 18:39:05 GMT
 content-type: application/json; charset=utf-8
 content-length: 21
 cache-control: no-store
-report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=2f4p%2BBhDYYdba5Dj72Xj26K7J%2BJ9%2FYIvz8gZ%2BlVCdMJ7bGcd71Ee83Pl%2BF8zEZxBLjU3E6tOoMQYJFlpy%2BxDcK%2BnmBQX4JQLOip3kdOqWVtv4Hk4pmnOFMWjpaFcm4M2d3y5dsL9w7O3GUe0ZTuNo95vYXVs4TlZxZx2dw%3D%3D"}]}
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=%2F0NTuQH4lFFGqjD5r3iXCV5wuzYGGhp7GrCXsWVmS3vHVhs3KUONNRo0NmwQA8USZ5vpBCrvkfd2A4%2FrD9cgMd7E8%2BQ14dAJLn2fpjjQYRiCv7EgCdcgOIY9DmGZqZOqO8tRc8tZCaiu4qiDI5iRDc%2F3YOgBzqG97Veskg%3D%3D"}]}
 nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
 server: cloudflare
-cf-ray: a2ebbdaf2feeefc8-STL
+cf-ray: a2ebc227ed35d69d-IAD
 alt-svc: h3=":443"; ma=86400
 
 {"error":"Not found"}
 === GET /api/push/subscribe ===
 HTTP/2 404 
-date: Fri, 21 Aug 2026 18:36:01 GMT
+date: Fri, 21 Aug 2026 18:39:05 GMT
 content-type: application/json; charset=utf-8
 content-length: 21
 cache-control: no-store
-report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=Gk%2BvxWmVkeZhn%2BOCYeK2WSucHuvsOQw1cguwaR%2B3jUQNkKoemrtZtz5YDUduotRyl1xAGQeGzyrp5uKDtNSkpTkrJlCQulNmusmqJL9exIzbUThcR8GOGhscuyC6OTTieSTvWiPfdQcb8ycXhU3EbQWiU8zholc5oiYfVg%3D%3D"}]}
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=tThGrXtTO%2FPJTH5fsd%2FXJEBx%2Blb6ueEVG2ecaICSQmHPAeOAgPCsdEomEw0tVcIyk0iEAGY7bfBer%2BI8QoW3Z4VF3kxxugk5sjhXjZS6FzveIZlg3MX4PKjqA6vh7EaqBnsiO2eH3hRi95HMaZo0ztGTKwzm5f%2FopOyicw%3D%3D"}]}
 nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
 server: cloudflare
-cf-ray: a2ebbdafafea98ba-STL
+cf-ray: a2ebc2288816d2f9-IAD
 alt-svc: h3=":443"; ma=86400
 
 {"error":"Not found"}
 === OPTIONS /api/push/unsubscribe ===
 HTTP/2 404 
-date: Fri, 21 Aug 2026 18:36:01 GMT
+date: Fri, 21 Aug 2026 18:39:05 GMT
 content-type: application/json; charset=utf-8
 content-length: 21
 cache-control: no-store
-report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=LqkWLtONiQ556VpkT1ERMWG3d61cV%2BZOmNFRH%2F7NOaQ%2BB1wjjjaiKZSxSgMM3%2FXJZXSPy9HyRdX9aUZBOrHREgfJOHXAHCNY9JxKKiYHTMhVIYGfz30vwqD%2FrRTcKULx%2FMN0mb44PU8pD4KfQBSmxPeSeXP1I9iYjD5ZQQ%3D%3D"}]}
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=9i6Zx%2FczPnqm2Ki2%2FQH8Jd41K6%2BpFoJMitrfGtdnRLAn8nwxXL7UkTOr5DuyRv0G%2B8NNkxXnnAQ2ojz9KnXGJht3FD4bMOszID5kwoFDDDyJbbH6TGo%2Bk6DTrjU5KHi6IKnRgJm8UAbac8s2iUiSlFp13kZrDSc8tsXtrw%3D%3D"}]}
 nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
 server: cloudflare
-cf-ray: a2ebbdb02b9add88-STL
+cf-ray: a2ebc22919182996-IAD
 alt-svc: h3=":443"; ma=86400
 
 {"error":"Not found"}
 === GET /api/push/unsubscribe ===
 HTTP/2 404 
-date: Fri, 21 Aug 2026 18:36:02 GMT
+date: Fri, 21 Aug 2026 18:39:05 GMT
 content-type: application/json; charset=utf-8
 content-length: 21
 cache-control: no-store
-report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=yi4IxfcMNzNLcLnpACPAgPpG6KP1Tr3McXDWHMmLmvwFSCETtsoReG0llexctJxJlKSMzX40DSlbsV%2FdrNLU%2FO2s0CPNc%2Fyv3w%2FsbVOH1%2FcrWuviPl%2Fi45lsRtSrO7gQzQriPZ%2FMkEegxrVmpG9ZQuw%2FlAwAxXj7bPLIog%3D%3D"}]}
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=yW7p09C5fo9sGg9oVPILwZezvn4243GRKXVUeBN8VzTuDlF%2BUfU3AvdLr0U3TqVMaxvnDpHXawxQXdwlGCWs%2FmvGLoaqQiyAkTFIR4lII5iwhgtn44xmWGD7XTKzKuJz2umrb5Hf17XQsy3iIvRLHUwscZLWKP4EuRD6Yw%3D%3D"}]}
 nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
 server: cloudflare
-cf-ray: a2ebbdb0ac39efc8-STL
+cf-ray: a2ebc2296940e3c4-IAD
 alt-svc: h3=":443"; ma=86400
 
 {"error":"Not found"}
