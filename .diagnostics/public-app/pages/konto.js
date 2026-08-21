@@ -1,0 +1,12 @@
+export async function renderKonto(ctx) {
+  ctx.activate('konto');
+  let me={user:null}; try { me=await ctx.api('/api/auth/me'); } catch {}
+  if(me.user){
+    ctx.app.innerHTML=`<section class="card"><div class="eyebrow">Konto</div><div class="gauge-name">${ctx.esc(me.user.email)}</div><p class="help-copy">Angemeldet.</p><button id="logout" class="control">Abmelden</button></section>`;
+    document.querySelector('#logout')?.addEventListener('click',async()=>{await ctx.api('/api/auth/logout',{method:'POST'});await ctx.refreshAuth();location.hash='#/pegel'});
+    return;
+  }
+  ctx.app.innerHTML=`<section class="card"><div class="eyebrow">Konto</div><div class="gauge-name">Anmelden</div><input id="login-email" class="control" type="email" placeholder="E-Mail" autocomplete="email"><input id="login-password" class="control" type="password" placeholder="Passwort" autocomplete="current-password"><button id="login" class="control">Anmelden</button><p><a href="#/passwort-vergessen">Passwort vergessen?</a></p><div id="login-status" class="gauge-meta"></div></section><section class="card"><div class="eyebrow">Neu</div><div class="gauge-name">Registrieren</div><input id="register-email" class="control" type="email" placeholder="E-Mail" autocomplete="email"><input id="register-password" class="control" type="password" placeholder="Passwort (mind. 10 Zeichen)" autocomplete="new-password"><button id="register" class="control">Konto erstellen</button><div id="register-status" class="gauge-meta"></div></section>`;
+  document.querySelector('#login')?.addEventListener('click',async()=>{const s=document.querySelector('#login-status'); try{await ctx.api('/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:document.querySelector('#login-email').value,password:document.querySelector('#login-password').value})});await ctx.refreshAuth();location.hash='#/pegel'}catch(e){s.textContent=e.message}});
+  document.querySelector('#register')?.addEventListener('click',async()=>{const s=document.querySelector('#register-status'); try{await ctx.api('/api/auth/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:document.querySelector('#register-email').value,password:document.querySelector('#register-password').value})});await ctx.refreshAuth();location.hash='#/pegel'}catch(e){s.textContent=e.message}});
+}

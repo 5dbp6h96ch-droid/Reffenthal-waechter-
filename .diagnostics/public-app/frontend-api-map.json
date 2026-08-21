@@ -1,0 +1,105 @@
+{
+  "files": {
+    "clubs.js": {
+      "size_bytes": 3425,
+      "sha256": "7941e853bec9516f58d0b8b4c1af23c5374a5f2bcf8765f6a5a203115804b78b"
+    },
+    "help.js": {
+      "size_bytes": 528,
+      "sha256": "c229d5ca576c911042e3eaf53f57986348282a42c1b440d51580935f32e69f3c"
+    },
+    "konto.js": {
+      "size_bytes": 2405,
+      "sha256": "9c6b16ea1447a2cdc98ad7c9b0f554df29ece4b2cc29b26d2a7286311f50dfdb"
+    },
+    "news.js": {
+      "size_bytes": 993,
+      "sha256": "0991ab8515af129cfe128e130e97f0581518c8e05fbcc3194375cb12b9318d30"
+    },
+    "nfb.js": {
+      "size_bytes": 4239,
+      "sha256": "483ff4f668490332abce1b5bfd6c79e4b4a405af46b7073c49c35bbf868a0d0e"
+    },
+    "passwort.js": {
+      "size_bytes": 2220,
+      "sha256": "7ed7062a1ebc71c7b030c682e5c27d563f363e4d60ee0ce34f4412d9e32252d0"
+    },
+    "pegel.js": {
+      "size_bytes": 9949,
+      "sha256": "a53047a6bddb6d0ceebcca34dba65b2c6c5ac52368319549a7b7eaaefdb58c49"
+    },
+    "rhein-karte.js": {
+      "size_bytes": 9497,
+      "sha256": "f9c9906fdd9ec25a745476c102495b4e37b39944a6ca7b4d7fc9247f7532ca04"
+    },
+    "settings.js": {
+      "size_bytes": 5713,
+      "sha256": "d878822088c022f34e152394c5ec83e8c7dd482219fa81e37e4e09510b012256"
+    },
+    "start.js": {
+      "size_bytes": 611,
+      "sha256": "18432d3290c488a2079f8d6aecb7327a6ef6483db3c572896134141ed691cba9"
+    },
+    "tankstelle.js": {
+      "size_bytes": 2267,
+      "sha256": "cfc3e843c98ce15012db96610303d2320afedc621f5b7fe21f74a0f9e424a347"
+    },
+    "vorhersage.js": {
+      "size_bytes": 2468,
+      "sha256": "4c6f4595882c8fc661299f1978f3a033e23a69fc2bd6ab5983eb96f7e753a7a6"
+    },
+    "waechter.js": {
+      "size_bytes": 1271,
+      "sha256": "eab017e87e2d0d90d4842f6ea434626878365fffdc9cee7ddbb43bbc6c1bcba5"
+    }
+  },
+  "api_paths": {
+    "konto.js": [
+      "/api/auth/login",
+      "/api/auth/logout",
+      "/api/auth/me",
+      "/api/auth/register"
+    ],
+    "news.js": [
+      "/api/news"
+    ],
+    "passwort.js": [
+      "/api/auth/forgot-password",
+      "/api/auth/reset-password"
+    ],
+    "rhein-karte.js": [
+      "/api/gauges",
+      "/api/nfb",
+      "/api/tankstellen"
+    ],
+    "settings.js": [
+      "/api/preferences/sources",
+      "/api/push/subscribe",
+      "/api/push/unsubscribe",
+      "/api/push/vapid-public-key"
+    ],
+    "tankstelle.js": [
+      "/api/preferences/sources",
+      "/api/tankstellen"
+    ],
+    "waechter.js": [
+      "/api/waechter/status",
+      "/api/waechter/treffer"
+    ]
+  },
+  "push_related": {
+    "pegel.js": [
+      "push"
+    ],
+    "rhein-karte.js": [
+      "push"
+    ],
+    "settings.js": [
+      "push",
+      "vapid",
+      "subscribe",
+      "unsubscribe",
+      "notification"
+    ]
+  }
+}
