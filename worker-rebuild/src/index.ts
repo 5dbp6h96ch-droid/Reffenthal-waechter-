@@ -1,9 +1,9 @@
-import * as webpush from "@negrel/webpush";
+import webpush from "web-push";
 
 interface Env {
   DB: D1Database;
   VAPID_PUBLIC_KEY: string;
-  VAPID_PRIVATE_JWK: string;
+  VAPID_PRIVATE_KEY: string;
   PUSH_TEST_SECRET: string;
   ASSETS?: Fetcher;
 }
@@ -153,31 +153,15 @@ async function sendTestPush(request: Request, env: Env): Promise<Response> {
   ).bind(id).first<{ id: number; endpoint: string; p256dh: string; auth: string }>();
 
   if (!subscription) return json({ error: "No active push subscription" }, 404);
-
-  let privateJwk: JsonWebKey;
-  try {
-    privateJwk = JSON.parse(env.VAPID_PRIVATE_JWK) as JsonWebKey;
-  } catch {
-    return json({ error: "Invalid VAPID private key configuration" }, 500);
+  if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) {
+    return json({ error: "VAPID configuration missing" }, 500);
   }
 
-  const publicJwk: JsonWebKey = {
-    kty: privateJwk.kty,
-    crv: privateJwk.crv,
-    x: privateJwk.x,
-    y: privateJwk.y,
-    ext: true,
-  };
-
-  const vapidKeys = await webpush.importVapidKeys({ privateKey: privateJwk, publicKey: publicJwk });
-  const appServer = await webpush.ApplicationServer.new({
-    contactInformation: "mailto:push@rheinschiffer.de",
-    vapidKeys,
-  });
-  const subscriber = appServer.subscribe({
-    endpoint: subscription.endpoint,
-    keys: { p256dh: subscription.p256dh, auth: subscription.auth },
-  });
+  webpush.setVapidDetails(
+    "mailto:push@rheinschiffer.de",
+    env.VAPID_PUBLIC_KEY,
+    env.VAPID_PRIVATE_KEY,
+  );
 
   const payload = JSON.stringify({
     title: "R(h)einschiffer Test",
@@ -193,14 +177,24 @@ async function sendTestPush(request: Request, env: Env): Promise<Response> {
   });
 
   try {
-    await subscriber.pushTextMessage(payload, { ttl: 300, urgency: "high" });
+    await webpush.sendNotification(
+      {
+        endpoint: subscription.endpoint,
+        keys: { p256dh: subscription.p256dh, auth: subscription.auth },
+      },
+      payload,
+      { TTL: 300, urgency: "high" },
+    );
     return json({ ok: true, sent: 1 });
   } catch (error) {
-    if (error instanceof webpush.PushMessageError && error.isGone()) {
+    const statusCode = typeof error === "object" && error && "statusCode" in error
+      ? Number((error as { statusCode?: unknown }).statusCode)
+      : undefined;
+    if (statusCode === 404 || statusCode === 410) {
       await env.DB.prepare("DELETE FROM push_subscriptions WHERE id = ?1").bind(subscription.id).run();
     }
     const message = error instanceof Error ? error.message : String(error);
-    return json({ error: "Push send failed", detail: message }, 502);
+    return json({ error: "Push send failed", statusCode, detail: message }, 502);
   }
 }
 
