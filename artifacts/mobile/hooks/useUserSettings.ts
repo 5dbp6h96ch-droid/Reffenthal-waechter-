@@ -3,7 +3,7 @@
  *
  * Die zuletzt gewählte Pegel-ID wird lokal gespiegelt und beim Laden
  * vorrangig verwendet. Dadurch bleibt die Auswahl auch nach einem
- * Reload/App-Neustart erhalten.
+ * Reload/App-Neustart erhalten und wird mit dem Test-Backend synchronisiert.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -29,13 +29,29 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const readLocalSettings = useCallback(async (id: string) => {
+  const readLocalSelectedGauge = useCallback(async () => {
     try {
-      const selectedGaugeId = await AsyncStorage.getItem(LOCAL_SELECTED_GAUGE_KEY);
-      if (!selectedGaugeId) return null;
-      return {
-        user_id: id,
-        selected_gauge_id: selectedGaugeId,
+      return await AsyncStorage.getItem(LOCAL_SELECTED_GAUGE_KEY);
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const fetchSettings = useCallback(async () => {
+    setLoaded(false);
+
+    if (!userId) {
+      setSettings(null);
+      setLoaded(true);
+      return;
+    }
+
+    const localSelectedGaugeId = await readLocalSelectedGauge();
+
+    if (!supabaseConfigured || !supabase) {
+      setSettings(localSelectedGaugeId ? {
+        user_id: userId,
+        selected_gauge_id: localSelectedGaugeId,
         location_enabled: false,
         latitude: null,
         longitude: null,
@@ -43,26 +59,7 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
         push_enabled: false,
         created_at: new Date(0).toISOString(),
         updated_at: new Date().toISOString(),
-      } satisfies UserSettings;
-    } catch {
-      return null;
-    }
-  }, []);
-
-  const fetchSettings = useCallback(async () => {
-    // loaded zurücksetzen, damit Konsumenten den neuen Ladevorgang erkennen.
-    setLoaded(false);
-
-    if (!userId) {
-      setSettings(null);
-      setLoaded(true); // Kein User → sofort fertig; kein Gauge zu laden.
-      return;
-    }
-
-    const localSettings = await readLocalSettings(userId);
-
-    if (!supabaseConfigured || !supabase) {
-      setSettings(localSettings);
+      } : null);
       setLoaded(true);
       return;
     }
@@ -77,16 +74,40 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
 
     if (fetchError) {
       setError(fetchError.message);
-      setSettings(localSettings);
-    } else if (localSettings?.selected_gauge_id) {
-      // Lokale Auswahl hat Vorrang vor einem veralteten Server-Default.
-      setSettings({ ...data, ...localSettings, user_id: userId });
+      setSettings(null);
     } else {
-      setSettings(data ?? null);
+      const effectiveSelectedGaugeId = localSelectedGaugeId ?? data?.selected_gauge_id ?? null;
+      const merged: UserSettings = data ? {
+        ...data,
+        selected_gauge_id: effectiveSelectedGaugeId,
+      } : {
+        user_id: userId,
+        selected_gauge_id: effectiveSelectedGaugeId,
+        location_enabled: false,
+        latitude: null,
+        longitude: null,
+        weather_enabled: false,
+        push_enabled: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      setSettings(merged);
+
+      // Eine ältere lokal gespeicherte Pegelauswahl wird einmalig auf den
+      // Server gespiegelt. Damit kann die Push-Edge-Function exakt nach dem
+      // aktuell gewählten Pegel filtern.
+      if (localSelectedGaugeId && data?.selected_gauge_id !== localSelectedGaugeId) {
+        const { error: syncError } = await supabase.from('user_settings').upsert({
+          user_id: userId,
+          selected_gauge_id: localSelectedGaugeId,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' });
+        if (syncError) setError(syncError.message);
+      }
     }
     setLoading(false);
     setLoaded(true);
-  }, [userId, readLocalSettings]);
+  }, [userId, readLocalSelectedGauge]);
 
   useEffect(() => {
     void fetchSettings();
@@ -103,7 +124,10 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
       }
     }
 
-    if (!supabaseConfigured || !supabase) return { error: null };
+    if (!supabaseConfigured || !supabase) {
+      setSettings(prev => prev ? { ...prev, ...update, updated_at: new Date().toISOString() } : prev);
+      return { error: null };
+    }
 
     const payload = {
       ...update,
@@ -118,15 +142,16 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
       .single() as unknown as Promise<{ data: UserSettings | null; error: { message: string } | null }>);
 
     if (upsertError) {
-      setSettings(await readLocalSettings(userId));
       return { error: upsertError.message };
     }
 
-    // Die gerade ausgewählte Pegel-ID bleibt lokal maßgeblich.
-    const local = await readLocalSettings(userId);
-    setSettings(local ? { ...data, ...local, user_id: userId } : data);
+    const localSelectedGaugeId = await readLocalSelectedGauge();
+    setSettings(data ? {
+      ...data,
+      selected_gauge_id: localSelectedGaugeId ?? data.selected_gauge_id,
+    } : data);
     return { error: null };
-  }, [userId, readLocalSettings]);
+  }, [userId, readLocalSelectedGauge]);
 
   return {
     settings,
