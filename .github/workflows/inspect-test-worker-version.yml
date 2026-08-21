@@ -6,6 +6,12 @@ on:
       - test
     paths:
       - '.github/workflows/inspect-test-worker-version.yml'
+  pull_request:
+    branches:
+      - test
+    paths:
+      - '.diagnostics/**'
+      - '.github/workflows/inspect-test-worker-version.yml'
   workflow_dispatch:
 
 permissions:
@@ -16,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: test
     steps:
-      - name: Checkout
+      - name: Checkout test branch
         uses: actions/checkout@v4
         with:
           ref: test
@@ -37,6 +43,7 @@ jobs:
           cat .diagnostics/worker-version-710d71cf.json
 
       - name: Commit inspection result to test branch
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
