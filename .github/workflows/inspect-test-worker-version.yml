@@ -32,15 +32,22 @@ jobs:
         with:
           node-version: 24
 
-      - name: Read Cloudflare Worker version metadata
+      - name: Read Cloudflare Worker versions
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           mkdir -p .diagnostics
-          npx --yes wrangler@latest versions view 710d71cf --name rheinschiffer-test --json > .diagnostics/worker-version-710d71cf.json
-          cat .diagnostics/worker-version-710d71cf.json
+          npx --yes wrangler@latest versions list --name rheinschiffer-test --json > .diagnostics/worker-versions.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('.diagnostics/worker-versions.json', 'utf8'));
+          const items = Array.isArray(data) ? data : (data.versions || data.items || []);
+          const match = items.find(v => String(v.id || v.version_id || '').startsWith('710d71cf'));
+          fs.writeFileSync('.diagnostics/worker-version-710d71cf.json', JSON.stringify(match || {error:'prefix not found', available: items.map(v => ({id:v.id||v.version_id, created_on:v.created_on||v.created_at}))}, null, 2));
+          console.log(fs.readFileSync('.diagnostics/worker-version-710d71cf.json', 'utf8'));
+          NODE
 
       - name: Commit inspection result to test branch
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -48,10 +55,10 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .diagnostics/worker-version-710d71cf.json
+          git add .diagnostics/worker-versions.json .diagnostics/worker-version-710d71cf.json
           if git diff --cached --quiet; then
             echo "No diagnostic changes"
             exit 0
           fi
-          git commit -m "chore(test): save Worker version 710d71cf metadata [skip ci]"
+          git commit -m "chore(test): save Worker version diagnostics [skip ci]"
           git push origin HEAD:test
