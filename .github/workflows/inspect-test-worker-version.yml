@@ -9,13 +9,18 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   inspect:
     runs-on: ubuntu-latest
     environment: test
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: test
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -27,12 +32,19 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
-          npx --yes wrangler@latest versions view 710d71cf --name rheinschiffer-test --json > worker-version-710d71cf.json
-          cat worker-version-710d71cf.json
+          mkdir -p .diagnostics
+          npx --yes wrangler@latest versions view 710d71cf --name rheinschiffer-test --json > .diagnostics/worker-version-710d71cf.json
+          cat .diagnostics/worker-version-710d71cf.json
 
-      - name: Upload inspection result
-        uses: actions/upload-artifact@v4
-        with:
-          name: worker-version-710d71cf
-          path: worker-version-710d71cf.json
-          retention-days: 7
+      - name: Commit inspection result to test branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .diagnostics/worker-version-710d71cf.json
+          if git diff --cached --quiet; then
+            echo "No diagnostic changes"
+            exit 0
+          fi
+          git commit -m "chore(test): save Worker version 710d71cf metadata [skip ci]"
+          git push origin HEAD:test
