@@ -5,6 +5,8 @@ import * as webpush from "jsr:@negrel/webpush@0.5.0";
 // The function accepts only a Supabase server secret/service-role credential
 // in the apikey/Authorization header; never expose that credential to clients.
 
+const TEST_APP_URL = "https://rheinschiffer-test.5dbp6h96ch.workers.dev/#/";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "apikey, authorization, x-client-info, content-type",
@@ -53,6 +55,13 @@ function isAuthorized(req: Request): boolean {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (legacy) candidates.push(legacy);
   return candidates.some((candidate) => candidate === supplied);
+}
+
+function resolveNavigateUrl(value?: string): string {
+  if (!value || value === "/" || value === "#/") return TEST_APP_URL;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith("#/")) return `https://rheinschiffer-test.5dbp6h96ch.workers.dev/${value}`;
+  return TEST_APP_URL;
 }
 
 function formatThresholdBody(payload: EventPayload): string {
@@ -124,7 +133,6 @@ Deno.serve(async (req) => {
     let targets = allSubscriptions.filter((sub) => settingsByUser.get(sub.user_id)?.push_enabled === true);
     const thresholdByUser = new Map<string, number>();
 
-    // Pegeländerungen gehören nur zum aktuell gewählten Pegel des Nutzers.
     if (payload.event_type === "gauge_change") {
       targets = targets.filter((sub) =>
         settingsByUser.get(sub.user_id)?.selected_gauge_id === payload.gauge_id
@@ -169,6 +177,7 @@ Deno.serve(async (req) => {
       vapidKeys,
     });
 
+    const navigateUrl = resolveNavigateUrl(payload.url);
     const results: Array<{ endpoint: string; user_id: string; ok: boolean; status?: number; reason?: string }> = [];
     for (const subscription of targets) {
       try {
@@ -188,14 +197,14 @@ Deno.serve(async (req) => {
           body: notificationBody,
           icon: "/icon-192.png",
           badge: "/icon-192.png",
-          navigate: payload.url ?? "/",
+          navigate: navigateUrl,
         };
         const wirePayload = JSON.stringify({
           web_push: "8030",
           notification,
           title: notificationTitle,
           body: notificationBody,
-          url: payload.url ?? "/",
+          url: navigateUrl,
         });
 
         const subscriber = appServer.subscribe({
@@ -220,7 +229,7 @@ Deno.serve(async (req) => {
     }
 
     const sent = results.filter((result) => result.ok).length;
-    return json({ ok: sent > 0, event_type: payload.event_type, targeted: targets.length, sent, results }, sent > 0 || targets.length === 0 ? 200 : 502);
+    return json({ ok: sent > 0, event_type: payload.event_type, targeted: targets.length, sent, navigate_url: navigateUrl, results }, sent > 0 || targets.length === 0 ? 200 : 502);
   } catch (error) {
     console.error("[send-event-push] fatal", error);
     return json({ error: error instanceof Error ? error.message : "Push-Versand fehlgeschlagen" }, 500);
