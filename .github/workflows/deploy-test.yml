@@ -1,4 +1,4 @@
-name: Deploy test to Cloudflare
+name: Deploy test to Cloudflare Pages
 
 on:
   workflow_dispatch:
@@ -67,7 +67,6 @@ jobs:
           DIST=artifacts/mobile/dist
           VERSION=$(git rev-parse --short HEAD)
           sed "s/__CACHE_VERSION__/${VERSION}/g" artifacts/mobile/sw-template.js > "$DIST/sw.js"
-          cp artifacts/mobile/public/push-sw.js "$DIST/push-sw.js"
           cp artifacts/mobile/public/icon-192.png "$DIST/icon-192.png"
           cp artifacts/mobile/public/icon-512.png "$DIST/icon-512.png"
           cp artifacts/mobile/public/apple-touch-icon.png "$DIST/apple-touch-icon.png"
@@ -75,9 +74,9 @@ jobs:
           cp artifacts/mobile/public/manifest.webmanifest "$DIST/manifest.webmanifest"
           cp artifacts/mobile/public/leaflet.css "$DIST/leaflet.css"
           cp artifacts/mobile/public/test-layout.html "$DIST/test-layout.html"
-          echo "✓ PWA-Dateien, Push-Service-Worker und Service Worker vorbereitet"
+          echo "✓ PWA-Dateien, Layout-Editor und Service Worker vorbereitet"
 
-      - name: Deploy test build to Cloudflare Pages
+      - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -85,13 +84,3 @@ jobs:
           projectName: rheinschiffer-test
           directory: artifacts/mobile/dist
           branch: test
-
-      - name: Deploy confirmed test Worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          npx --yes wrangler@4 deploy \
-            --name rheinschiffer-test \
-            --compatibility-date 2026-08-21 \
-            --assets artifacts/mobile/dist
