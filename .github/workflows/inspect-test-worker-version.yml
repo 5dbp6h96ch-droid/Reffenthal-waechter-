@@ -27,69 +27,48 @@ jobs:
         with:
           ref: test
 
-      - name: Inspect public test app read-only
+      - name: Inspect public app.js read-only
         run: |
           set -euo pipefail
           mkdir -p .diagnostics/public-app
           BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
-          curl -fsS "$BASE/" -o .diagnostics/public-app/index.html
-          for p in push-sw.js sw.js manifest.webmanifest; do
-            code=$(curl -sS -o ".diagnostics/public-app/$p" -w '%{http_code}' "$BASE/$p" || true)
-            echo "$p $code" >> .diagnostics/public-app/status.txt
-            if [ "$code" != "200" ]; then rm -f ".diagnostics/public-app/$p"; fi
-          done
+          curl -fsS \
+            -A 'Mozilla/5.0' \
+            -e "$BASE/" \
+            "$BASE/app.js" \
+            -o .diagnostics/public-app/app.js
           python3 - <<'PY'
           from pathlib import Path
-          import re, json, hashlib, urllib.parse, urllib.request
-          root=Path('.diagnostics/public-app')
-          html=(root/'index.html').read_text(errors='replace')
-          base='https://rheinschiffer-test.5dbp6h96ch.workers.dev/'
-          urls=[]
-          for m in re.finditer(r'<script[^>]+src=["\']([^"\']+)["\']', html, re.I):
-              urls.append(urllib.parse.urljoin(base,m.group(1)))
-          for m in re.finditer(r'<link[^>]+href=["\']([^"\']+)["\']', html, re.I):
-              u=urllib.parse.urljoin(base,m.group(1))
-              if u.endswith('.js'): urls.append(u)
-          urls=list(dict.fromkeys(urls))
-          report={'index_sha256':hashlib.sha256(html.encode()).hexdigest(),'script_urls':urls,'files':{},'api_paths':[],'snippets':{}}
-          terms=['Push deaktivieren','Push-Nachrichten','Persönliche Einstellungen','Tankstellen','serviceWorker','pushManager','Notification','/api/','web_push','vapid','subscribe','unsubscribe']
-          for i,u in enumerate(urls):
-              try:
-                  data=urllib.request.urlopen(u,timeout=20).read()
-              except Exception as e:
-                  report['files'][u]={'error':str(e)}; continue
-              text=data.decode('utf-8','ignore')
-              report['files'][u]={'size_bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'term_hits':{t:text.count(t) for t in terms}}
-              for p in re.findall(r'["\'](/api/[A-Za-z0-9_./?=&:-]+)["\']', text):
-                  if p not in report['api_paths']: report['api_paths'].append(p)
-              for t in terms:
-                  pos=text.find(t)
-                  if pos>=0 and t not in report['snippets']:
-                      start=max(0,pos-180); end=min(len(text),pos+len(t)+260)
-                      report['snippets'][t]=text[start:end]
-          for p in ['push-sw.js','sw.js','manifest.webmanifest']:
-              f=root/p
-              if f.exists():
-                  text=f.read_text(errors='replace')
-                  report['files'][p]={'size_bytes':f.stat().st_size,'sha256':hashlib.sha256(f.read_bytes()).hexdigest(),'term_hits':{t:text.count(t) for t in terms}}
-                  report['snippets'][p]=text[:6000]
-          (root/'report.json').write_text(json.dumps(report,indent=2,ensure_ascii=False))
-          print(json.dumps({'script_urls':report['script_urls'],'api_paths':report['api_paths'],'files':report['files']},indent=2,ensure_ascii=False))
+          import re, json, hashlib
+          p=Path('.diagnostics/public-app/app.js')
+          text=p.read_text(errors='replace')
+          terms=['Push deaktivieren','Push-Nachrichten','Persönliche Einstellungen','Tankstellen','serviceWorker','pushManager','Notification','subscribe','unsubscribe','vapid','web_push','/api/']
+          report={
+            'size_bytes':p.stat().st_size,
+            'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),
+            'term_hits':{t:text.count(t) for t in terms},
+            'api_paths':sorted(set(re.findall(r'["\'](/api/[A-Za-z0-9_./?=&:-]+)["\']',text))),
+            'snippets':{}
+          }
+          for t in terms:
+            pos=text.find(t)
+            if pos>=0:
+              report['snippets'][t]=text[max(0,pos-260):min(len(text),pos+len(t)+500)]
+          Path('.diagnostics/public-app/app-report.json').write_text(json.dumps(report,indent=2,ensure_ascii=False))
+          print(json.dumps({'size_bytes':report['size_bytes'],'api_paths':report['api_paths'],'term_hits':report['term_hits']},indent=2,ensure_ascii=False))
           PY
+          rm -f .diagnostics/public-app/app.js
 
-      - name: Commit public-app inspection to test branch
+      - name: Commit app.js inspection to test branch
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f .diagnostics/public-app/index.html .diagnostics/public-app/status.txt .diagnostics/public-app/report.json 2>/dev/null || true
-          for f in .diagnostics/public-app/push-sw.js .diagnostics/public-app/sw.js .diagnostics/public-app/manifest.webmanifest; do
-            if [ -f "$f" ]; then git add -f "$f"; fi
-          done
+          git add -f .diagnostics/public-app/app-report.json
           if git diff --cached --quiet; then
             echo "No diagnostic changes"
             exit 0
           fi
-          git commit -m "chore(test): save public app inspection [skip ci]"
+          git commit -m "chore(test): save app.js push inspection [skip ci]"
           git push origin HEAD:test
