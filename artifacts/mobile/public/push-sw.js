@@ -1,8 +1,11 @@
+const TEST_APP_ORIGIN = 'https://rheinschiffer-test.5dbp6h96ch.workers.dev';
+const TEST_APP_HOME = `${TEST_APP_ORIGIN}/#/`;
+
 self.addEventListener('push', (event) => {
   const fallback = {
     title: 'R(h)einschiffer',
     body: 'Neue Benachrichtigung',
-    url: '/',
+    url: TEST_APP_HOME,
   };
 
   let data = fallback;
@@ -27,19 +30,48 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      data: { url: data.url || '/' },
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: data.url || TEST_APP_HOME },
     }),
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = event.notification.data?.url || '/';
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      const existing = clients.find((client) => 'focus' in client);
-      if (existing) return existing.focus();
-      return self.clients.openWindow(target);
-    }),
-  );
+
+  let target = event.notification.data?.url || TEST_APP_HOME;
+  try {
+    const parsed = new URL(target, TEST_APP_ORIGIN);
+    // Diese Test-PWA darf Push-Klicks ausschließlich ins aktuelle Testsystem führen.
+    target = parsed.origin === TEST_APP_ORIGIN ? parsed.href : TEST_APP_HOME;
+  } catch {
+    target = TEST_APP_HOME;
+  }
+
+  event.waitUntil((async () => {
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+
+    // Nur ein Fenster derselben aktuellen Test-Origin wiederverwenden.
+    const existing = clients.find((client) => {
+      try {
+        return new URL(client.url).origin === TEST_APP_ORIGIN;
+      } catch {
+        return false;
+      }
+    });
+
+    if (existing) {
+      if ('navigate' in existing && existing.url !== target) {
+        try {
+          await existing.navigate(target);
+        } catch {
+          // Falls Navigation nicht möglich ist, wenigstens das aktuelle Testfenster fokussieren.
+        }
+      }
+      if ('focus' in existing) return existing.focus();
+    }
+
+    return self.clients.openWindow(target);
+  })());
 });
