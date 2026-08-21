@@ -1,0 +1,75 @@
+{
+  "id": "710d71cf-25fc-473a-b856-0e32c86b7827",
+  "number": 97,
+  "metadata": {
+    "created_on": "2026-08-21T14:24:53.426194Z",
+    "source": "wrangler",
+    "author_id": "9cdb823fc019081cd4a5cdd92c94e7a7",
+    "author_email": "",
+    "has_preview": true
+  },
+  "annotations": {
+    "workers/triggered_by": "version_upload"
+  },
+  "resources": {
+    "script": {
+      "etag": "4b5412ec81bb1b813836166d2508d72bf066c29fcc10e2eb9ced19989f690a2e",
+      "handlers": [
+        "fetch",
+        "scheduled"
+      ],
+      "last_deployed_from": "wrangler"
+    },
+    "script_runtime": {
+      "assets": {
+        "static_routing": {
+          "user_worker": [
+            "/api/*"
+          ]
+        },
+        "serve_directly": true,
+        "raw_run_worker_first": [
+          "/api/*"
+        ]
+      },
+      "compatibility_date": "2026-08-19",
+      "compatibility_flags": [
+        "nodejs_compat"
+      ],
+      "usage_model": "standard"
+    },
+    "bindings": [
+      {
+        "name": "APP_ENV",
+        "text": "test",
+        "type": "plain_text"
+      },
+      {
+        "name": "ASSETS",
+        "type": "assets"
+      },
+      {
+        "database_id": "51255b8b-b4f6-48f4-b630-82093749ea3a",
+        "id": "51255b8b-b4f6-48f4-b630-82093749ea3a",
+        "name": "DB",
+        "type": "d1"
+      },
+      {
+        "name": "SMTP_PASSWORD",
+        "type": "secret_text"
+      },
+      {
+        "name": "VAPID_PRIVATE_KEY",
+        "type": "secret_text"
+      },
+      {
+        "name": "VAPID_PUBLIC_KEY",
+        "type": "secret_text"
+      },
+      {
+        "name": "VAPID_SUBJECT",
+        "type": "secret_text"
+      }
+    ]
+  }
+}
