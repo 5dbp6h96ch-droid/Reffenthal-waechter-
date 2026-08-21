@@ -32,26 +32,76 @@ jobs:
         with:
           node-version: 24
 
-      - name: Read Cloudflare Worker version details
+      - name: Inspect active Worker script content safely
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           mkdir -p .diagnostics
-          npx --yes wrangler@latest versions view 710d71cf-25fc-473a-b856-0e32c86b7827 --name rheinschiffer-test --json > .diagnostics/worker-version-710d71cf-full.json
-          cat .diagnostics/worker-version-710d71cf-full.json
+          curl -fsS \
+            -D .diagnostics/worker-content-headers.txt \
+            -o .diagnostics/worker-content.bin \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test/content/v2"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, re
+          body = Path('.diagnostics/worker-content.bin').read_bytes()
+          headers = Path('.diagnostics/worker-content-headers.txt').read_text(errors='replace')
+          ct = ''
+          for line in headers.splitlines():
+              if line.lower().startswith('content-type:'):
+                  ct = line.split(':',1)[1].strip()
+          report = {
+              'size_bytes': len(body),
+              'sha256': hashlib.sha256(body).hexdigest(),
+              'content_type': ct,
+              'multipart_parts': [],
+              'term_hits': {},
+          }
+          boundary = None
+          m = re.search(r'boundary=(?:"([^"]+)"|([^;\s]+))', ct, re.I)
+          if m:
+              boundary = (m.group(1) or m.group(2)).encode()
+          if boundary:
+              for chunk in body.split(b'--'+boundary):
+                  if b'\r\n\r\n' not in chunk:
+                      continue
+                  head, data = chunk.split(b'\r\n\r\n',1)
+                  data = data.rstrip(b'\r\n-')
+                  htxt = head.decode('utf-8','replace')
+                  name = None
+                  filename = None
+                  nm = re.search(r'name="([^"]+)"', htxt)
+                  fm = re.search(r'filename="([^"]+)"', htxt)
+                  if nm: name = nm.group(1)
+                  if fm: filename = fm.group(1)
+                  report['multipart_parts'].append({
+                      'name': name,
+                      'filename': filename,
+                      'size_bytes': len(data),
+                      'sha256': hashlib.sha256(data).hexdigest(),
+                      'headers': [ln for ln in htxt.splitlines() if ln.strip()][:6],
+                  })
+          text = body.decode('utf-8','ignore').lower()
+          for term in ['push', 'vapid', 'einstellungen', 'tankstellen', 'supabase', 'd1', 'hashchange', 'location.hash', 'serviceworker', 'scheduled']:
+              report['term_hits'][term] = text.count(term.lower())
+          Path('.diagnostics/worker-content-report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False))
+          print(json.dumps(report, indent=2, ensure_ascii=False))
+          PY
+          rm -f .diagnostics/worker-content.bin
 
-      - name: Commit inspection result to test branch
+      - name: Commit safe inspection report to test branch
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .diagnostics/worker-version-710d71cf-full.json
+          git add .diagnostics/worker-content-report.json .diagnostics/worker-content-headers.txt
           if git diff --cached --quiet; then
             echo "No diagnostic changes"
             exit 0
           fi
-          git commit -m "chore(test): save full Worker version details [skip ci]"
+          git commit -m "chore(test): save safe Worker content inspection [skip ci]"
           git push origin HEAD:test
