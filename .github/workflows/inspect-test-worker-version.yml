@@ -27,48 +27,23 @@ jobs:
         with:
           ref: test
 
-      - name: Inspect public app.js read-only
+      - name: Snapshot public app.js read-only
         run: |
           set -euo pipefail
           mkdir -p .diagnostics/public-app
           BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
-          curl -fsS \
-            -A 'Mozilla/5.0' \
-            -e "$BASE/" \
-            "$BASE/app.js" \
-            -o .diagnostics/public-app/app.js
-          python3 - <<'PY'
-          from pathlib import Path
-          import re, json, hashlib
-          p=Path('.diagnostics/public-app/app.js')
-          text=p.read_text(errors='replace')
-          terms=['Push deaktivieren','Push-Nachrichten','Persönliche Einstellungen','Tankstellen','serviceWorker','pushManager','Notification','subscribe','unsubscribe','vapid','web_push','/api/']
-          report={
-            'size_bytes':p.stat().st_size,
-            'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),
-            'term_hits':{t:text.count(t) for t in terms},
-            'api_paths':sorted(set(re.findall(r'["\'](/api/[A-Za-z0-9_./?=&:-]+)["\']',text))),
-            'snippets':{}
-          }
-          for t in terms:
-            pos=text.find(t)
-            if pos>=0:
-              report['snippets'][t]=text[max(0,pos-260):min(len(text),pos+len(t)+500)]
-          Path('.diagnostics/public-app/app-report.json').write_text(json.dumps(report,indent=2,ensure_ascii=False))
-          print(json.dumps({'size_bytes':report['size_bytes'],'api_paths':report['api_paths'],'term_hits':report['term_hits']},indent=2,ensure_ascii=False))
-          PY
-          rm -f .diagnostics/public-app/app.js
+          curl -fsS -A 'Mozilla/5.0' -e "$BASE/" "$BASE/app.js" -o .diagnostics/public-app/app.js
 
-      - name: Commit app.js inspection to test branch
+      - name: Commit public app.js snapshot to test branch
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f .diagnostics/public-app/app-report.json
+          git add -f .diagnostics/public-app/app.js
           if git diff --cached --quiet; then
             echo "No diagnostic changes"
             exit 0
           fi
-          git commit -m "chore(test): save app.js push inspection [skip ci]"
+          git commit -m "chore(test): save public app.js snapshot [skip ci]"
           git push origin HEAD:test
