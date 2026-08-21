@@ -83,7 +83,10 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .diagnostics/public-app/index.html .diagnostics/public-app/status.txt .diagnostics/public-app/report.json .diagnostics/public-app/push-sw.js .diagnostics/public-app/sw.js .diagnostics/public-app/manifest.webmanifest 2>/dev/null || true
+          git add -f .diagnostics/public-app/index.html .diagnostics/public-app/status.txt .diagnostics/public-app/report.json 2>/dev/null || true
+          for f in .diagnostics/public-app/push-sw.js .diagnostics/public-app/sw.js .diagnostics/public-app/manifest.webmanifest; do
+            if [ -f "$f" ]; then git add -f "$f"; fi
+          done
           if git diff --cached --quiet; then
             echo "No diagnostic changes"
             exit 0
