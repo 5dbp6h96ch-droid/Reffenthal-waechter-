@@ -1,0 +1,33 @@
+{
+  "index_sha256": "a8a8b30cacc4c4bb245254c37f23b07371460f7a738b95b2ef44e505ca5e5c58",
+  "script_urls": [
+    "https://rheinschiffer-test.5dbp6h96ch.workers.dev/app.js"
+  ],
+  "files": {
+    "https://rheinschiffer-test.5dbp6h96ch.workers.dev/app.js": {
+      "error": "HTTP Error 403: Forbidden"
+    },
+    "sw.js": {
+      "size_bytes": 977,
+      "sha256": "cfddada3002e3b6b7630a2dbd097bc2a8af7badf49a235a849909ff37fed4b10",
+      "term_hits": {
+        "Push deaktivieren": 0,
+        "Push-Nachrichten": 0,
+        "Persönliche Einstellungen": 0,
+        "Tankstellen": 0,
+        "serviceWorker": 0,
+        "pushManager": 0,
+        "Notification": 1,
+        "/api/": 0,
+        "web_push": 0,
+        "vapid": 0,
+        "subscribe": 0,
+        "unsubscribe": 0
+      }
+    }
+  },
+  "api_paths": [],
+  "snippets": {
+    "sw.js": "self.addEventListener('push', event => {\n  let data = {};\n  try { data = event.data ? event.data.json() : {}; } catch { data = { title: 'R(h)einschiffer', body: event.data?.text() || '' }; }\n  const title = data.title || 'R(h)einschiffer';\n  const options = {\n    body: data.body || '',\n    icon: data.icon || '/icons/icon-192.png',\n    badge: data.badge || '/icons/icon-192.png',\n    data: { url: data.url || '/#/pegel' },\n  };\n  event.waitUntil(self.registration.showNotification(title, options));\n});\n\nself.addEventListener('notificationclick', event => {\n  event.notification.close();\n  const url = event.notification?.data?.url || '/#/pegel';\n  event.waitUntil((async () => {\n    const clientsList = await clients.matchAll({ type: 'window', includeUncontrolled: true });\n    for (const client of clientsList) {\n      if ('focus' in client) {\n        await client.navigate(url);\n        return client.focus();\n      }\n    }\n    return clients.openWindow(url);\n  })());\n});\n"
+  }
+}
