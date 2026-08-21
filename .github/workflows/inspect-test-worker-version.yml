@@ -26,42 +26,47 @@ jobs:
         with:
           ref: test
 
-      - name: Inspect push API read-only
+      - name: Inspect push POST validation safely
         run: |
           set -euo pipefail
           mkdir -p .diagnostics/public-app
           BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
-          : > .diagnostics/public-app/push-api-report.txt
-          probe() {
-            method="$1"; path="$2"
-            echo "=== $method $path ===" >> .diagnostics/public-app/push-api-report.txt
-            curl -sS -i -X "$method" \
+          : > .diagnostics/public-app/push-post-validation.txt
+          probe_post() {
+            path="$1"; body="$2"
+            echo "=== POST $path ===" >> .diagnostics/public-app/push-post-validation.txt
+            curl -sS -i -X POST \
               -A 'Mozilla/5.0' \
               -H 'Accept: application/json' \
-              -H 'x-rheinschiffer-device-id: diagnostic-read-only' \
+              -H 'Content-Type: application/json' \
+              -H 'x-rheinschiffer-device-id: diagnostic-invalid-payload' \
+              --data "$body" \
               "$BASE$path" \
               | sed -E 's/^(set-cookie:).*/\1 [redacted]/I' \
-              >> .diagnostics/public-app/push-api-report.txt
-            echo >> .diagnostics/public-app/push-api-report.txt
+              >> .diagnostics/public-app/push-post-validation.txt
+            echo >> .diagnostics/public-app/push-post-validation.txt
           }
-          probe GET /api/push/vapid-public-key
-          probe GET /api/auth/me
-          probe GET /api/settings
-          probe OPTIONS /api/push/subscribe
-          probe GET /api/push/subscribe
-          probe OPTIONS /api/push/unsubscribe
-          probe GET /api/push/unsubscribe
+          probe_post /api/push/subscribe '{}'
+          probe_post /api/push/unsubscribe '{}'
+          echo "=== GET diagnostic settings after invalid POSTs ===" >> .diagnostics/public-app/push-post-validation.txt
+          curl -sS -i \
+            -A 'Mozilla/5.0' \
+            -H 'Accept: application/json' \
+            -H 'x-rheinschiffer-device-id: diagnostic-invalid-payload' \
+            "$BASE/api/settings" \
+            | sed -E 's/^(set-cookie:).*/\1 [redacted]/I' \
+            >> .diagnostics/public-app/push-post-validation.txt
 
-      - name: Commit push API inspection to test branch
+      - name: Commit push POST validation to test branch
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f .diagnostics/public-app/push-api-report.txt
+          git add -f .diagnostics/public-app/push-post-validation.txt
           if git diff --cached --quiet; then
             echo "No diagnostic changes"
             exit 0
           fi
-          git commit -m "chore(test): save read-only push API inspection [skip ci]"
+          git commit -m "chore(test): save push POST validation diagnostics [skip ci]"
           git push origin HEAD:test
