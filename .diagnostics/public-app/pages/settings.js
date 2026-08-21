@@ -12,6 +12,25 @@ async function getPushState() {
   return { supported: true, reg, subscription };
 }
 
+async function syncExistingPushSubscription(ctx, pushState) {
+  if (!pushState?.supported || !pushState.subscription) return { synced: false, error: null };
+  try {
+    await ctx.api('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        subscription: pushState.subscription.toJSON(),
+        selectedGaugeId: ctx.state.selected?.id ?? null,
+        thresholdCm: ctx.state.threshold,
+      }),
+    });
+    if (!ctx.state.pushEnabled) await ctx.savePersistentSettings({ push_enabled: true });
+    return { synced: true, error: null };
+  } catch (error) {
+    return { synced: false, error: error?.message || String(error) };
+  }
+}
+
 function sourceRows(items,type){
   if(!items.length) return '<div class="empty">Keine Quellen vorhanden.</div>';
   return items.map(item=>`<label class="settings-row"><span>${item.name}</span><input class="source-toggle" type="checkbox" data-type="${type}" data-id="${item.id}" ${item.enabled?'checked':''}></label>`).join('');
@@ -29,6 +48,7 @@ export async function renderSettings(ctx) {
     getPushState().catch(() => ({ supported: false, subscription: null })),
     ctx.api('/api/preferences/sources').catch(()=>({fuel_stations:[]})),
   ]);
+  const pushSync = await syncExistingPushSubscription(ctx, push);
   const currentThreshold = Number(ctx.state.threshold || 225);
 
   ctx.app.innerHTML = `
@@ -48,7 +68,7 @@ export async function renderSettings(ctx) {
 
       <div class="settings-row"><span>Push-Nachrichten</span><strong>${!push.supported ? 'Nicht unterstützt' : push.subscription ? 'Aktiv' : 'Inaktiv'}</strong></div>
       ${push.supported ? `<button id="push-toggle" class="control" type="button">${push.subscription ? 'Push deaktivieren' : 'Push aktivieren'}</button>` : ''}
-      <div id="settings-status" class="gauge-meta" style="margin-top:10px"></div>
+      <div id="settings-status" class="gauge-meta" style="margin-top:10px">${pushSync.error ? `Push-Synchronisierung fehlgeschlagen: ${ctx.esc(pushSync.error)}` : ''}</div>
     </section>
 
     <section class="card">
@@ -65,7 +85,12 @@ export async function renderSettings(ctx) {
     const value = Math.max(0, Math.min(1500, Number(event.target.value) || 225));
     ctx.state.threshold = value;
     localStorage.setItem('threshold_cm', String(value));
-    try { await ctx.savePersistentSettings(); status.textContent = 'Warnschwelle gespeichert.'; }
+    try {
+      await ctx.savePersistentSettings();
+      const currentPush = await getPushState().catch(() => null);
+      if (currentPush?.subscription) await syncExistingPushSubscription(ctx, currentPush);
+      status.textContent = 'Warnschwelle gespeichert.';
+    }
     catch (error) { status.textContent = error.message || String(error); }
   });
 
