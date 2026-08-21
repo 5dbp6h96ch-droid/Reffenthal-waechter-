@@ -10,3 +10,4 @@ Force-add public app diagnostics.
 Inspect active app.js push logic read-only.
 Snapshot active public app.js.
 Snapshot active public settings.js.
+Inspect push API read-only.
