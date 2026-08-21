@@ -1,1 +1,2 @@
 Trigger read-only inspection of Cloudflare Worker version 710d71cf.
+Retry with Node 24.
