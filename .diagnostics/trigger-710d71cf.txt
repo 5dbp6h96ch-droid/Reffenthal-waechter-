@@ -4,3 +4,4 @@ Resolve full version ID from versions list.
 Inspect full version details.
 Inspect active Worker script structure safely.
 Inspect active Worker download safely.
+Inspect D1 metadata and schema read-only.
