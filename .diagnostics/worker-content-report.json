@@ -1,0 +1,18 @@
+{
+  "size_bytes": 0,
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "content_type": "",
+  "multipart_parts": [],
+  "term_hits": {
+    "push": 0,
+    "vapid": 0,
+    "einstellungen": 0,
+    "tankstellen": 0,
+    "supabase": 0,
+    "d1": 0,
+    "hashchange": 0,
+    "location.hash": 0,
+    "serviceworker": 0,
+    "scheduled": 0
+  }
+}
