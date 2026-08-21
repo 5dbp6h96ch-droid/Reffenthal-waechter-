@@ -85,9 +85,8 @@ Deno.serve(async (req) => {
     if (!payload.event_type || !payload.title || !payload.body) {
       return json({ error: "event_type, title and body are required" }, 400);
     }
-
-    if (payload.event_type === "threshold_crossed" && !payload.gauge_id) {
-      return json({ error: "gauge_id is required for threshold_crossed" }, 400);
+    if ((payload.event_type === "threshold_crossed" || payload.event_type === "gauge_change") && !payload.gauge_id) {
+      return json({ error: "gauge_id is required for gauge events" }, 400);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -109,53 +108,48 @@ Deno.serve(async (req) => {
       .select("id, user_id, endpoint, p256dh, auth");
     if (subError) throw subError;
 
-    let targets = subscriptions ?? [];
+    const allSubscriptions = subscriptions ?? [];
+    const userIds = [...new Set(allSubscriptions.map((sub) => sub.user_id))];
+    let userSettings: Array<{ user_id: string; selected_gauge_id: string | null; push_enabled: boolean }> = [];
+    if (userIds.length > 0) {
+      const { data, error } = await admin
+        .from("user_settings")
+        .select("user_id, selected_gauge_id, push_enabled")
+        .in("user_id", userIds);
+      if (error) throw error;
+      userSettings = data ?? [];
+    }
+
+    const settingsByUser = new Map(userSettings.map((row) => [row.user_id, row]));
+    let targets = allSubscriptions.filter((sub) => settingsByUser.get(sub.user_id)?.push_enabled === true);
     const thresholdByUser = new Map<string, number>();
 
+    // Pegeländerungen gehören nur zum aktuell gewählten Pegel des Nutzers.
+    if (payload.event_type === "gauge_change") {
+      targets = targets.filter((sub) =>
+        settingsByUser.get(sub.user_id)?.selected_gauge_id === payload.gauge_id
+      );
+    }
+
     if (payload.event_type === "threshold_crossed") {
-      const userIds = [...new Set((subscriptions ?? []).map((sub) => sub.user_id))];
-
-      // user_settings existiert nicht in jedem Projekt (z.B. Test): dann
-      // wird der "gewählter Pegel"-Filter übersprungen statt mit 500 zu
-      // scheitern – alert_enabled je Pegel filtert weiterhin.
-      let selectedFilterActive = true;
-      const { data: userSettings, error: userSettingsError } = await admin
-        .from("user_settings")
-        .select("user_id, selected_gauge_id")
-        .in("user_id", userIds);
-      if (userSettingsError) {
-        // Nur bei "Tabelle existiert nicht" (PostgREST PGRST205 / Postgres 42P01)
-        // ausweichen; alle anderen Fehler bleiben harte Fehler (fail closed).
-        const code = (userSettingsError as { code?: string }).code ?? "";
-        const missingTable = code === "PGRST205" || code === "42P01" ||
-          /relation .* does not exist|Could not find the table/i.test(userSettingsError.message ?? "");
-        if (!missingTable) throw userSettingsError;
-        console.warn("[send-event-push] user_settings-Tabelle fehlt – Filter übersprungen", userSettingsError);
-        selectedFilterActive = false;
-      }
-
       const { data: gaugeSettings, error: settingsError } = await admin
         .from("user_gauge_settings")
         .select("user_id, gauge_id, alert_enabled, alert_threshold_cm")
         .eq("gauge_id", payload.gauge_id!);
       if (settingsError) throw settingsError;
 
-      const selectedByUser = new Map((userSettings ?? []).map((row) => [row.user_id, row]));
       const alertByUser = new Map((gaugeSettings ?? []).map((row) => [row.user_id, row]));
-
       targets = targets.filter((sub) => {
-        const selected = selectedByUser.get(sub.user_id);
+        const selected = settingsByUser.get(sub.user_id);
         const setting = alertByUser.get(sub.user_id);
 
-        // A threshold warning is sent only for the gauge the user currently selected.
-        if (selectedFilterActive && (!selected || selected.selected_gauge_id !== payload.gauge_id)) return false;
+        if (!selected || selected.selected_gauge_id !== payload.gauge_id) return false;
         if (!setting?.alert_enabled) return false;
 
         const threshold = Number(setting.alert_threshold_cm ?? payload.threshold_cm ?? 225);
         if (payload.current_cm === undefined || payload.current_cm >= threshold) return false;
         if (payload.previous_cm !== undefined && payload.previous_cm < threshold) return false;
 
-        // Each user can have a different threshold for the same selected gauge.
         thresholdByUser.set(sub.user_id, threshold);
         return true;
       });
