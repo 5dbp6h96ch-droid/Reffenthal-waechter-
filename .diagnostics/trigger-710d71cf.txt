@@ -2,3 +2,4 @@ Trigger read-only inspection of Cloudflare Worker version 710d71cf.
 Retry with Node 24.
 Resolve full version ID from versions list.
 Inspect full version details.
+Inspect active Worker script structure safely.
