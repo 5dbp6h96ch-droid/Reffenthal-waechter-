@@ -27,23 +27,23 @@ jobs:
         with:
           ref: test
 
-      - name: Snapshot public app.js read-only
+      - name: Snapshot public settings.js read-only
         run: |
           set -euo pipefail
-          mkdir -p .diagnostics/public-app
+          mkdir -p .diagnostics/public-app/pages
           BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
-          curl -fsS -A 'Mozilla/5.0' -e "$BASE/" "$BASE/app.js" -o .diagnostics/public-app/app.js
+          curl -fsS -A 'Mozilla/5.0' -e "$BASE/" "$BASE/pages/settings.js" -o .diagnostics/public-app/pages/settings.js
 
-      - name: Commit public app.js snapshot to test branch
+      - name: Commit settings.js snapshot to test branch
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f .diagnostics/public-app/app.js
+          git add -f .diagnostics/public-app/pages/settings.js
           if git diff --cached --quiet; then
             echo "No diagnostic changes"
             exit 0
           fi
-          git commit -m "chore(test): save public app.js snapshot [skip ci]"
+          git commit -m "chore(test): save public settings.js snapshot [skip ci]"
           git push origin HEAD:test
