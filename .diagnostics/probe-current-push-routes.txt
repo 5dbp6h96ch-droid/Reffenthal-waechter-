@@ -1,1 +1,1 @@
-Trigger read-only probe of current D1 Worker push test routes. No POST requests. No deployment.
+Trigger read-only probe of current D1 Worker push status/subscription routes. GET/OPTIONS only. No deployment.
