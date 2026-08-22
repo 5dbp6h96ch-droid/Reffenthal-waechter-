@@ -63,7 +63,9 @@ export function useWebPushPrompt() {
   }, []);
 
   const activate = useCallback(async () => {
-    if (status === 'activating' || status === 'active') return;
+    // Auch bei bereits vorhandener Browser-Subscription erneut synchronisieren
+    // und den Bestätigungs-Push senden. Nur parallele Aktivierungen blockieren.
+    if (status === 'activating') return;
     setStatus('activating');
     try {
       if (Platform.OS !== 'web' || typeof window === 'undefined') {
