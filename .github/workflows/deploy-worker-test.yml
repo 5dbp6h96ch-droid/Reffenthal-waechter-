@@ -1,4 +1,5 @@
 name: Deploy NEW test to Cloudflare Worker
+run-name: Deploy rheinschiffer-test Worker from test
 
 on:
   workflow_dispatch:
