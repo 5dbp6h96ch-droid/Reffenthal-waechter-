@@ -1,0 +1,79 @@
+name: Deploy NEW test to Cloudflare Worker
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test
+    paths:
+      - 'artifacts/mobile/**'
+      - 'lib/api-client-react/**'
+      - '.github/workflows/deploy-worker-test.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rheinschiffer-new-test-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy-new-test-worker:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Checkout test branch
+        uses: actions/checkout@v4
+
+      - name: Guard production and target
+        shell: bash
+        run: |
+          test "${GITHUB_REF_NAME}" = "test"
+          test "rheinschiffer-test" != "rheinschiffer"
+          echo "Target locked to NEW test Worker: rheinschiffer-test"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build web app for TEST Supabase
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_KEY }}
+        run: |
+          cd artifacts/mobile
+          pnpm exec expo export --platform web --output-dir dist
+
+      - name: Install PWA and push files
+        shell: bash
+        run: |
+          DIST=artifacts/mobile/dist
+          VERSION=$(git rev-parse --short HEAD)
+          sed "s/__CACHE_VERSION__/${VERSION}/g" artifacts/mobile/sw-template.js > "$DIST/sw.js"
+          cp artifacts/mobile/public/push-sw.js "$DIST/push-sw.js"
+          cp artifacts/mobile/public/icon-192.png "$DIST/icon-192.png"
+          cp artifacts/mobile/public/icon-512.png "$DIST/icon-512.png"
+          cp artifacts/mobile/public/apple-touch-icon.png "$DIST/apple-touch-icon.png"
+          cp artifacts/mobile/public/favicon.png "$DIST/favicon.png"
+          cp artifacts/mobile/public/manifest.webmanifest "$DIST/manifest.webmanifest"
+          cp artifacts/mobile/public/leaflet.css "$DIST/leaflet.css"
+          echo "Prepared NEW test Worker build at commit $VERSION"
+
+      - name: Deploy ONLY rheinschiffer-test Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@latest deploy \
+            --assets artifacts/mobile/dist \
+            --name rheinschiffer-test \
+            --compatibility-date 2026-08-22
