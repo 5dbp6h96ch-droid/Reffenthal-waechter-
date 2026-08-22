@@ -35,8 +35,9 @@ async function waitForActiveServiceWorker(registration: ServiceWorkerRegistratio
 export function useWebPushPrompt() {
   const [status, setStatus] = useState<'idle' | 'activating' | 'active'>('idle');
 
-  // Beim erneuten Öffnen der App den bereits vorhandenen Browser-Push erkennen.
-  // Die Push-Subscription lebt unabhängig vom React-State weiter.
+  // TEST: Eine vorhandene Browser-Subscription wird erkannt, aber der Button bleibt
+  // bewusst erneut aktivierbar. So wird sie bei jedem Testlauf mit Test-Supabase
+  // synchronisiert und send-test-push wird tatsächlich aufgerufen.
   useEffect(() => {
     let cancelled = false;
 
@@ -50,9 +51,13 @@ export function useWebPushPrompt() {
         const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
         const activeRegistration = await waitForActiveServiceWorker(registration);
         const existing = await activeRegistration.pushManager.getSubscription();
-        if (existing && !cancelled) setStatus('active');
+        if (existing && !cancelled) {
+          // Nicht auf "active" setzen: Der bestehende UI-Button wäre sonst disabled
+          // und könnte weder resynchronisieren noch einen Test-Push auslösen.
+          setStatus('idle');
+        }
       } catch (error) {
-        console.warn('[WebPush] Vorhandene Subscription konnte nicht wiederhergestellt werden:', error);
+        console.warn('[WebPush] Vorhandene Subscription konnte nicht geprüft werden:', error);
       }
     };
 
@@ -63,7 +68,7 @@ export function useWebPushPrompt() {
   }, []);
 
   const activate = useCallback(async () => {
-    if (status === 'activating' || status === 'active') return;
+    if (status === 'activating') return;
     setStatus('activating');
     try {
       if (Platform.OS !== 'web' || typeof window === 'undefined') {
@@ -101,14 +106,24 @@ export function useWebPushPrompt() {
         throw new Error('Push-Subscription ist unvollständig.');
       }
 
+      const now = new Date().toISOString();
       const { error: saveError } = await supabase.from('web_push_subscriptions').upsert({
         user_id: currentUserId,
         endpoint: json.endpoint,
         p256dh: json.keys.p256dh,
         auth: json.keys.auth,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       }, { onConflict: 'endpoint' });
       if (saveError) throw saveError;
+
+      // Push-Status ebenfalls serverseitig synchronisieren. Dadurch lässt sich im
+      // Test-Supabase eindeutig erkennen, dass der aktuelle Test-Build geschrieben hat.
+      const { error: settingsError } = await supabase.from('user_settings').upsert({
+        user_id: currentUserId,
+        push_enabled: true,
+        updated_at: now,
+      }, { onConflict: 'user_id' });
+      if (settingsError) throw settingsError;
 
       const { error: testError } = await supabase.functions.invoke('send-test-push');
       if (testError) throw testError;
