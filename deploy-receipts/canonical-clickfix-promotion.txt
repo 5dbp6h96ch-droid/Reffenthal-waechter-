@@ -1,0 +1,7 @@
+target=worker:rheinschiffer-test
+result=ok
+before_version=f2acaa6f-b4ce-4fb0-8302-9f56be3294c8
+after_version=334fd94b-83bd-4506-84ee-c689ed12b6bb
+smoke=yes
+deployed_at=2026-08-23T09:49:18Z
+source_commit=96a87a3daaeb59218029aacff21fbad5ffddf06f
