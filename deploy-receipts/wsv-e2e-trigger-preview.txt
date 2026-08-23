@@ -1,8 +1,33 @@
-checked_at=2026-08-23T09:57:23Z
-version=dd5ed2ac-3ce9-4f7a-9f38-a3d3eebd979d
-preview=https://dd5ed2ac-rheinschiffer-test.5dbp6h96ch.workers.dev
-preview_result=ok
-auth_gate=401
-self_test=ok
-clickfix=ok
-wsv_test_button=ok
+checked_at=2026-08-23T09:58:15Z
+result=ok
+source=success
+upload=success
+preview_step=success
+version=b3f5fcfe-c0f5-4a4f-b87f-1cf10a618318
+preview=https://b3f5fcfe-rheinschiffer-test.5dbp6h96ch.workers.dev
+dry_tail:
+Binding                                                 Resource                  
+env.DB (51255b8b-b4f6-48f4-b630-82093749ea3a)           D1 Database               
+env.ASSETS                                              Assets                    
+env.APP_ENV ("test")                                    Environment Variable      
+
+--dry-run: exiting now.
+
+Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+upload_tail:
+Binding                                                 Resource                  
+env.DB (51255b8b-b4f6-48f4-b630-82093749ea3a)           D1 Database               
+env.ASSETS                                              Assets                    
+env.APP_ENV ("test")                                    Environment Variable      
+
+Uploaded rheinschiffer-test (1.92 sec)
+Worker Version ID: b3f5fcfe-c0f5-4a4f-b87f-1cf10a618318
+Version Preview URL: https://b3f5fcfe-rheinschiffer-test.5dbp6h96ch.workers.dev
+
+To deploy this version to production traffic use the command wrangler versions deploy
+
+Changes to non-versioned settings (config properties 'logpush' or 'tail_consumers') take effect after your next deployment using the command wrangler versions deploy
+
+Changes to triggers (routes, custom domains, cron schedules, etc) must be applied with the command wrangler triggers deploy
+
+auth_body={"ok":false,"error":"Unauthorized"}
