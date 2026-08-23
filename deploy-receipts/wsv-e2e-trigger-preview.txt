@@ -1,0 +1,8 @@
+checked_at=2026-08-23T09:57:23Z
+version=dd5ed2ac-3ce9-4f7a-9f38-a3d3eebd979d
+preview=https://dd5ed2ac-rheinschiffer-test.5dbp6h96ch.workers.dev
+preview_result=ok
+auth_gate=401
+self_test=ok
+clickfix=ok
+wsv_test_button=ok
