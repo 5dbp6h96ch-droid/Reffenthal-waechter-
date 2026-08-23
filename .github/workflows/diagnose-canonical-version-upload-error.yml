@@ -26,7 +26,7 @@ jobs:
         run: |
           set +e
           cd canonical-test-worker
-          npx --yes wrangler@4 versions upload --config wrangler.jsonc --tag ios-pwa-clickfix-v1 --message 'TEST only: canonical iOS PWA click fix' >/tmp/upload.log 2>&1
+          npx --yes wrangler@4 versions upload --config wrangler.jsonc --tag ios-pwa-clickfix-v2 --message 'TEST only: canonical iOS PWA click fix with matched asset routing' >/tmp/upload.log 2>&1
           RC=$?
           echo "rc=$RC" >> "$GITHUB_OUTPUT"
           exit 0
@@ -55,4 +55,4 @@ jobs:
           else
             gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Diagnose canonical Worker upload error detail' -f content="$CONTENT" -f branch=test
           fi
-      # rerun after required-secret alignment
+      # rerun after matching asset routing
