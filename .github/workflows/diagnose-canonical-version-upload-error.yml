@@ -55,3 +55,4 @@ jobs:
           else
             gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Diagnose canonical Worker upload error detail' -f content="$CONTENT" -f branch=test
           fi
+      # rerun after required-secret alignment
