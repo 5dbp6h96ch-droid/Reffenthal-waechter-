@@ -17,27 +17,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Query safe push subscription diagnostics
+        id: query
+        continue-on-error: true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
           DB='51255b8b-b4f6-48f4-b630-82093749ea3a'
           URL="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database/${DB}/query"
           SQL="SELECT COUNT(*) AS total, SUM(CASE WHEN enabled=1 THEN 1 ELSE 0 END) AS enabled_count, COUNT(DISTINCT CASE WHEN enabled=1 THEN user_id END) AS enabled_users, MAX(updated_at) AS latest_update FROM push_subscriptions;"
           jq -n --arg sql "$SQL" '{sql:$sql}' > /tmp/query.json
-          curl -fsS -X POST "$URL" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H 'Content-Type: application/json' --data-binary @/tmp/query.json > /tmp/result.json
-          jq -e '.success==true' /tmp/result.json >/dev/null
-          jq -r '.result[0].results[0] | "total=" + (.total|tostring), "enabled_count=" + (.enabled_count|tostring), "enabled_users=" + (.enabled_users|tostring), "latest_update=" + ((.latest_update // "")|tostring)' /tmp/result.json > /tmp/receipt.txt
+          HTTP=$(curl -sS -o /tmp/result.json -w '%{http_code}' -X POST "$URL" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H 'Content-Type: application/json' --data-binary @/tmp/query.json)
+          RC=$?
+          SUCCESS=$(jq -r '.success // false' /tmp/result.json 2>/dev/null)
+          {
+            echo "http=$HTTP"
+            echo "curl_exit=$RC"
+            echo "api_success=$SUCCESS"
+          } > /tmp/receipt.txt
+          if [ "$RC" -eq 0 ] && [ "$HTTP" = 200 ] && [ "$SUCCESS" = true ]; then
+            jq -r '.result[0].results[0] | "total=" + (.total|tostring), "enabled_count=" + (.enabled_count|tostring), "enabled_users=" + (.enabled_users|tostring), "latest_update=" + ((.latest_update // "")|tostring)' /tmp/result.json >> /tmp/receipt.txt
+            echo 'query_result=ok' >> /tmp/receipt.txt
+          else
+            echo 'query_result=fail' >> /tmp/receipt.txt
+            jq -r '[.errors[]?.code,.errors[]?.message] | map(select(.!=null)) | join(" | ")' /tmp/result.json 2>/dev/null | head -c 500 >> /tmp/receipt.txt
+            echo >> /tmp/receipt.txt
+          fi
+          exit 0
       - name: Record receipt
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          { echo "checked_at=$TS"; cat /tmp/receipt.txt; } > /tmp/final.txt
+          { echo "checked_at=$TS"; cat /tmp/receipt.txt 2>/dev/null || echo 'query_result=missing'; } > /tmp/final.txt
           CONTENT=$(base64 -w0 /tmp/final.txt)
           PATH_NAME='deploy-receipts/canonical-test-push-d1.txt'
           CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
