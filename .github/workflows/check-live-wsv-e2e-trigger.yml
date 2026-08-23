@@ -1,0 +1,55 @@
+name: Check live WSV E2E trigger state
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - '.github/workflows/check-live-wsv-e2e-trigger.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read live state only
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test/deployments"
+          curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$API" > /tmp/dep.json
+          ACTIVE=$(jq -r '.result.deployments[0].versions[0].version_id // ""' /tmp/dep.json)
+          curl -fsSL "$BASE/pages/settings.js" -o /tmp/settings
+          curl -fsSL "$BASE/sw.js" -o /tmp/sw
+          AUTH_HTTP=$(curl -sSL -o /tmp/authbody -w '%{http_code}' -X POST "$BASE/api/test/push-wsv")
+          {
+            echo "active_version=$ACTIVE"
+            echo "settings_button=$(grep -q 'id=\"wsv-test-push\"' /tmp/settings && echo yes || echo no)"
+            echo "settings_endpoint=$(grep -q \"ctx.api('/api/test/push-wsv'\" /tmp/settings && echo yes || echo no)"
+            echo "sw_clickfix=$(grep -q 'appClient.navigate(targetUrl)' /tmp/sw && echo yes || echo no)"
+            echo "unauth_http=$AUTH_HTTP"
+            echo "unauth_body=$(jq -c . /tmp/authbody 2>/dev/null || true)"
+          } > /tmp/state.txt
+      - name: Record state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          { echo "checked_at=$TS"; cat /tmp/state.txt; } > /tmp/final.txt
+          CONTENT=$(base64 -w0 /tmp/final.txt)
+          PATH_NAME='deploy-receipts/live-wsv-e2e-trigger-state.txt'
+          CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Check live WSV E2E trigger state' -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Check live WSV E2E trigger state' -f content="$CONTENT" -f branch=test
+          fi
