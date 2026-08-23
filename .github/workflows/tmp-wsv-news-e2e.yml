@@ -1,0 +1,25 @@
+name: Temporary WSV News Push E2E
+
+on:
+  push:
+    branches:
+      - tmp/gauge-alert-speyer-e2e-2026-08-23-run2
+    paths:
+      - '.github/workflows/tmp-wsv-news-e2e.yml'
+      - 'artifacts/.wsv-news-e2e-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  wsv-push-test:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Send WSV news test push
+        run: |
+          curl --fail-with-body -sS -X POST \
+            "https://azssnqabyefqplnoehty.supabase.co/functions/v1/send-event-push" \
+            -H "Content-Type: application/json" \
+            -H "apikey: ${{ secrets.SUPABASE_SECRET_KEY }}" \
+            --data '{"event_type":"wsv_news","title":"Neue WSV-Meldung","body":"TEST – WSV-Meldung im Testsystem","url":"#/news"}'
