@@ -1,0 +1,41 @@
+target=worker:rheinschiffer-test
+confirmed_good_version=57cd69f3-d291-465f-b451-dbd8b4e46c88
+inspected_at=2026-08-23T09:00:15Z
+{
+  "version": "57cd69f3-d291-465f-b451-dbd8b4e46c88",
+  "alias": "clickfix",
+  "source": "wrangler",
+  "resources_type": "object",
+  "resources_keys": [
+    "bindings",
+    "script",
+    "script_runtime"
+  ],
+  "resources_length": 3,
+  "resource_structure": [
+    {
+      "key": "script",
+      "value_type": "object",
+      "value_keys": [
+        "etag",
+        "handlers",
+        "last_deployed_from"
+      ]
+    },
+    {
+      "key": "script_runtime",
+      "value_type": "object",
+      "value_keys": [
+        "assets",
+        "compatibility_date",
+        "compatibility_flags",
+        "usage_model"
+      ]
+    },
+    {
+      "key": "bindings",
+      "value_type": "array",
+      "value_keys": []
+    }
+  ]
+}
