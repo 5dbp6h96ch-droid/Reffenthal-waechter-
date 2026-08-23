@@ -1,0 +1,108 @@
+name: Promote verified canonical test clickfix
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - '.github/workflows/promote-canonical-test-clickfix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Safety gate
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_BEFORE='f2acaa6f-b4ce-4fb0-8302-9f56be3294c8'
+          TARGET='334fd94b-83bd-4506-84ee-c689ed12b6bb'
+          grep -q "preview_version=$TARGET" deploy-receipts/canonical-preview-verification.txt
+          grep -q 'preview_result=yes' deploy-receipts/canonical-preview-verification.txt
+          grep -q 'app_match=yes' deploy-receipts/canonical-preview-verification.txt
+          grep -q 'sw_clickfix=yes' deploy-receipts/canonical-preview-verification.txt
+          grep -q 'manifest=yes' deploy-receipts/canonical-preview-verification.txt
+          grep -q 'vapid=yes' deploy-receipts/canonical-preview-verification.txt
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test/deployments"
+          curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$API" > /tmp/before.json
+          jq -e '.success==true' /tmp/before.json >/dev/null
+          ACTIVE=$(jq -r '.result.deployments[0].versions[0].version_id // ""' /tmp/before.json)
+          test "$ACTIVE" = "$EXPECTED_BEFORE"
+          echo "before=$ACTIVE" >> "$GITHUB_ENV"
+          echo "target=$TARGET" >> "$GITHUB_ENV"
+      - name: Promote verified version to test traffic
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4 versions deploy "${target}@100%" --name rheinschiffer-test --message 'TEST only: verified iOS PWA push click fix' -y --config canonical-test-worker/wrangler.jsonc
+      - name: Live smoke test
+        id: smoke
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
+          PASS=no
+          for attempt in 1 2 3 4 5 6; do
+            curl -fsSL "$BASE/" -o /tmp/index 2>/dev/null || true
+            curl -fsSL "$BASE/app.js" -o /tmp/app 2>/dev/null || true
+            curl -fsSL "$BASE/sw.js" -o /tmp/sw 2>/dev/null || true
+            curl -fsSL "$BASE/manifest.webmanifest" -o /tmp/manifest 2>/dev/null || true
+            curl -fsSL "$BASE/api/push/vapid-public-key" -o /tmp/vapid 2>/dev/null || true
+            if [ "$(sha256sum /tmp/app 2>/dev/null | awk '{print $1}')" = '45c6acbb3057204d18bd76a9a58db53262004edd4cb789e0540048e96e227ff8' ] \
+              && grep -q 'rel="manifest" href="/manifest.webmanifest"' /tmp/index 2>/dev/null \
+              && grep -q "clients.matchAll({ type: 'window', includeUncontrolled: true })" /tmp/sw 2>/dev/null \
+              && grep -q 'appClient.navigate(targetUrl)' /tmp/sw 2>/dev/null \
+              && jq -e '.id=="/" and .scope=="/" and .display=="standalone"' /tmp/manifest >/dev/null 2>&1 \
+              && jq -e '.configured==true and (.publicKey|type=="string")' /tmp/vapid >/dev/null 2>&1; then
+              PASS=yes
+              break
+            fi
+            sleep 8
+          done
+          echo "result=$PASS" >> "$GITHUB_OUTPUT"
+          [ "$PASS" = yes ]
+          exit $?
+      - name: Roll back automatically on smoke failure
+        if: steps.smoke.outputs.result != 'yes'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4 versions deploy "${before}@100%" --name rheinschiffer-test --message 'Automatic rollback after failed verified clickfix smoke test' -y --config canonical-test-worker/wrangler.jsonc
+          exit 1
+      - name: Verify target active and record receipt
+        if: steps.smoke.outputs.result == 'yes'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test/deployments"
+          curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$API" > /tmp/after.json
+          ACTIVE=$(jq -r '.result.deployments[0].versions[0].version_id // ""' /tmp/after.json)
+          test "$ACTIVE" = "$target"
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          CONTENT=$(printf 'target=worker:rheinschiffer-test\nresult=ok\nbefore_version=%s\nafter_version=%s\nsmoke=yes\ndeployed_at=%s\nsource_commit=%s\n' "$before" "$ACTIVE" "$TS" "$GITHUB_SHA" | base64 -w0)
+          PATH_NAME='deploy-receipts/canonical-clickfix-promotion.txt'
+          CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Promote verified canonical clickfix to test' -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Promote verified canonical clickfix to test' -f content="$CONTENT" -f branch=test
+          fi
