@@ -1,0 +1,48 @@
+name: Inspect canonical test push D1
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - '.github/workflows/inspect-canonical-test-push-d1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Query safe push subscription diagnostics
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          DB='51255b8b-b4f6-48f4-b630-82093749ea3a'
+          URL="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database/${DB}/query"
+          SQL="SELECT COUNT(*) AS total, SUM(CASE WHEN enabled=1 THEN 1 ELSE 0 END) AS enabled_count, COUNT(DISTINCT CASE WHEN enabled=1 THEN user_id END) AS enabled_users, MAX(updated_at) AS latest_update FROM push_subscriptions;"
+          jq -n --arg sql "$SQL" '{sql:$sql}' > /tmp/query.json
+          curl -fsS -X POST "$URL" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H 'Content-Type: application/json' --data-binary @/tmp/query.json > /tmp/result.json
+          jq -e '.success==true' /tmp/result.json >/dev/null
+          jq -r '.result[0].results[0] | "total=" + (.total|tostring), "enabled_count=" + (.enabled_count|tostring), "enabled_users=" + (.enabled_users|tostring), "latest_update=" + ((.latest_update // "")|tostring)' /tmp/result.json > /tmp/receipt.txt
+      - name: Record receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          { echo "checked_at=$TS"; cat /tmp/receipt.txt; } > /tmp/final.txt
+          CONTENT=$(base64 -w0 /tmp/final.txt)
+          PATH_NAME='deploy-receipts/canonical-test-push-d1.txt'
+          CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Inspect canonical test push D1' -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Inspect canonical test push D1' -f content="$CONTENT" -f branch=test
+          fi
