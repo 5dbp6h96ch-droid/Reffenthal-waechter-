@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: test
     steps:
-      - name: Send isolated gauge change push
+      - name: Send isolated threshold crossed push
         run: |
           curl --fail-with-body -sS -X POST \
             "${{ secrets.TEST_SUPABASE_URL }}/functions/v1/send-event-push" \
             -H "Content-Type: application/json" \
             -H "apikey: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}" \
-            --data '{"event_type":"gauge_change","title":"Pegeländerung","body":"TEST – Pegeländerung für ausgewählten Pegel","url":"#/pegel","gauge_id":"57090802-c51a-4d09-8340-b4453cd0e1f5"}'
+            --data '{"event_type":"threshold_crossed","title":"Pegelwarnung","body":"TEST – individuelle Pegelwarnung","url":"#/pegel","gauge_id":"57090802-c51a-4d09-8340-b4453cd0e1f5","gauge_name":"Testpegel","previous_cm":77,"current_cm":75,"threshold_cm":76}'
