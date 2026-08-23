@@ -1,4 +1,4 @@
-name: Diagnose confirmed rheinschiffer-test Worker download
+name: Inspect confirmed rheinschiffer-test Worker package
 
 on:
   workflow_dispatch:
@@ -12,33 +12,47 @@ permissions:
   contents: write
 
 jobs:
-  diagnose:
+  inspect:
     runs-on: ubuntu-latest
     environment: test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Probe Worker download endpoint
-        id: probe
-        continue-on-error: true
+      - name: Download and inventory active Worker multipart package
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         shell: bash
         run: |
-          set +e
+          set -euo pipefail
           URL="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test"
-          HTTP=$(curl -sSL -D /tmp/headers.txt -o /tmp/body.bin -w '%{http_code}' -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$URL")
-          RC=$?
-          TYPE=$(grep -i '^content-type:' /tmp/headers.txt | tail -n1 | cut -d: -f2- | tr -d '\r' | xargs)
-          SIZE=$(wc -c < /tmp/body.bin | tr -d ' ')
-          SHA=$(sha256sum /tmp/body.bin | awk '{print $1}')
-          printf 'http_status=%s\ncurl_exit=%s\ncontent_type=%s\nbytes=%s\nsha256=%s\n' "$HTTP" "$RC" "$TYPE" "$SIZE" "$SHA" > /tmp/diagnosis.txt
-          cat /tmp/diagnosis.txt
-          exit 0
+          curl -fsSL -D /tmp/headers.txt -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$URL" -o /tmp/body.bin
+          CONTENT_TYPE=$(grep -i '^content-type:' /tmp/headers.txt | tail -n1 | cut -d: -f2- | tr -d '\r' | xargs)
+          export CONTENT_TYPE
+          python3 - <<'PY'
+          import os, hashlib, json
+          from email.parser import BytesParser
+          from email.policy import default
+          body=open('/tmp/body.bin','rb').read()
+          ct=os.environ['CONTENT_TYPE']
+          msg=BytesParser(policy=default).parsebytes((f'MIME-Version: 1.0\r\nContent-Type: {ct}\r\n\r\n').encode()+body)
+          rows=[]
+          for i,part in enumerate(msg.iter_parts()):
+              data=part.get_payload(decode=True) or b''
+              rows.append({
+                  'index':i,
+                  'name':part.get_param('name', header='content-disposition') or '',
+                  'filename':part.get_filename() or '',
+                  'content_type':part.get_content_type(),
+                  'bytes':len(data),
+                  'sha256':hashlib.sha256(data).hexdigest(),
+              })
+          open('/tmp/parts.json','w').write(json.dumps(rows,indent=2))
+          PY
+          cat /tmp/parts.json
 
-      - name: Record non-sensitive download diagnosis
+      - name: Record multipart inventory only
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -49,13 +63,13 @@ jobs:
             echo 'target=worker:rheinschiffer-test'
             echo 'confirmed_good_version=57cd69f3-d291-465f-b451-dbd8b4e46c88'
             echo "inspected_at=${TS}"
-            cat /tmp/diagnosis.txt
+            cat /tmp/parts.json
           } > /tmp/receipt.txt
           CONTENT=$(base64 -w0 /tmp/receipt.txt)
-          PATH_NAME='deploy-receipts/test-worker-download-diagnosis.txt'
+          PATH_NAME='deploy-receipts/test-worker-multipart-inventory.txt'
           CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
           if [ -n "$CURRENT_SHA" ]; then
-            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record canonical Worker download diagnosis" -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record canonical Worker multipart inventory" -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
           else
-            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record canonical Worker download diagnosis" -f content="$CONTENT" -f branch=test
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record canonical Worker multipart inventory" -f content="$CONTENT" -f branch=test
           fi
