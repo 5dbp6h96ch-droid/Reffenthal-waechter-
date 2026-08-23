@@ -1,0 +1,106 @@
+name: Upload canonical rheinschiffer-test version only
+
+on:
+  push:
+    branches:
+      - test
+    paths:
+      - '.github/workflows/upload-canonical-test-worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Safety gate
+        id: gate
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          GOOD='57cd69f3-d291-465f-b451-dbd8b4e46c88'
+          grep -q "confirmed_good_version=$GOOD" canonical-test-worker/ORIGIN.txt
+          test "$(sha256sum canonical-test-worker/src/worker.js | awk '{print $1}')" = 'e696e854ee76ee5b2d56fa3418c76ddcdc2a64ef7a29b66b6c9da8840ca794b1'
+          test "$(sha256sum canonical-test-worker/public/app.js | awk '{print $1}')" = '45c6acbb3057204d18bd76a9a58db53262004edd4cb789e0540048e96e227ff8'
+          jq -e '.name=="rheinschiffer-test" and .vars.APP_ENV=="test" and .d1_databases[0].database_id=="51255b8b-b4f6-48f4-b630-82093749ea3a"' canonical-test-worker/wrangler.jsonc >/dev/null
+          jq -e '.id=="/" and .scope=="/" and .display=="standalone"' canonical-test-worker/public/manifest.webmanifest >/dev/null
+          grep -q "clients.matchAll({ type: 'window', includeUncontrolled: true })" canonical-test-worker/public/sw.js
+          grep -q 'appClient.navigate(targetUrl)' canonical-test-worker/public/sw.js
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test/deployments"
+          curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$API" > /tmp/deployments.json
+          ACTIVE=$(jq -r '.result.deployments[0].versions[0].version_id // ""' /tmp/deployments.json)
+          test "$ACTIVE" = "$GOOD"
+          echo "active=$ACTIVE" >> "$GITHUB_OUTPUT"
+
+      - name: Dry-run
+        id: dryrun
+        if: steps.gate.outcome == 'success'
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd canonical-test-worker
+          npx --yes wrangler@4 deploy --dry-run --outdir /tmp/upload-dry-run --config wrangler.jsonc
+          test -s /tmp/upload-dry-run/worker.js
+
+      - name: Upload inactive version
+        id: upload_version
+        if: steps.gate.outcome == 'success' && steps.dryrun.outcome == 'success'
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_OUTPUT_FILE: /tmp/wrangler-output.jsonl
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd canonical-test-worker
+          npx --yes wrangler@4 versions upload --config wrangler.jsonc --tag ios-pwa-clickfix-v1 --message 'TEST only: canonical iOS PWA click fix'
+          cd ..
+          NEW=$(jq -r 'select(.type=="version-upload") | .version_id // empty' /tmp/wrangler-output.jsonl | tail -n1)
+          if [ -z "$NEW" ]; then
+            NEW=$(npx --yes wrangler@4 versions list --name rheinschiffer-test --json --config canonical-test-worker/wrangler.jsonc | jq -r '.[] | select((.annotations["workers/tag"] // .tag // "")=="ios-pwa-clickfix-v1") | .id' | head -n1)
+          fi
+          test -n "$NEW"
+          echo "version=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Record upload result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GATE: ${{ steps.gate.outcome }}
+          DRYRUN: ${{ steps.dryrun.outcome }}
+          UPLOAD: ${{ steps.upload_version.outcome }}
+          BEFORE: ${{ steps.gate.outputs.active }}
+          NEW_VERSION: ${{ steps.upload_version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          RESULT=fail
+          if [ "$GATE" = success ] && [ "$DRYRUN" = success ] && [ "$UPLOAD" = success ] && [ -n "$NEW_VERSION" ]; then RESULT=ok; fi
+          CONTENT=$(printf 'target=worker:rheinschiffer-test\nphase=version-upload-only\nresult=%s\ngate=%s\ndry_run=%s\nupload=%s\nbefore_version=%s\nnew_version=%s\ntag=ios-pwa-clickfix-v1\nrecorded_at=%s\nsource_commit=%s\n' "$RESULT" "$GATE" "$DRYRUN" "$UPLOAD" "$BEFORE" "$NEW_VERSION" "$TS" "$GITHUB_SHA" | base64 -w0)
+          PATH_NAME='deploy-receipts/canonical-test-worker-upload.txt'
+          CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record canonical test Worker version upload" -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record canonical test Worker version upload" -f content="$CONTENT" -f branch=test
+          fi
+
+      - name: Fail job unless upload succeeded
+        if: steps.upload_version.outcome != 'success'
+        run: exit 1
