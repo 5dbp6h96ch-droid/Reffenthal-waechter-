@@ -1,0 +1,22 @@
+name: Push Click E2E Temp
+
+on:
+  push:
+    branches:
+      - test-push-click-e2e-2026-08-23
+
+permissions:
+  contents: read
+
+jobs:
+  push-click-e2e:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Send isolated test push to Pegel route
+        run: |
+          curl --fail-with-body -sS -X POST \
+            "${{ secrets.TEST_SUPABASE_URL }}/functions/v1/send-event-push" \
+            -H "Content-Type: application/json" \
+            -H "apikey: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}" \
+            --data '{"event_type":"test","title":"R(h)einschiffer Test","body":"Klicktest – Pegelseite","url":"#/pegel"}'
