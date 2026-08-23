@@ -1,0 +1,87 @@
+name: Diagnose canonical Worker version upload
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - '.github/workflows/diagnose-canonical-version-upload.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gate and dry-run
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
+          test "$(sha256sum canonical-test-worker/src/worker.js | awk '{print $1}')" = 'e696e854ee76ee5b2d56fa3418c76ddcdc2a64ef7a29b66b6c9da8840ca794b1'
+          test "$(sha256sum canonical-test-worker/public/app.js | awk '{print $1}')" = '45c6acbb3057204d18bd76a9a58db53262004edd4cb789e0540048e96e227ff8'
+          curl -fsSL "$BASE/" -o /tmp/live-index
+          curl -fsSL "$BASE/app.js" -o /tmp/live-app
+          curl -fsSL "$BASE/sw.js" -o /tmp/live-sw
+          test "$(sha256sum /tmp/live-index | awk '{print $1}')" = 'a8a8b30cacc4c4bb245254c37f23b07371460f7a738b95b2ef44e505ca5e5c58'
+          test "$(sha256sum /tmp/live-app | awk '{print $1}')" = '45c6acbb3057204d18bd76a9a58db53262004edd4cb789e0540048e96e227ff8'
+          test "$(sha256sum /tmp/live-sw | awk '{print $1}')" = '701b3cc6618bbe2ccb496b67defcf924acb5e9099f83efe961e778c53c63baa6'
+          cd canonical-test-worker
+          npx --yes wrangler@4 deploy --dry-run --outdir /tmp/diag-dry-run --config wrangler.jsonc >/tmp/dry.log 2>&1
+          test -s /tmp/diag-dry-run/worker.js
+      - name: Attempt inactive upload and capture result
+        id: upload
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_OUTPUT_FILE: /tmp/wrangler-output.jsonl
+        shell: bash
+        run: |
+          set +e
+          cd canonical-test-worker
+          npx --yes wrangler@4 versions upload --config wrangler.jsonc --tag ios-pwa-clickfix-v1 --message 'TEST only: canonical iOS PWA click fix' >/tmp/upload.log 2>&1
+          RC=$?
+          cd ..
+          NEW=''
+          if [ -s /tmp/wrangler-output.jsonl ]; then
+            NEW=$(jq -r 'select(.type=="version-upload") | .version_id // empty' /tmp/wrangler-output.jsonl 2>/dev/null | tail -n1)
+          fi
+          echo "rc=$RC" >> "$GITHUB_OUTPUT"
+          echo "version=$NEW" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Record safe diagnosis
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RC: ${{ steps.upload.outputs.rc }}
+          VERSION: ${{ steps.upload.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          {
+            echo "checked_at=$TS"
+            echo "upload_exit=${RC:-unknown}"
+            echo "new_version=${VERSION:-}"
+            echo 'wrangler_message:'
+            if [ -f /tmp/upload.log ]; then
+              tail -n 40 /tmp/upload.log | sed -E '/(token|secret|password|authorization|private[_ -]?key)/Id'
+            else
+              echo 'no upload log'
+            fi
+          } > /tmp/receipt.txt
+          CONTENT=$(base64 -w0 /tmp/receipt.txt)
+          PATH_NAME='deploy-receipts/canonical-version-upload-diagnosis.txt'
+          CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Diagnose canonical Worker version upload' -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Diagnose canonical Worker version upload' -f content="$CONTENT" -f branch=test
+          fi
