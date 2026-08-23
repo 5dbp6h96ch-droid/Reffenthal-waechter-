@@ -1,0 +1,22 @@
+name: Speyer Threshold E2E Temp
+
+on:
+  push:
+    branches:
+      - tmp/gauge-alert-speyer-e2e-2026-08-23-run2
+
+permissions:
+  contents: read
+
+jobs:
+  speyer-threshold-e2e:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Send Speyer threshold crossed push
+        run: |
+          curl --fail-with-body -sS -X POST \
+            "${{ secrets.TEST_SUPABASE_URL }}/functions/v1/send-event-push" \
+            -H "Content-Type: application/json" \
+            -H "apikey: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}" \
+            --data '{"event_type":"threshold_crossed","title":"Pegelwarnung Speyer","body":"TEST – Speyer 226 auf 224 cm","url":"#/pegel","gauge_id":"2cb8ae5b-c5c9-4fa8-bac0-bb724f2754f4","gauge_name":"Speyer","current_cm":224,"previous_cm":226,"threshold_cm":225,"timestamp":"2026-08-23T06:57:00Z"}'
