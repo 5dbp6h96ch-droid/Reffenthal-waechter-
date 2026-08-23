@@ -25,13 +25,17 @@ jobs:
           BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
           OUT='canonical-test-snapshot'
           rm -rf "$OUT"
-          mkdir -p "$OUT"
-          for path in / /app.js /styles.css /action-icons.css /sw.js /manifest.webmanifest; do
-            name=$(printf '%s' "$path" | sed 's#^/##')
-            [ -n "$name" ] || name='index.html'
-            status=$(curl -sSL -o "$OUT/$name" -w '%{http_code}' "$BASE$path")
+          mkdir -p "$OUT/pages"
+          for path in / /app.js /styles.css /action-icons.css /sw.js /manifest.webmanifest \
+            /pages/start.js /pages/pegel.js /pages/vorhersage.js /pages/nfb.js \
+            /pages/tankstelle.js /pages/clubs.js /pages/rhein-karte.js /pages/news.js \
+            /pages/waechter.js /pages/help.js /pages/settings.js /pages/konto.js /pages/passwort.js; do
+            rel=$(printf '%s' "$path" | sed 's#^/##')
+            [ -n "$rel" ] || rel='index.html'
+            mkdir -p "$OUT/$(dirname "$rel")"
+            status=$(curl -sSL -o "$OUT/$rel" -w '%{http_code}' "$BASE$path")
             if [ "$status" != '200' ]; then
-              rm -f "$OUT/$name"
+              rm -f "$OUT/$rel"
               echo "$path -> HTTP $status (not snapshotted)"
             fi
           done
@@ -41,9 +45,9 @@ jobs:
             echo 'cloudflare_alias=clickfix'
             echo 'snapshot_source=public_live_files'
             echo 'files:'
-            for f in "$OUT"/*; do
-              [ -f "$f" ] || continue
-              printf '%s\t%s\t%s\n' "$(basename "$f")" "$(wc -c < "$f" | tr -d ' ')" "$(sha256sum "$f" | awk '{print $1}')"
+            find "$OUT" -type f ! -name SNAPSHOT.txt -print0 | sort -z | while IFS= read -r -d '' f; do
+              rel=${f#${OUT}/}
+              printf '%s\t%s\t%s\n' "$rel" "$(wc -c < "$f" | tr -d ' ')" "$(sha256sum "$f" | awk '{print $1}')"
             done
           } > "$OUT/SNAPSHOT.txt"
           cat "$OUT/SNAPSHOT.txt"
@@ -61,5 +65,5 @@ jobs:
             echo 'Snapshot already identical.'
             exit 0
           fi
-          git commit -m 'Snapshot confirmed good rheinschiffer-test frontend [skip ci]'
+          git commit -m 'Snapshot confirmed good rheinschiffer-test page modules [skip ci]'
           git push origin HEAD:test
