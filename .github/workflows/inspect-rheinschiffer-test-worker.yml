@@ -38,33 +38,16 @@ jobs:
               source: (.result.metadata.source // ""),
               created_on: (.result.metadata.created_on // ""),
               last_deployed_from: ($r.script.last_deployed_from // null),
-              script_etag: ($r.script.etag // null),
               script_handlers: ($r.script.handlers // []),
               runtime_compatibility_date: ($r.script_runtime.compatibility_date // null),
               runtime_compatibility_flags: ($r.script_runtime.compatibility_flags // []),
-              runtime_assets_type: ($r.script_runtime.assets | type),
               runtime_assets_keys: (if ($r.script_runtime.assets|type)=="object" then ($r.script_runtime.assets|keys) else [] end),
-              runtime_assets_structure: (
-                if ($r.script_runtime.assets|type)=="object" then
-                  [$r.script_runtime.assets | to_entries[] | {
-                    key: .key,
-                    value_type: (.value|type),
-                    value_keys: (if (.value|type)=="object" then (.value|keys) else [] end)
-                  }]
-                elif ($r.script_runtime.assets|type)=="array" then
-                  [$r.script_runtime.assets[] | {
-                    value_type: (.|type),
-                    value_keys: (if (.|type)=="object" then (.|keys) else [] end)
-                  }]
-                else [] end
-              ),
-              bindings_count: (($r.bindings // []) | length),
-              binding_types: (($r.bindings // []) | map(.type // "") | unique)
+              bindings: (($r.bindings // []) | map({name:(.name // ""), type:(.type // "")}))
             }
           ' /tmp/version.json > /tmp/resources.json
           cat /tmp/resources.json
 
-      - name: Record non-sensitive origin details
+      - name: Record safe binding names and origin
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -81,7 +64,7 @@ jobs:
           PATH_NAME='deploy-receipts/test-good-worker-origin.txt'
           CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
           if [ -n "$CURRENT_SHA" ]; then
-            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record confirmed test Worker origin details" -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record confirmed test Worker safe binding names" -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
           else
-            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record confirmed test Worker origin details" -f content="$CONTENT" -f branch=test
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record confirmed test Worker safe binding names" -f content="$CONTENT" -f branch=test
           fi
