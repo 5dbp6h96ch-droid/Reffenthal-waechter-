@@ -9275,6 +9275,23 @@ var worker_default = {
     if (request.method === "GET" && url.pathname === "/api/self-test") {
       return selfTest(env2);
     }
+    if (request.method === "POST" && url.pathname === "/api/test/push-wsv") {
+      if (env2.APP_ENV !== "test") return json8({ error: "Not found" }, 404);
+      if (!env2.DB) return json8({ ok: false, error: "D1 binding DB is not configured." }, 503);
+      const user = await currentUser(request, env2);
+      if (!user) return json8({ ok: false, error: "Unauthorized" }, 401);
+      const id = crypto.randomUUID();
+      await env2.DB.prepare(`INSERT INTO push_outbox(id,kind,title,body,target_url,user_id,created_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP)`).bind(
+        id,
+        "nfb-new",
+        "Neue WSV-Meldung",
+        "TEST – Neue WSV-Meldung",
+        "#/nfb",
+        user.id
+      ).run();
+      const push = await flushPushOutbox(env2, 1);
+      return json8({ ok: Boolean(push.ok), sent: push.sent ?? 0, failed: push.failed ?? 0, items: push.items ?? 0 }, push.ok ? 200 : 500);
+    }
     const smtpDiagnosticResponse = await handleSmtpDiagnostic(request, env2, url);
     if (smtpDiagnosticResponse) return smtpDiagnosticResponse;
     const authResponse = await handleAuthApi(request, env2, url);
