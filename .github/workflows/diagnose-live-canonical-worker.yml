@@ -17,41 +17,94 @@ jobs:
     environment: test
     steps:
       - uses: actions/checkout@v4
+
       - name: Inspect live worker without changes
+        id: inspect
+        continue-on-error: true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
           BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
           API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test/deployments"
-          curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$API" > /tmp/deployments.json
-          ACTIVE=$(jq -r '.result.deployments[0].versions[0].version_id // ""' /tmp/deployments.json)
-          curl -fsSL "$BASE/" -o /tmp/index
-          curl -fsSL "$BASE/app.js" -o /tmp/app
-          curl -fsSL "$BASE/sw.js" -o /tmp/sw
-          curl -fsSL "$BASE/manifest.webmanifest" -o /tmp/manifest || true
-          curl -fsSL "$BASE/api/push/vapid-public-key" -o /tmp/vapid
-          {
-            echo "active_version=$ACTIVE"
-            echo "index_has_manifest=$(grep -q 'rel=\"manifest\" href=\"/manifest.webmanifest\"' /tmp/index && echo yes || echo no)"
-            echo "app_sha=$(sha256sum /tmp/app | awk '{print $1}')"
-            echo "sw_sha=$(sha256sum /tmp/sw | awk '{print $1}')"
-            echo "sw_matchall=$(grep -q \"clients.matchAll({ type: 'window', includeUncontrolled: true })\" /tmp/sw && echo yes || echo no)"
-            echo "sw_navigate=$(grep -q 'appClient.navigate(targetUrl)' /tmp/sw && echo yes || echo no)"
-            echo "manifest_ok=$(jq -e '.id==\"/\" and .scope==\"/\" and .display==\"standalone\"' /tmp/manifest >/dev/null 2>&1 && echo yes || echo no)"
-            echo "vapid_configured=$(jq -r '.configured // false' /tmp/vapid)"
-          } > /tmp/live.txt
+          : > /tmp/live.txt
+
+          CF_HTTP=$(curl -sS -o /tmp/deployments.json -w '%{http_code}' -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$API")
+          CF_RC=$?
+          ACTIVE=$(jq -r '.result.deployments[0].versions[0].version_id // ""' /tmp/deployments.json 2>/dev/null)
+          echo "cloudflare_http=$CF_HTTP" >> /tmp/live.txt
+          echo "cloudflare_curl_exit=$CF_RC" >> /tmp/live.txt
+          echo "active_version=$ACTIVE" >> /tmp/live.txt
+
+          fetch_one() {
+            name="$1"
+            url="$2"
+            out="/tmp/$name"
+            HTTP=$(curl -sSL -o "$out" -w '%{http_code}' "$url")
+            RC=$?
+            echo "${name}_http=$HTTP" >> /tmp/live.txt
+            echo "${name}_curl_exit=$RC" >> /tmp/live.txt
+            if [ -f "$out" ]; then
+              echo "${name}_bytes=$(wc -c < "$out" | tr -d ' ')" >> /tmp/live.txt
+              echo "${name}_sha=$(sha256sum "$out" | awk '{print $1}')" >> /tmp/live.txt
+            fi
+          }
+
+          fetch_one index "$BASE/"
+          fetch_one app "$BASE/app.js"
+          fetch_one sw "$BASE/sw.js"
+          fetch_one manifest "$BASE/manifest.webmanifest"
+          fetch_one vapid "$BASE/api/push/vapid-public-key"
+
+          if [ -f /tmp/index ]; then
+            echo "index_has_manifest=$(grep -q 'rel=\"manifest\" href=\"/manifest.webmanifest\"' /tmp/index && echo yes || echo no)" >> /tmp/live.txt
+            echo "index_has_brand=$(grep -q 'R(h)einschiffer' /tmp/index && echo yes || echo no)" >> /tmp/live.txt
+          else
+            echo 'index_has_manifest=no' >> /tmp/live.txt
+            echo 'index_has_brand=no' >> /tmp/live.txt
+          fi
+
+          if [ -f /tmp/sw ]; then
+            echo "sw_matchall=$(grep -q \"clients.matchAll({ type: 'window', includeUncontrolled: true })\" /tmp/sw && echo yes || echo no)" >> /tmp/live.txt
+            echo "sw_navigate=$(grep -q 'appClient.navigate(targetUrl)' /tmp/sw && echo yes || echo no)" >> /tmp/live.txt
+            echo "sw_openwindow=$(grep -q 'clients.openWindow' /tmp/sw && echo yes || echo no)" >> /tmp/live.txt
+          else
+            echo 'sw_matchall=no' >> /tmp/live.txt
+            echo 'sw_navigate=no' >> /tmp/live.txt
+            echo 'sw_openwindow=no' >> /tmp/live.txt
+          fi
+
+          if [ -f /tmp/manifest ]; then
+            echo "manifest_ok=$(jq -e '.id==\"/\" and .scope==\"/\" and .display==\"standalone\"' /tmp/manifest >/dev/null 2>&1 && echo yes || echo no)" >> /tmp/live.txt
+          else
+            echo 'manifest_ok=no' >> /tmp/live.txt
+          fi
+
+          if [ -f /tmp/vapid ]; then
+            echo "vapid_configured=$(jq -r '.configured // false' /tmp/vapid 2>/dev/null)" >> /tmp/live.txt
+          else
+            echo 'vapid_configured=false' >> /tmp/live.txt
+          fi
+
           cat /tmp/live.txt
+          exit 0
+
       - name: Record receipt
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          INSPECT_OUTCOME: ${{ steps.inspect.outcome }}
         shell: bash
         run: |
           set -euo pipefail
           TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          { echo "checked_at=$TS"; cat /tmp/live.txt; } > /tmp/receipt.txt
+          {
+            echo "checked_at=$TS"
+            echo "inspect_outcome=$INSPECT_OUTCOME"
+            if [ -f /tmp/live.txt ]; then cat /tmp/live.txt; else echo 'diagnosis_file_missing=yes'; fi
+          } > /tmp/receipt.txt
           CONTENT=$(base64 -w0 /tmp/receipt.txt)
           PATH_NAME='deploy-receipts/canonical-live-worker-diagnosis.txt'
           CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
