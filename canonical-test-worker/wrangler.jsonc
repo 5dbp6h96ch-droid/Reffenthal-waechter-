@@ -25,7 +25,6 @@
   ],
   "secrets": {
     "required": [
-      "SMTP_PASSWORD",
       "VAPID_PRIVATE_KEY",
       "VAPID_PUBLIC_KEY",
       "VAPID_SUBJECT"
