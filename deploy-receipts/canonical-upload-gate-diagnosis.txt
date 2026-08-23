@@ -1,0 +1,14 @@
+checked_at=2026-08-23T09:30:21Z
+origin_good=ok
+worker_sha=e696e854ee76ee5b2d56fa3418c76ddcdc2a64ef7a29b66b6c9da8840ca794b1
+worker_sha_match=ok
+app_sha=45c6acbb3057204d18bd76a9a58db53262004edd4cb789e0540048e96e227ff8
+app_sha_match=ok
+wrangler_identity=ok
+manifest=ok
+sw_matchall=ok
+sw_navigate=ok
+cloudflare_http=200
+cloudflare_success=true
+active_version=f2acaa6f-b4ce-4fb0-8302-9f56be3294c8
+active_is_good=fail
