@@ -1,0 +1,17 @@
+target=worker:rheinschiffer-test
+confirmed_good_version=57cd69f3-d291-465f-b451-dbd8b4e46c88
+status=fail
+reason=d1_query_http_failed
+inspected_at=2026-08-23T09:07:41Z
+d1_binding_structure:
+{
+  "name": "DB",
+  "type": "d1",
+  "keys": [
+    "database_id",
+    "id",
+    "name",
+    "type"
+  ]
+}
+schema:
