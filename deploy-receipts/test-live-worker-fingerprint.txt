@@ -1,0 +1,16 @@
+target=worker:rheinschiffer-test
+url=https://rheinschiffer-test.5dbp6h96ch.workers.dev/
+confirmed_good_version=57cd69f3-d291-465f-b451-dbd8b4e46c88
+inspected_at=2026-08-23T09:04:11Z
+index_bytes=2949
+index_sha256=a8a8b30cacc4c4bb245254c37f23b07371460f7a738b95b2ef44e505ca5e5c58
+sw_http=200
+sw_bytes=1000
+sw_sha256=701b3cc6618bbe2ccb496b67defcf924acb5e9099f83efe961e778c53c63baa6
+asset_fingerprints:
+#/einstellungen	2949	a8a8b30cacc4c4bb245254c37f23b07371460f7a738b95b2ef44e505ca5e5c58
+#/hilfe	2949	a8a8b30cacc4c4bb245254c37f23b07371460f7a738b95b2ef44e505ca5e5c58
+/action-icons.css	1771	3fc48488720fb5b40da7000444f9cd9abb2c8700d5879d3100e938e45ae74bef
+/app.js	10840	45c6acbb3057204d18bd76a9a58db53262004edd4cb789e0540048e96e227ff8
+/styles.css	8814	5e1c680930bceea26066245cbe83e763aee263038c004b2eeeecd803f9f6fce6
+https://raw.githubusercontent.com/5dbp6h96ch-droid/Reffenthal-waechter-/8620d979c3bd87020d94e9a3aa8a94f74dba39f9/artifacts/mobile/assets/images/icon.png	1155806	ee0ddd6099425428ed703424994893ba3d34a4dd6b913ca633265b38e94828e1
