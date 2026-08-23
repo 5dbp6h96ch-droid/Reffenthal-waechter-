@@ -1,0 +1,104 @@
+name: Promote verified WSV E2E trigger to test
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - '.github/workflows/promote-wsv-e2e-trigger.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Safety gate
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BEFORE='334fd94b-83bd-4506-84ee-c689ed12b6bb'
+          TARGET='dd5ed2ac-3ce9-4f7a-9f38-a3d3eebd979d'
+          grep -q "version=$TARGET" deploy-receipts/wsv-e2e-trigger-preview.txt
+          grep -q 'preview_result=ok' deploy-receipts/wsv-e2e-trigger-preview.txt
+          grep -q 'auth_gate=401' deploy-receipts/wsv-e2e-trigger-preview.txt
+          grep -q 'self_test=ok' deploy-receipts/wsv-e2e-trigger-preview.txt
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test/deployments"
+          curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$API" > /tmp/before.json
+          ACTIVE=$(jq -r '.result.deployments[0].versions[0].version_id // ""' /tmp/before.json)
+          test "$ACTIVE" = "$BEFORE"
+          echo "before=$BEFORE" >> "$GITHUB_ENV"
+          echo "target=$TARGET" >> "$GITHUB_ENV"
+      - name: Promote verified version
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4 versions deploy "${target}@100%" --name rheinschiffer-test --message 'TEST only: authenticated WSV E2E trigger' -y --config canonical-test-worker/wrangler.jsonc
+      - name: Live smoke test
+        id: smoke
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
+          PASS=no
+          for attempt in 1 2 3 4 5 6; do
+            curl -fsSL "$BASE/app.js" -o /tmp/app 2>/dev/null || true
+            curl -fsSL "$BASE/pages/settings.js" -o /tmp/settings 2>/dev/null || true
+            curl -fsSL "$BASE/sw.js" -o /tmp/sw 2>/dev/null || true
+            curl -fsSL "$BASE/api/self-test" -o /tmp/selftest 2>/dev/null || true
+            AUTH_HTTP=$(curl -sSL -o /tmp/authbody -w '%{http_code}' -X POST "$BASE/api/test/push-wsv" 2>/dev/null || true)
+            if [ "$(sha256sum /tmp/app 2>/dev/null | awk '{print $1}')" = '45c6acbb3057204d18bd76a9a58db53262004edd4cb789e0540048e96e227ff8' ] \
+              && grep -q 'id="wsv-test-push"' /tmp/settings 2>/dev/null \
+              && grep -q "clients.matchAll({ type: 'window', includeUncontrolled: true })" /tmp/sw 2>/dev/null \
+              && jq -e '.ok==true and .checks.pushConfig.configured==true' /tmp/selftest >/dev/null 2>&1 \
+              && [ "$AUTH_HTTP" = 401 ]; then
+              PASS=yes
+              break
+            fi
+            sleep 8
+          done
+          echo "result=$PASS" >> "$GITHUB_OUTPUT"
+          [ "$PASS" = yes ]
+          exit $?
+      - name: Automatic rollback on failure
+        if: steps.smoke.outputs.result != 'yes'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4 versions deploy "${before}@100%" --name rheinschiffer-test --message 'Automatic rollback after WSV E2E trigger smoke failure' -y --config canonical-test-worker/wrangler.jsonc
+          exit 1
+      - name: Verify active version and record receipt
+        if: steps.smoke.outputs.result == 'yes'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test/deployments"
+          curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$API" > /tmp/after.json
+          ACTIVE=$(jq -r '.result.deployments[0].versions[0].version_id // ""' /tmp/after.json)
+          test "$ACTIVE" = "$target"
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          CONTENT=$(printf 'target=worker:rheinschiffer-test\nresult=ok\nbefore_version=%s\nafter_version=%s\nsmoke=yes\ndeployed_at=%s\n' "$before" "$ACTIVE" "$TS" | base64 -w0)
+          PATH_NAME='deploy-receipts/wsv-e2e-trigger-promotion.txt'
+          CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Promote WSV E2E trigger to test' -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Promote WSV E2E trigger to test' -f content="$CONTENT" -f branch=test
+          fi
