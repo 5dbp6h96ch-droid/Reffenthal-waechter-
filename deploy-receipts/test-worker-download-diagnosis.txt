@@ -1,0 +1,8 @@
+target=worker:rheinschiffer-test
+confirmed_good_version=57cd69f3-d291-465f-b451-dbd8b4e46c88
+inspected_at=2026-08-23T09:10:57Z
+http_status=200
+curl_exit=0
+content_type=multipart/form-data; boundary=44e8079a8b1b01050893e8cf2044df7761d363bb5fe8f37aec903f75ed45
+bytes=341036
+sha256=ae4b10c4df2c930acd40c6f5866bacd39996c1b69c5153004ecef39dff64931a
