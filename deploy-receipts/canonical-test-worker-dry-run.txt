@@ -1,0 +1,5 @@
+target=canonical-test-worker
+action=dry-run-only
+status=ok
+exit=0
+checked_at=2026-08-23T09:18:26Z
