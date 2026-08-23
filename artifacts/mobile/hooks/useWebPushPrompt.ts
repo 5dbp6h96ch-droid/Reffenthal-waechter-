@@ -32,11 +32,37 @@ async function waitForActiveServiceWorker(registration: ServiceWorkerRegistratio
   return registration;
 }
 
+async function persistPushState(
+  userId: string,
+  pushSubscription: PushSubscription,
+): Promise<void> {
+  if (!supabase) throw new Error('Push ist momentan nicht konfiguriert.');
+
+  const json = pushSubscription.toJSON();
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+    throw new Error('Push-Subscription ist unvollständig.');
+  }
+
+  const { error: saveError } = await supabase.from('web_push_subscriptions').upsert({
+    user_id: userId,
+    endpoint: json.endpoint,
+    p256dh: json.keys.p256dh,
+    auth: json.keys.auth,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'endpoint' });
+  if (saveError) throw saveError;
+
+  const { error: settingsError } = await supabase.from('user_settings').upsert({
+    user_id: userId,
+    push_enabled: true,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' });
+  if (settingsError) throw settingsError;
+}
+
 export function useWebPushPrompt() {
   const [status, setStatus] = useState<'idle' | 'activating' | 'active'>('idle');
 
-  // Beim erneuten Öffnen der App den bereits vorhandenen Browser-Push erkennen.
-  // Die Push-Subscription lebt unabhängig vom React-State weiter.
   useEffect(() => {
     let cancelled = false;
 
@@ -47,10 +73,16 @@ export function useWebPushPrompt() {
       if (Notification.permission !== 'granted') return;
 
       try {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData.user) return;
+
         const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
         const activeRegistration = await waitForActiveServiceWorker(registration);
         const existing = await activeRegistration.pushManager.getSubscription();
-        if (existing && !cancelled) setStatus('active');
+        if (!existing) return;
+
+        await persistPushState(userData.user.id, existing);
+        if (!cancelled) setStatus('active');
       } catch (error) {
         console.warn('[WebPush] Vorhandene Subscription konnte nicht wiederhergestellt werden:', error);
       }
@@ -96,19 +128,7 @@ export function useWebPushPrompt() {
         applicationServerKey: base64UrlToUint8Array(PUBLIC_VAPID_KEY),
       });
 
-      const json = pushSubscription.toJSON();
-      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-        throw new Error('Push-Subscription ist unvollständig.');
-      }
-
-      const { error: saveError } = await supabase.from('web_push_subscriptions').upsert({
-        user_id: currentUserId,
-        endpoint: json.endpoint,
-        p256dh: json.keys.p256dh,
-        auth: json.keys.auth,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'endpoint' });
-      if (saveError) throw saveError;
+      await persistPushState(currentUserId, pushSubscription);
 
       const { error: testError } = await supabase.functions.invoke('send-test-push');
       if (testError) throw testError;
