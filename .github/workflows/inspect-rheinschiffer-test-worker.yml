@@ -1,4 +1,4 @@
-name: Snapshot confirmed rheinschiffer-test frontend
+name: Snapshot confirmed rheinschiffer-test Worker source
 
 on:
   workflow_dispatch:
@@ -14,56 +14,43 @@ permissions:
 jobs:
   snapshot:
     runs-on: ubuntu-latest
+    environment: test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download public files from confirmed good test Worker
+      - name: Download active Worker source from Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         shell: bash
         run: |
           set -euo pipefail
-          BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
           OUT='canonical-test-snapshot'
-          rm -rf "$OUT"
-          mkdir -p "$OUT/pages"
-          for path in / /app.js /styles.css /action-icons.css /sw.js /manifest.webmanifest \
-            /pages/start.js /pages/pegel.js /pages/vorhersage.js /pages/nfb.js \
-            /pages/tankstelle.js /pages/clubs.js /pages/rhein-karte.js /pages/news.js \
-            /pages/waechter.js /pages/help.js /pages/settings.js /pages/konto.js /pages/passwort.js; do
-            rel=$(printf '%s' "$path" | sed 's#^/##')
-            [ -n "$rel" ] || rel='index.html'
-            mkdir -p "$OUT/$(dirname "$rel")"
-            status=$(curl -sSL -o "$OUT/$rel" -w '%{http_code}' "$BASE$path")
-            if [ "$status" != '200' ]; then
-              rm -f "$OUT/$rel"
-              echo "$path -> HTTP $status (not snapshotted)"
-            fi
-          done
-          {
-            echo 'canonical_url=https://rheinschiffer-test.5dbp6h96ch.workers.dev/'
-            echo 'confirmed_good_worker_version=57cd69f3-d291-465f-b451-dbd8b4e46c88'
-            echo 'cloudflare_alias=clickfix'
-            echo 'snapshot_source=public_live_files'
-            echo 'files:'
-            find "$OUT" -type f ! -name SNAPSHOT.txt -print0 | sort -z | while IFS= read -r -d '' f; do
-              rel=${f#${OUT}/}
-              printf '%s\t%s\t%s\n' "$rel" "$(wc -c < "$f" | tr -d ' ')" "$(sha256sum "$f" | awk '{print $1}')"
-            done
-          } > "$OUT/SNAPSHOT.txt"
-          cat "$OUT/SNAPSHOT.txt"
+          mkdir -p "$OUT"
+          URL="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test"
+          curl -fsSL -D /tmp/headers.txt -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$URL" -o /tmp/worker-download.bin
+          TYPE=$(file -b --mime-type /tmp/worker-download.bin)
+          SIZE=$(wc -c < /tmp/worker-download.bin | tr -d ' ')
+          SHA=$(sha256sum /tmp/worker-download.bin | awk '{print $1}')
+          printf 'mime_type=%s\nbytes=%s\nsha256=%s\n' "$TYPE" "$SIZE" "$SHA" > "$OUT/WORKER-SOURCE-METADATA.txt"
+          if grep -aEiq '(PRIVATE KEY-----|CLOUDFLARE_API_TOKEN|SMTP_PASSWORD\s*[:=]\s*["'"'][^"'"']+|VAPID_PRIVATE_KEY\s*[:=]\s*["'"'][^"'"']+)' /tmp/worker-download.bin; then
+            echo 'Potential embedded secret detected; source not committed.' >> "$OUT/WORKER-SOURCE-METADATA.txt"
+            exit 1
+          fi
+          cp /tmp/worker-download.bin "$OUT/worker-source.txt"
+          cat "$OUT/WORKER-SOURCE-METADATA.txt"
 
-      - name: Commit immutable frontend snapshot
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Commit backend source snapshot
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add canonical-test-snapshot
+          git add canonical-test-snapshot/WORKER-SOURCE-METADATA.txt canonical-test-snapshot/worker-source.txt
           if git diff --cached --quiet; then
-            echo 'Snapshot already identical.'
+            echo 'Worker source snapshot already identical.'
             exit 0
           fi
-          git commit -m 'Snapshot confirmed good rheinschiffer-test page modules [skip ci]'
+          git commit -m 'Snapshot confirmed good rheinschiffer-test Worker source [skip ci]'
           git push origin HEAD:test
