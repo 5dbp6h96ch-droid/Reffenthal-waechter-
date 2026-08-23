@@ -1,11 +1,11 @@
 target=worker:rheinschiffer-test
 phase=version-upload-only
 result=fail
-gate=failure
-dry_run=skipped
-upload=skipped
-before_version=
+gate=success
+dry_run=success
+upload=failure
+before_version=f2acaa6f-b4ce-4fb0-8302-9f56be3294c8
 new_version=
 tag=ios-pwa-clickfix-v1
-recorded_at=2026-08-23T09:27:09Z
-source_commit=d13abfaae5f6d6e28ef4dbd19e107bb9aed0a4ea
+recorded_at=2026-08-23T09:36:57Z
+source_commit=4b69b17a12f9e56d9bcf298106d07e691a936b67
