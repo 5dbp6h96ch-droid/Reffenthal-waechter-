@@ -1,0 +1,7 @@
+active_version=f2acaa6f-b4ce-4fb0-8302-9f56be3294c8
+APP_ENV	plain_text
+ASSETS	assets
+DB	d1
+VAPID_PRIVATE_KEY	secret_text
+VAPID_PUBLIC_KEY	secret_text
+VAPID_SUBJECT	secret_text
