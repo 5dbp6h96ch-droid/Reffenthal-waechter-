@@ -3,4 +3,5 @@ alias=clickfix
 backend_sha256=e696e854ee76ee5b2d56fa3418c76ddcdc2a64ef7a29b66b6c9da8840ca794b1
 frontend_snapshot=canonical-test-snapshot/SNAPSHOT.txt
 d1_binding=DB
+d1_database_id=51255b8b-b4f6-48f4-b630-82093749ea3a
 app_env=test
