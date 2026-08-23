@@ -1,0 +1,23 @@
+checked_at=2026-08-23T09:38:19Z
+upload_exit=1
+new_version=
+wrangler_message:
+
+ ⛅️ wrangler 4.125.0
+────────────────────
+🌀 Building list of assets...
+✨ Read 20 files from the assets directory /home/runner/work/Reffenthal-waechter-/Reffenthal-waechter-/canonical-test-worker/public
+🌀 Starting asset upload...
+No updated asset files to upload. Proceeding with deployment...
+Total Upload: 349.48 KiB / gzip: 69.46 KiB
+Your Worker has access to the following bindings:
+Binding                                                 Resource                  
+env.DB (51255b8b-b4f6-48f4-b630-82093749ea3a)           D1 Database               
+env.ASSETS                                              Assets                    
+env.APP_ENV ("test")                                    Environment Variable      
+
+
+
+
+
+🪵  Logs were written to "/home/runner/.config/.wrangler/logs/wrangler-2026-08-23_09-38-17_067.log"
