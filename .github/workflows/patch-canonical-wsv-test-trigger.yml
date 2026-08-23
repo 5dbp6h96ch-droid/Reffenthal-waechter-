@@ -1,0 +1,52 @@
+name: Patch canonical test-only WSV push trigger
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - '.github/workflows/patch-canonical-wsv-test-trigger.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch exact canonical backend snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE='canonical-test-worker/src/worker.js'
+          EXPECTED='e696e854ee76ee5b2d56fa3418c76ddcdc2a64ef7a29b66b6c9da8840ca794b1'
+          ACTUAL=$(sha256sum "$FILE" | awk '{print $1}')
+          test "$ACTUAL" = "$EXPECTED"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('canonical-test-worker/src/worker.js')
+          s=p.read_text()
+          marker='''    if (request.method === "GET" && url.pathname === "/api/self-test") {\n      return selfTest(env2);\n    }\n'''
+          addition='''    if (request.method === "GET" && url.pathname === "/api/self-test") {\n      return selfTest(env2);\n    }\n    if (request.method === "POST" && url.pathname === "/api/test/push-wsv") {\n      if (env2.APP_ENV !== "test") return json8({ error: "Not found" }, 404);\n      if (!env2.DB) return json8({ ok: false, error: "D1 binding DB is not configured." }, 503);\n      const user = await currentUser(request, env2);\n      if (!user) return json8({ ok: false, error: "Unauthorized" }, 401);\n      const id = crypto.randomUUID();\n      await env2.DB.prepare(`INSERT INTO push_outbox(id,kind,title,body,target_url,user_id,created_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP)`).bind(\n        id,\n        "nfb-new",\n        "Neue WSV-Meldung",\n        "TEST – Neue WSV-Meldung",\n        "#/nfb",\n        user.id\n      ).run();\n      const push = await flushPushOutbox(env2, 1);\n      return json8({ ok: Boolean(push.ok), sent: push.sent ?? 0, failed: push.failed ?? 0, items: push.items ?? 0 }, push.ok ? 200 : 500);\n    }\n'''
+          if s.count(marker) != 1:
+              raise SystemExit(f'Expected self-test marker exactly once, got {s.count(marker)}')
+          s=s.replace(marker, addition, 1)
+          if '/api/test/push-wsv' not in s or '"#/nfb"' not in s:
+              raise SystemExit('Patch verification failed')
+          p.write_text(s)
+          PY
+          grep -q 'url.pathname === "/api/test/push-wsv"' "$FILE"
+          grep -q 'const user = await currentUser(request, env2)' "$FILE"
+          grep -q 'const push = await flushPushOutbox(env2, 1)' "$FILE"
+      - name: Commit patched backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add canonical-test-worker/src/worker.js
+          git commit -m 'TEST only: add authenticated WSV push trigger [skip ci]'
+          git push origin HEAD:test
