@@ -1,0 +1,48 @@
+name: Diagnose active Worker binding names
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - '.github/workflows/diagnose-active-binding-names.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read active version binding names only
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+          curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$API/workers/scripts/rheinschiffer-test/deployments" > /tmp/deployments.json
+          ACTIVE=$(jq -r '.result.deployments[0].versions[0].version_id // ""' /tmp/deployments.json)
+          test -n "$ACTIVE"
+          curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$API/workers/scripts/rheinschiffer-test/versions/${ACTIVE}" > /tmp/version.json
+          jq -e '.success==true' /tmp/version.json >/dev/null
+          jq -r '.result.resources.bindings[]? | [.name,.type] | @tsv' /tmp/version.json | sort > /tmp/bindings.txt
+          printf 'active_version=%s\n' "$ACTIVE" > /tmp/receipt.txt
+          cat /tmp/bindings.txt >> /tmp/receipt.txt
+      - name: Record receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CONTENT=$(base64 -w0 /tmp/receipt.txt)
+          PATH_NAME='deploy-receipts/canonical-active-binding-names.txt'
+          CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Record active Worker binding names' -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Record active Worker binding names' -f content="$CONTENT" -f branch=test
+          fi
