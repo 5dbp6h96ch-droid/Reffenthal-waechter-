@@ -1,9 +1,8 @@
 /**
  * useUserSettings.ts – Lesen und Schreiben von user_settings in Supabase
  *
- * Die zuletzt gewählte Pegel-ID wird lokal gespiegelt und beim Laden
- * vorrangig verwendet. Dadurch bleibt die Auswahl auch nach einem
- * Reload/App-Neustart erhalten.
+ * Die zuletzt gewählte Pegel-ID wird lokal gespiegelt. Supabase bleibt jedoch
+ * die Quelle für alle übrigen Felder (insbesondere push_enabled).
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -14,7 +13,6 @@ import type { UserSettings, UserSettingsUpdate } from '@/app/types/database';
 export interface UseUserSettingsResult {
   settings: UserSettings | null;
   loading: boolean;
-  /** true, sobald der erste Ladeversuch abgeschlossen ist (Erfolg, Fehler oder kein User). */
   loaded: boolean;
   error: string | null;
   updateSettings: (update: UserSettingsUpdate) => Promise<{ error: string | null }>;
@@ -29,46 +27,41 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const readLocalSettings = useCallback(async (id: string) => {
+  const readLocalSelectedGauge = useCallback(async (): Promise<string | null> => {
     try {
-      const selectedGaugeId = await AsyncStorage.getItem(LOCAL_SELECTED_GAUGE_KEY);
-      if (!selectedGaugeId) return null;
-      return {
-        user_id: id,
-        selected_gauge_id: selectedGaugeId,
-        location_enabled: false,
-        latitude: null,
-        longitude: null,
-        weather_enabled: false,
-        push_enabled: false,
-        created_at: new Date(0).toISOString(),
-        updated_at: new Date().toISOString(),
-      } satisfies UserSettings;
+      return await AsyncStorage.getItem(LOCAL_SELECTED_GAUGE_KEY);
     } catch {
       return null;
     }
   }, []);
 
+  const writeLocalSelectedGauge = useCallback(async (gaugeId: string): Promise<void> => {
+    try {
+      await AsyncStorage.setItem(LOCAL_SELECTED_GAUGE_KEY, gaugeId);
+    } catch {
+      // Der Server-Write bleibt maßgeblich; lokaler Cache ist nur Komfort.
+    }
+  }, []);
+
   const fetchSettings = useCallback(async () => {
-    // loaded zurücksetzen, damit Konsumenten den neuen Ladevorgang erkennen.
     setLoaded(false);
 
     if (!userId) {
       setSettings(null);
-      setLoaded(true); // Kein User → sofort fertig; kein Gauge zu laden.
+      setLoaded(true);
       return;
     }
 
-    const localSettings = await readLocalSettings(userId);
-
     if (!supabaseConfigured || !supabase) {
-      setSettings(localSettings);
+      setSettings(null);
+      setError('Supabase nicht konfiguriert');
       setLoaded(true);
       return;
     }
 
     setLoading(true);
     setError(null);
+
     const { data, error: fetchError } = await supabase
       .from('user_settings')
       .select('*')
@@ -77,16 +70,44 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
 
     if (fetchError) {
       setError(fetchError.message);
-      setSettings(localSettings);
-    } else if (localSettings?.selected_gauge_id) {
-      // Lokale Auswahl hat Vorrang vor einem veralteten Server-Default.
-      setSettings({ ...data, ...localSettings, user_id: userId });
-    } else {
-      setSettings(data ?? null);
+      setSettings(null);
+      setLoading(false);
+      setLoaded(true);
+      return;
     }
+
+    let resolved = data ?? null;
+    const localGaugeId = await readLocalSelectedGauge();
+
+    // Reparatur für ältere Test-Builds: Sie konnten die Auswahl nur lokal
+    // speichern. Wenn lokale und serverseitige Auswahl auseinanderlaufen,
+    // synchronisieren wir ausschließlich selected_gauge_id zum Server.
+    // Andere Serverfelder wie push_enabled werden dabei niemals überschrieben.
+    if (localGaugeId && localGaugeId !== data?.selected_gauge_id) {
+      const payload = {
+        user_id: userId,
+        selected_gauge_id: localGaugeId,
+        updated_at: new Date().toISOString(),
+      };
+      const { data: repaired, error: repairError } = await (supabase
+        .from('user_settings')
+        .upsert(payload, { onConflict: 'user_id' })
+        .select()
+        .single() as unknown as Promise<{ data: UserSettings | null; error: { message: string } | null }>);
+
+      if (repairError) {
+        setError(repairError.message);
+      } else if (repaired) {
+        resolved = repaired;
+      }
+    } else if (data?.selected_gauge_id) {
+      await writeLocalSelectedGauge(data.selected_gauge_id);
+    }
+
+    setSettings(resolved);
     setLoading(false);
     setLoaded(true);
-  }, [userId, readLocalSettings]);
+  }, [userId, readLocalSelectedGauge, writeLocalSelectedGauge]);
 
   useEffect(() => {
     void fetchSettings();
@@ -94,16 +115,7 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
 
   const updateSettings = useCallback(async (update: UserSettingsUpdate) => {
     if (!userId) return { error: 'Kein Nutzer angemeldet' };
-
-    if (update.selected_gauge_id) {
-      try {
-        await AsyncStorage.setItem(LOCAL_SELECTED_GAUGE_KEY, update.selected_gauge_id);
-      } catch {
-        // Lokaler Fallback darf den eigentlichen Auswahlvorgang nicht blockieren.
-      }
-    }
-
-    if (!supabaseConfigured || !supabase) return { error: null };
+    if (!supabaseConfigured || !supabase) return { error: 'Supabase nicht konfiguriert' };
 
     const payload = {
       ...update,
@@ -118,15 +130,18 @@ export function useUserSettings(userId: string | null | undefined): UseUserSetti
       .single() as unknown as Promise<{ data: UserSettings | null; error: { message: string } | null }>);
 
     if (upsertError) {
-      setSettings(await readLocalSettings(userId));
+      setError(upsertError.message);
       return { error: upsertError.message };
     }
 
-    // Die gerade ausgewählte Pegel-ID bleibt lokal maßgeblich.
-    const local = await readLocalSettings(userId);
-    setSettings(local ? { ...data, ...local, user_id: userId } : data);
+    if (update.selected_gauge_id) {
+      await writeLocalSelectedGauge(update.selected_gauge_id);
+    }
+
+    setSettings(data);
+    setError(null);
     return { error: null };
-  }, [userId, readLocalSettings]);
+  }, [userId, writeLocalSelectedGauge]);
 
   return {
     settings,
