@@ -1,0 +1,11 @@
+{
+  "id": "/",
+  "name": "R(h)einschiffer – Test",
+  "short_name": "R(h)einschiffer",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#eaf4fd",
+  "theme_color": "#eaf4fd",
+  "lang": "de"
+}
