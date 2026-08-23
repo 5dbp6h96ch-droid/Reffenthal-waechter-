@@ -1,0 +1,95 @@
+name: Verify test-only WSV E2E trigger preview
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - '.github/workflows/verify-wsv-e2e-trigger-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Source safety checks and dry-run
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'url.pathname === "/api/test/push-wsv"' canonical-test-worker/src/worker.js
+          grep -q 'const user = await currentUser(request, env2)' canonical-test-worker/src/worker.js
+          grep -q 'const push = await flushPushOutbox(env2, 1)' canonical-test-worker/src/worker.js
+          grep -q '"#/nfb"' canonical-test-worker/src/worker.js
+          grep -q 'id="wsv-test-push"' canonical-test-worker/public/pages/settings.js
+          grep -q "ctx.api('/api/test/push-wsv'" canonical-test-worker/public/pages/settings.js
+          cd canonical-test-worker
+          npx --yes wrangler@4 deploy --dry-run --outdir /tmp/wsv-dry-run --config wrangler.jsonc
+          test -s /tmp/wsv-dry-run/worker.js
+      - name: Upload inactive preview version
+        id: upload
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd canonical-test-worker
+          npx --yes wrangler@4 versions upload --config wrangler.jsonc --tag wsv-e2e-trigger-v1 --message 'TEST only: authenticated WSV E2E push trigger' >/tmp/upload.log 2>&1
+          VERSION=$(sed -n 's/^Worker Version ID: //p' /tmp/upload.log | tail -n1)
+          PREVIEW=$(sed -n 's/^Version Preview URL: //p' /tmp/upload.log | tail -n1)
+          test -n "$VERSION"
+          test -n "$PREVIEW"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "preview=$PREVIEW" >> "$GITHUB_OUTPUT"
+      - name: Verify preview including auth gate
+        id: preview
+        env:
+          PREVIEW: ${{ steps.upload.outputs.preview }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "$PREVIEW/" -o /tmp/index
+          curl -fsSL "$PREVIEW/app.js" -o /tmp/app
+          curl -fsSL "$PREVIEW/pages/settings.js" -o /tmp/settings
+          curl -fsSL "$PREVIEW/sw.js" -o /tmp/sw
+          curl -fsSL "$PREVIEW/manifest.webmanifest" -o /tmp/manifest
+          curl -fsSL "$PREVIEW/api/self-test" -o /tmp/selftest
+          AUTH_HTTP=$(curl -sSL -o /tmp/authbody -w '%{http_code}' -X POST "$PREVIEW/api/test/push-wsv")
+          test "$AUTH_HTTP" = 401
+          test "$(sha256sum /tmp/app | awk '{print $1}')" = '45c6acbb3057204d18bd76a9a58db53262004edd4cb789e0540048e96e227ff8'
+          grep -q 'id="wsv-test-push"' /tmp/settings
+          grep -q "ctx.api('/api/test/push-wsv'" /tmp/settings
+          grep -q "clients.matchAll({ type: 'window', includeUncontrolled: true })" /tmp/sw
+          grep -q 'appClient.navigate(targetUrl)' /tmp/sw
+          jq -e '.id=="/" and .scope=="/" and .display=="standalone"' /tmp/manifest >/dev/null
+          jq -e '.ok==true and .environment=="test" and .checks.pushConfig.ok==true and .checks.pushConfig.configured==true' /tmp/selftest >/dev/null
+          jq -e '.error=="Unauthorized"' /tmp/authbody >/dev/null
+          {
+            echo "version=${{ steps.upload.outputs.version }}"
+            echo "preview=$PREVIEW"
+            echo 'preview_result=ok'
+            echo 'auth_gate=401'
+            echo 'self_test=ok'
+            echo 'clickfix=ok'
+            echo 'wsv_test_button=ok'
+          } > /tmp/receipt.txt
+      - name: Record verified preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          { echo "checked_at=$TS"; cat /tmp/receipt.txt; } > /tmp/final.txt
+          CONTENT=$(base64 -w0 /tmp/final.txt)
+          PATH_NAME='deploy-receipts/wsv-e2e-trigger-preview.txt'
+          CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Verify WSV E2E trigger preview' -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Verify WSV E2E trigger preview' -f content="$CONTENT" -f branch=test
+          fi
