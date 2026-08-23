@@ -1,0 +1,5 @@
+target=canonical-test-worker
+validation=ok
+dry_run_exit=0
+validated_at=2026-08-23T09:21:43Z
+commit=124200ab27d6ff2844d079bf83c2f572612f5d2e
