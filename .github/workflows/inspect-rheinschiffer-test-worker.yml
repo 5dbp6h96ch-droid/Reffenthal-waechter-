@@ -1,4 +1,4 @@
-name: Snapshot confirmed rheinschiffer-test Worker source
+name: Diagnose confirmed rheinschiffer-test Worker download
 
 on:
   workflow_dispatch:
@@ -12,45 +12,50 @@ permissions:
   contents: write
 
 jobs:
-  snapshot:
+  diagnose:
     runs-on: ubuntu-latest
     environment: test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download active Worker source from Cloudflare
+      - name: Probe Worker download endpoint
+        id: probe
+        continue-on-error: true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         shell: bash
         run: |
-          set -euo pipefail
-          OUT='canonical-test-snapshot'
-          mkdir -p "$OUT"
+          set +e
           URL="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test"
-          curl -fsSL -D /tmp/headers.txt -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$URL" -o /tmp/worker-download.bin
-          TYPE=$(file -b --mime-type /tmp/worker-download.bin)
-          SIZE=$(wc -c < /tmp/worker-download.bin | tr -d ' ')
-          SHA=$(sha256sum /tmp/worker-download.bin | awk '{print $1}')
-          printf 'mime_type=%s\nbytes=%s\nsha256=%s\n' "$TYPE" "$SIZE" "$SHA" > "$OUT/WORKER-SOURCE-METADATA.txt"
-          if grep -aEiq '(PRIVATE KEY-----|CLOUDFLARE_API_TOKEN|SMTP_PASSWORD\s*[:=]\s*["'"'][^"'"']+|VAPID_PRIVATE_KEY\s*[:=]\s*["'"'][^"'"']+)' /tmp/worker-download.bin; then
-            echo 'Potential embedded secret detected; source not committed.' >> "$OUT/WORKER-SOURCE-METADATA.txt"
-            exit 1
-          fi
-          cp /tmp/worker-download.bin "$OUT/worker-source.txt"
-          cat "$OUT/WORKER-SOURCE-METADATA.txt"
+          HTTP=$(curl -sSL -D /tmp/headers.txt -o /tmp/body.bin -w '%{http_code}' -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$URL")
+          RC=$?
+          TYPE=$(grep -i '^content-type:' /tmp/headers.txt | tail -n1 | cut -d: -f2- | tr -d '\r' | xargs)
+          SIZE=$(wc -c < /tmp/body.bin | tr -d ' ')
+          SHA=$(sha256sum /tmp/body.bin | awk '{print $1}')
+          printf 'http_status=%s\ncurl_exit=%s\ncontent_type=%s\nbytes=%s\nsha256=%s\n' "$HTTP" "$RC" "$TYPE" "$SIZE" "$SHA" > /tmp/diagnosis.txt
+          cat /tmp/diagnosis.txt
+          exit 0
 
-      - name: Commit backend source snapshot
+      - name: Record non-sensitive download diagnosis
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add canonical-test-snapshot/WORKER-SOURCE-METADATA.txt canonical-test-snapshot/worker-source.txt
-          if git diff --cached --quiet; then
-            echo 'Worker source snapshot already identical.'
-            exit 0
+          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          {
+            echo 'target=worker:rheinschiffer-test'
+            echo 'confirmed_good_version=57cd69f3-d291-465f-b451-dbd8b4e46c88'
+            echo "inspected_at=${TS}"
+            cat /tmp/diagnosis.txt
+          } > /tmp/receipt.txt
+          CONTENT=$(base64 -w0 /tmp/receipt.txt)
+          PATH_NAME='deploy-receipts/test-worker-download-diagnosis.txt'
+          CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record canonical Worker download diagnosis" -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record canonical Worker download diagnosis" -f content="$CONTENT" -f branch=test
           fi
-          git commit -m 'Snapshot confirmed good rheinschiffer-test Worker source [skip ci]'
-          git push origin HEAD:test
