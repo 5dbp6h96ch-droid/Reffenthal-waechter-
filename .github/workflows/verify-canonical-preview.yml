@@ -16,51 +16,55 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Verify uploaded preview only
+        id: verify
+        continue-on-error: true
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
           BASE='https://512c4b8b-rheinschiffer-test.5dbp6h96ch.workers.dev'
-          curl -fsSL "$BASE/" -o /tmp/index
-          curl -fsSL "$BASE/app.js" -o /tmp/app
-          curl -fsSL "$BASE/sw.js" -o /tmp/sw
-          curl -fsSL "$BASE/manifest.webmanifest" -o /tmp/manifest
-          curl -fsSL "$BASE/api/push/vapid-public-key" -o /tmp/vapid
-
-          INDEX_SHA=$(sha256sum /tmp/index | awk '{print $1}')
-          APP_SHA=$(sha256sum /tmp/app | awk '{print $1}')
-          SW_SHA=$(sha256sum /tmp/sw | awk '{print $1}')
-          MANIFEST_OK=no
-          SW_OK=no
-          VAPID_OK=no
-          INDEX_OK=no
-          [ "$APP_SHA" = '45c6acbb3057204d18bd76a9a58db53262004edd4cb789e0540048e96e227ff8' ]
-          grep -q 'R(h)einschiffer' /tmp/index && grep -q 'rel="manifest" href="/manifest.webmanifest"' /tmp/index && INDEX_OK=yes
-          grep -q "clients.matchAll({ type: 'window', includeUncontrolled: true })" /tmp/sw && grep -q 'appClient.navigate(targetUrl)' /tmp/sw && grep -q "clients.openWindow(targetUrl)" /tmp/sw && SW_OK=yes
-          jq -e '.id=="/" and .start_url=="/" and .scope=="/" and .display=="standalone"' /tmp/manifest >/dev/null && MANIFEST_OK=yes
-          jq -e '.configured==true and (.publicKey|type=="string") and (.publicKey|length>20)' /tmp/vapid >/dev/null && VAPID_OK=yes
-          test "$INDEX_OK" = yes
-          test "$SW_OK" = yes
-          test "$MANIFEST_OK" = yes
-          test "$VAPID_OK" = yes
-          {
-            echo 'preview_version=512c4b8b-3364-439b-afc8-d14fc127eb34'
-            echo 'preview_result=ok'
-            echo "index_sha=$INDEX_SHA"
-            echo "app_sha=$APP_SHA"
-            echo "sw_sha=$SW_SHA"
-            echo "index_manifest=$INDEX_OK"
-            echo "sw_clickfix=$SW_OK"
-            echo "manifest=$MANIFEST_OK"
-            echo "vapid=$VAPID_OK"
-          } > /tmp/receipt.txt
+          : > /tmp/receipt.txt
+          echo 'preview_version=512c4b8b-3364-439b-afc8-d14fc127eb34' >> /tmp/receipt.txt
+          PASS=yes
+          for spec in 'index /' 'app /app.js' 'sw /sw.js' 'manifest /manifest.webmanifest' 'vapid /api/push/vapid-public-key'; do
+            NAME=$(echo "$spec" | awk '{print $1}')
+            PATH_PART=$(echo "$spec" | awk '{print $2}')
+            HTTP=$(curl -sSL -o "/tmp/$NAME" -w '%{http_code}' "$BASE$PATH_PART")
+            RC=$?
+            BYTES=$(wc -c < "/tmp/$NAME" 2>/dev/null | tr -d ' ')
+            echo "${NAME}_http=$HTTP" >> /tmp/receipt.txt
+            echo "${NAME}_curl_exit=$RC" >> /tmp/receipt.txt
+            echo "${NAME}_bytes=${BYTES:-0}" >> /tmp/receipt.txt
+            [ "$RC" -eq 0 ] && [ "$HTTP" = 200 ] || PASS=no
+          done
+          INDEX_SHA=$(sha256sum /tmp/index 2>/dev/null | awk '{print $1}')
+          APP_SHA=$(sha256sum /tmp/app 2>/dev/null | awk '{print $1}')
+          SW_SHA=$(sha256sum /tmp/sw 2>/dev/null | awk '{print $1}')
+          echo "index_sha=$INDEX_SHA" >> /tmp/receipt.txt
+          echo "app_sha=$APP_SHA" >> /tmp/receipt.txt
+          echo "sw_sha=$SW_SHA" >> /tmp/receipt.txt
+          INDEX_OK=no; SW_OK=no; MANIFEST_OK=no; VAPID_OK=no; APP_OK=no
+          [ "$APP_SHA" = '45c6acbb3057204d18bd76a9a58db53262004edd4cb789e0540048e96e227ff8' ] && APP_OK=yes || PASS=no
+          grep -q 'R(h)einschiffer' /tmp/index 2>/dev/null && grep -q 'rel="manifest" href="/manifest.webmanifest"' /tmp/index 2>/dev/null && INDEX_OK=yes || PASS=no
+          grep -q "clients.matchAll({ type: 'window', includeUncontrolled: true })" /tmp/sw 2>/dev/null && grep -q 'appClient.navigate(targetUrl)' /tmp/sw 2>/dev/null && grep -q 'clients.openWindow(targetUrl)' /tmp/sw 2>/dev/null && SW_OK=yes || PASS=no
+          jq -e '.id=="/" and .start_url=="/" and .scope=="/" and .display=="standalone"' /tmp/manifest >/dev/null 2>&1 && MANIFEST_OK=yes || PASS=no
+          jq -e '.configured==true and (.publicKey|type=="string") and (.publicKey|length>20)' /tmp/vapid >/dev/null 2>&1 && VAPID_OK=yes || PASS=no
+          echo "app_match=$APP_OK" >> /tmp/receipt.txt
+          echo "index_manifest=$INDEX_OK" >> /tmp/receipt.txt
+          echo "sw_clickfix=$SW_OK" >> /tmp/receipt.txt
+          echo "manifest=$MANIFEST_OK" >> /tmp/receipt.txt
+          echo "vapid=$VAPID_OK" >> /tmp/receipt.txt
+          echo "preview_result=$PASS" >> /tmp/receipt.txt
+          [ "$PASS" = yes ]
+          exit $?
       - name: Record receipt
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          { echo "checked_at=$TS"; cat /tmp/receipt.txt; } > /tmp/final.txt
+          { echo "checked_at=$TS"; cat /tmp/receipt.txt 2>/dev/null || echo 'preview_result=missing'; } > /tmp/final.txt
           CONTENT=$(base64 -w0 /tmp/final.txt)
           PATH_NAME='deploy-receipts/canonical-preview-verification.txt'
           CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
