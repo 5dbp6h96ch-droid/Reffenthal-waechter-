@@ -1,0 +1,6 @@
+confirmed_good_version=57cd69f3-d291-465f-b451-dbd8b4e46c88
+alias=clickfix
+backend_sha256=e696e854ee76ee5b2d56fa3418c76ddcdc2a64ef7a29b66b6c9da8840ca794b1
+frontend_snapshot=canonical-test-snapshot/SNAPSHOT.txt
+d1_binding=DB
+app_env=test

@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rheinschiffer-test",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-08-19",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "keep_vars": true,
+  "workers_dev": true,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "vars": {
+    "APP_ENV": "test"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "51255b8b-b4f6-48f4-b630-82093749ea3a"
+    }
+  ],
+  "secrets": {
+    "required": [
+      "SMTP_PASSWORD",
+      "VAPID_PRIVATE_KEY",
+      "VAPID_PUBLIC_KEY",
+      "VAPID_SUBJECT"
+    ]
+  }
+}
