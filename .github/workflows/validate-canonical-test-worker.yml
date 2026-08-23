@@ -1,0 +1,76 @@
+name: Validate canonical rheinschiffer-test Worker
+
+on:
+  push:
+    branches:
+      - test
+    paths:
+      - 'canonical-test-worker/**'
+      - '.github/workflows/validate-canonical-test-worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate canonical source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'confirmed_good_version=57cd69f3-d291-465f-b451-dbd8b4e46c88' canonical-test-worker/ORIGIN.txt
+          grep -q 'd1_database_id=51255b8b-b4f6-48f4-b630-82093749ea3a' canonical-test-worker/ORIGIN.txt
+          jq -e '.name=="rheinschiffer-test" and .vars.APP_ENV=="test"' canonical-test-worker/wrangler.jsonc >/dev/null
+          jq -e '.id=="/" and .start_url=="/" and .scope=="/" and .display=="standalone"' canonical-test-worker/public/manifest.webmanifest >/dev/null
+          grep -q 'rel="manifest" href="/manifest.webmanifest"' canonical-test-worker/public/index.html
+          grep -q "clients.matchAll({ type: 'window', includeUncontrolled: true })" canonical-test-worker/public/sw.js
+          grep -q 'appClient.navigate(targetUrl)' canonical-test-worker/public/sw.js
+          grep -q 'clients.openWindow(targetUrl)' canonical-test-worker/public/sw.js
+          grep -q '"#/nfb"' canonical-test-worker/src/worker.js
+          echo '✓ canonical identity and push navigation checks passed'
+
+      - name: Wrangler dry-run only
+        id: dryrun
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set +e
+          cd canonical-test-worker
+          npx --yes wrangler@4 deploy --dry-run --outdir /tmp/canonical-dry-run --config wrangler.jsonc >/tmp/dryrun.log 2>&1
+          RC=$?
+          [ "$RC" -eq 0 ] && STATUS=ok || STATUS=fail
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "rc=$RC" >> "$GITHUB_OUTPUT"
+          tail -n 30 /tmp/dryrun.log
+          exit 0
+
+      - name: Record validation result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATUS: ${{ steps.dryrun.outputs.status }}
+          RC: ${{ steps.dryrun.outputs.rc }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          CONTENT=$(printf 'target=canonical-test-worker\nvalidation=%s\ndry_run_exit=%s\nvalidated_at=%s\ncommit=%s\n' "$STATUS" "$RC" "$TS" "$GITHUB_SHA" | base64 -w0)
+          PATH_NAME='deploy-receipts/canonical-test-worker-validation.txt'
+          CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Validate canonical test Worker" -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Validate canonical test Worker" -f content="$CONTENT" -f branch=test
+          fi
+
+      - name: Fail if dry-run failed
+        if: steps.dryrun.outputs.status != 'ok'
+        run: exit 1
