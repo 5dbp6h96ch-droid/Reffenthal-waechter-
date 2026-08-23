@@ -1,4 +1,4 @@
-name: Snapshot confirmed rheinschiffer-test Worker backend
+name: Reconstruct canonical rheinschiffer-test project
 
 on:
   workflow_dispatch:
@@ -12,63 +12,113 @@ permissions:
   contents: write
 
 jobs:
-  snapshot:
+  reconstruct:
     runs-on: ubuntu-latest
     environment: test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Download and extract active worker.js
+      - name: Read safe Worker configuration and assemble project
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         shell: bash
         run: |
           set -euo pipefail
-          URL="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test"
-          curl -fsSL -D /tmp/headers.txt -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$URL" -o /tmp/body.bin
-          CONTENT_TYPE=$(grep -i '^content-type:' /tmp/headers.txt | tail -n1 | cut -d: -f2- | tr -d '\r' | xargs)
-          export CONTENT_TYPE
-          python3 - <<'PY'
-          import os
-          from email.parser import BytesParser
-          from email.policy import default
-          body=open('/tmp/body.bin','rb').read()
-          ct=os.environ['CONTENT_TYPE']
-          msg=BytesParser(policy=default).parsebytes((f'MIME-Version: 1.0\r\nContent-Type: {ct}\r\n\r\n').encode()+body)
-          found=[]
-          for part in msg.iter_parts():
-              name=part.get_param('name', header='content-disposition') or ''
-              if name=='worker.js':
-                  data=part.get_payload(decode=True) or b''
-                  open('/tmp/worker.js','wb').write(data)
-                  found.append(len(data))
-          if len(found)!=1 or found[0]==0:
-              raise SystemExit('worker.js not found exactly once')
-          PY
-          EXPECTED='e696e854ee76ee5b2d56fa3418c76ddcdc2a64ef7a29b66b6c9da8840ca794b1'
-          ACTUAL=$(sha256sum /tmp/worker.js | awk '{print $1}')
-          test "$ACTUAL" = "$EXPECTED"
-          # Reject obvious literal secrets; environment binding names are safe and expected.
-          if grep -aEiq '(-----BEGIN [A-Z ]*PRIVATE KEY-----|SMTP_PASSWORD[[:space:]]*[:=][[:space:]]*["'"'][^"'"']{8,}|VAPID_PRIVATE_KEY[[:space:]]*[:=][[:space:]]*["'"'][^"'"']{8,}|CLOUDFLARE_API_TOKEN[[:space:]]*[:=][[:space:]]*["'"'][^"'"']{8,})' /tmp/worker.js; then
-            echo 'Literal secret candidate found; refusing to commit backend snapshot.'
-            exit 1
-          fi
-          mkdir -p canonical-test-snapshot/backend
-          cp /tmp/worker.js canonical-test-snapshot/backend/worker.js
-          printf 'source=active Cloudflare Worker download\nworker=rheinschiffer-test\nversion=57cd69f3-d291-465f-b451-dbd8b4e46c88\nalias=clickfix\nbytes=%s\nsha256=%s\n' "$(wc -c < /tmp/worker.js | tr -d ' ')" "$ACTUAL" > canonical-test-snapshot/backend/SNAPSHOT.txt
+          VERSION='57cd69f3-d291-465f-b451-dbd8b4e46c88'
+          URL="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test/versions/${VERSION}"
+          curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$URL" > /tmp/version.json
+          jq -e '.success == true' /tmp/version.json >/dev/null
+          DB_ID=$(jq -r '.result.resources.bindings[] | select(.type=="d1" and .name=="DB") | (.database_id // .id // "")' /tmp/version.json | head -n1)
+          DB_NAME=$(jq -r '.result.resources.bindings[] | select(.type=="d1" and .name=="DB") | (.database_name // .database // "")' /tmp/version.json | head -n1)
+          APP_ENV=$(jq -r '.result.resources.bindings[] | select(.type=="plain_text" and .name=="APP_ENV") | (.text // .value // "test")' /tmp/version.json | head -n1)
+          test -n "$DB_ID"
+          [ -n "$APP_ENV" ] || APP_ENV='test'
 
-      - name: Commit backend snapshot
+          OUT='canonical-test-worker'
+          rm -rf "$OUT"
+          mkdir -p "$OUT/src" "$OUT/public/pages"
+          cp canonical-test-snapshot/backend/worker.js "$OUT/src/worker.js"
+          cp canonical-test-snapshot/index.html "$OUT/public/index.html"
+          cp canonical-test-snapshot/app.js "$OUT/public/app.js"
+          cp canonical-test-snapshot/styles.css "$OUT/public/styles.css"
+          cp canonical-test-snapshot/action-icons.css "$OUT/public/action-icons.css"
+          cp canonical-test-snapshot/sw.js "$OUT/public/sw.js"
+          cp canonical-test-snapshot/pages/*.js "$OUT/public/pages/"
+
+          # Preserve current notification icons if they exist on the canonical Worker.
+          mkdir -p "$OUT/public/icons"
+          for icon in icon-192.png icon-512.png; do
+            HTTP=$(curl -sSL -o "$OUT/public/icons/$icon" -w '%{http_code}' "https://rheinschiffer-test.5dbp6h96ch.workers.dev/icons/$icon")
+            if [ "$HTTP" != '200' ]; then rm -f "$OUT/public/icons/$icon"; fi
+          done
+
+          cat > "$OUT/wrangler.jsonc" <<EOF
+          {
+            "$schema": "node_modules/wrangler/config-schema.json",
+            "name": "rheinschiffer-test",
+            "main": "src/worker.js",
+            "compatibility_date": "2026-08-19",
+            "compatibility_flags": ["nodejs_compat"],
+            "keep_vars": true,
+            "workers_dev": true,
+            "assets": {
+              "directory": "./public",
+              "binding": "ASSETS",
+              "not_found_handling": "single-page-application",
+              "run_worker_first": true
+            },
+            "vars": {
+              "APP_ENV": $(python3 -c 'import json,os; print(json.dumps(os.environ.get("APP_ENV_VALUE","test")))' APP_ENV_VALUE="$APP_ENV")
+            },
+            "d1_databases": [
+              {
+                "binding": "DB",
+                "database_id": "$DB_ID"$( [ -n "$DB_NAME" ] && printf ',\n                "database_name": "%s"' "$DB_NAME" || true )
+              }
+            ],
+            "secrets": {
+              "required": ["SMTP_PASSWORD", "VAPID_PRIVATE_KEY", "VAPID_PUBLIC_KEY", "VAPID_SUBJECT"]
+            }
+          }
+          EOF
+
+          cat > "$OUT/README.md" <<EOF
+          # Canonical rheinschiffer-test Worker
+
+          Reconstructed from the user-confirmed live test Worker version:
+          - Worker: \`rheinschiffer-test\`
+          - Version: \`57cd69f3-d291-465f-b451-dbd8b4e46c88\`
+          - Alias: \`clickfix\`
+          - URL: \`https://rheinschiffer-test.5dbp6h96ch.workers.dev/\`
+
+          This directory is the only valid source basis for future canonical test-Worker changes.
+          **Do not deploy automatically.** The known-good Cloudflare version above remains the rollback target.
+          Secret values are not stored here. Existing Cloudflare secrets are declared by name only.
+          EOF
+
+          cat > "$OUT/ORIGIN.txt" <<EOF
+          confirmed_good_version=57cd69f3-d291-465f-b451-dbd8b4e46c88
+          alias=clickfix
+          backend_sha256=e696e854ee76ee5b2d56fa3418c76ddcdc2a64ef7a29b66b6c9da8840ca794b1
+          frontend_snapshot=canonical-test-snapshot/SNAPSHOT.txt
+          d1_binding=DB
+          app_env=$APP_ENV
+          EOF
+
+      - name: Commit reconstructed project
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add canonical-test-snapshot/backend
+          git add canonical-test-worker
           if git diff --cached --quiet; then
-            echo 'Backend snapshot already identical.'
+            echo 'Canonical project already identical.'
             exit 0
           fi
-          git commit -m 'Snapshot confirmed good rheinschiffer-test backend [skip ci]'
+          git commit -m 'Reconstruct canonical rheinschiffer-test Worker project [skip ci]'
           git push origin HEAD:test
