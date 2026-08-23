@@ -21,9 +21,9 @@ jobs:
         shell: bash
         run: |
           set +e
-          BASE='https://512c4b8b-rheinschiffer-test.5dbp6h96ch.workers.dev'
+          BASE='https://334fd94b-rheinschiffer-test.5dbp6h96ch.workers.dev'
           : > /tmp/receipt.txt
-          echo 'preview_version=512c4b8b-3364-439b-afc8-d14fc127eb34' >> /tmp/receipt.txt
+          echo 'preview_version=334fd94b-83bd-4506-84ee-c689ed12b6bb' >> /tmp/receipt.txt
           PASS=yes
           for spec in 'index /' 'app /app.js' 'sw /sw.js' 'manifest /manifest.webmanifest' 'vapid /api/push/vapid-public-key'; do
             NAME=$(echo "$spec" | awk '{print $1}')
