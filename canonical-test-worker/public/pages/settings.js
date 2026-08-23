@@ -48,6 +48,7 @@ export async function renderSettings(ctx) {
 
       <div class="settings-row"><span>Push-Nachrichten</span><strong>${!push.supported ? 'Nicht unterstützt' : push.subscription ? 'Aktiv' : 'Inaktiv'}</strong></div>
       ${push.supported ? `<button id="push-toggle" class="control" type="button">${push.subscription ? 'Push deaktivieren' : 'Push aktivieren'}</button>` : ''}
+      ${push.supported && push.subscription ? '<button id="wsv-test-push" class="control" type="button" style="margin-top:8px">WSV-Test-Push senden</button>' : ''}
       <div id="settings-status" class="gauge-meta" style="margin-top:10px"></div>
     </section>
 
@@ -76,6 +77,21 @@ export async function renderSettings(ctx) {
       status.textContent='Quellenauswahl gespeichert.';
     }catch(error){event.target.checked=!event.target.checked;status.textContent=error.message||String(error);}
   }));
+
+  document.querySelector('#wsv-test-push')?.addEventListener('click', async () => {
+    const status = document.querySelector('#settings-status');
+    const button = document.querySelector('#wsv-test-push');
+    button.disabled = true;
+    status.textContent = 'WSV-Test-Push wird gesendet…';
+    try {
+      const result = await ctx.api('/api/test/push-wsv', { method:'POST' });
+      status.textContent = result.sent > 0 ? 'WSV-Test-Push wurde gesendet.' : `Test ausgeführt: ${result.sent || 0} gesendet, ${result.failed || 0} fehlgeschlagen.`;
+    } catch (error) {
+      status.textContent = error.message || String(error);
+    } finally {
+      button.disabled = false;
+    }
+  });
 
   document.querySelector('#push-toggle')?.addEventListener('click', async () => {
     const status = document.querySelector('#settings-status');
