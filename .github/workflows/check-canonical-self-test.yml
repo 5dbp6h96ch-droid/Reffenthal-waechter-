@@ -1,0 +1,51 @@
+name: Check canonical rheinschiffer-test self-test
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - '.github/workflows/check-canonical-self-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Call test-only self-test endpoint
+        id: call
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          URL='https://rheinschiffer-test.5dbp6h96ch.workers.dev/api/self-test'
+          HTTP=$(curl -sSL -o /tmp/selftest.json -w '%{http_code}' "$URL")
+          RC=$?
+          OK=$(jq -r '.ok // false' /tmp/selftest.json 2>/dev/null)
+          {
+            echo "http=$HTTP"
+            echo "curl_exit=$RC"
+            echo "ok=$OK"
+            echo "body=$(jq -c . /tmp/selftest.json 2>/dev/null | head -c 6000)"
+          } > /tmp/receipt.txt
+          exit 0
+      - name: Record receipt
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          { echo "checked_at=$TS"; cat /tmp/receipt.txt 2>/dev/null || echo 'missing'; } > /tmp/final.txt
+          CONTENT=$(base64 -w0 /tmp/final.txt)
+          PATH_NAME='deploy-receipts/canonical-self-test.txt'
+          CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Check canonical test self-test' -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Check canonical test self-test' -f content="$CONTENT" -f branch=test
+          fi
