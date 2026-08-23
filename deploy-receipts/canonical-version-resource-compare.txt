@@ -1,0 +1,17 @@
+checked_at=2026-08-23T09:45:50Z
+[active]
+id=f2acaa6f-b4ce-4fb0-8302-9f56be3294c8
+tag=
+message=
+resource_keys=bindings,script,script_runtime
+binding_types=APP_ENV:plain_text,ASSETS:assets,DB:d1,VAPID_PRIVATE_KEY:secret_text,VAPID_PUBLIC_KEY:secret_text,VAPID_SUBJECT:secret_text
+script_runtime_keys=assets,compatibility_date,compatibility_flags,usage_model
+script_runtime_assets={"static_routing":{"user_worker":["/api/*"]},"serve_directly":true,"raw_run_worker_first":["/api/*"]}
+[new]
+id=512c4b8b-3364-439b-afc8-d14fc127eb34
+tag=ios-pwa-clickfix-v1
+message=TEST only: canonical iOS PWA click fix
+resource_keys=bindings,script,script_runtime
+binding_types=APP_ENV:plain_text,ASSETS:assets,DB:d1,VAPID_PRIVATE_KEY:secret_text,VAPID_PUBLIC_KEY:secret_text,VAPID_SUBJECT:secret_text
+script_runtime_keys=assets,compatibility_date,compatibility_flags,usage_model
+script_runtime_assets={"not_found_handling":"single-page-application","serve_directly":false,"raw_run_worker_first":true}
