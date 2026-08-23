@@ -20,6 +20,23 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const url = normalizePushUrl(event.notification?.data?.url);
-  event.waitUntil(clients.openWindow(url));
+  const targetUrl = normalizePushUrl(event.notification?.data?.url);
+
+  event.waitUntil((async () => {
+    const windows = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const appClient = windows.find(client => {
+      try { return new URL(client.url).origin === self.location.origin; }
+      catch { return false; }
+    });
+
+    if (appClient) {
+      try {
+        if ('navigate' in appClient) await appClient.navigate(targetUrl);
+      } catch {}
+      if ('focus' in appClient) return appClient.focus();
+      return appClient;
+    }
+
+    return clients.openWindow(targetUrl);
+  })());
 });
