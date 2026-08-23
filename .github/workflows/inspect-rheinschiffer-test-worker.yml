@@ -1,4 +1,4 @@
-name: Inspect confirmed rheinschiffer-test Worker resources
+name: Snapshot confirmed rheinschiffer-test frontend
 
 on:
   workflow_dispatch:
@@ -12,72 +12,54 @@ permissions:
   contents: write
 
 jobs:
-  inspect:
+  snapshot:
     runs-on: ubuntu-latest
-    environment: test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fingerprint live canonical test Worker
+      - name: Download public files from confirmed good test Worker
         shell: bash
         run: |
           set -euo pipefail
           BASE='https://rheinschiffer-test.5dbp6h96ch.workers.dev'
-          curl -fsSL "$BASE/" -o /tmp/index.html
-          INDEX_SHA=$(sha256sum /tmp/index.html | awk '{print $1}')
-          INDEX_BYTES=$(wc -c < /tmp/index.html | tr -d ' ')
-          grep -Eo '(src|href)="[^"]+"' /tmp/index.html | sed -E 's/^(src|href)="//; s/"$//' | sort -u > /tmp/assets.txt || true
-          : > /tmp/asset-hashes.txt
-          while IFS= read -r asset; do
-            case "$asset" in
-              http://*|https://*) url="$asset" ;;
-              /*) url="$BASE$asset" ;;
-              *) url="$BASE/$asset" ;;
-            esac
-            if curl -fsSL "$url" -o /tmp/asset.bin; then
-              bytes=$(wc -c < /tmp/asset.bin | tr -d ' ')
-              sha=$(sha256sum /tmp/asset.bin | awk '{print $1}')
-              printf '%s\t%s\t%s\n' "$asset" "$bytes" "$sha" >> /tmp/asset-hashes.txt
+          OUT='canonical-test-snapshot'
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          for path in / /app.js /styles.css /action-icons.css /sw.js /manifest.webmanifest; do
+            name=$(printf '%s' "$path" | sed 's#^/##')
+            [ -n "$name" ] || name='index.html'
+            status=$(curl -sSL -o "$OUT/$name" -w '%{http_code}' "$BASE$path")
+            if [ "$status" != '200' ]; then
+              rm -f "$OUT/$name"
+              echo "$path -> HTTP $status (not snapshotted)"
             fi
-          done < /tmp/assets.txt
-          SW_STATUS=$(curl -sSL -o /tmp/sw.js -w '%{http_code}' "$BASE/sw.js")
-          SW_SHA=''
-          SW_BYTES='0'
-          if [ "$SW_STATUS" = '200' ]; then
-            SW_SHA=$(sha256sum /tmp/sw.js | awk '{print $1}')
-            SW_BYTES=$(wc -c < /tmp/sw.js | tr -d ' ')
-          fi
+          done
           {
-            echo "index_bytes=${INDEX_BYTES}"
-            echo "index_sha256=${INDEX_SHA}"
-            echo "sw_http=${SW_STATUS}"
-            echo "sw_bytes=${SW_BYTES}"
-            echo "sw_sha256=${SW_SHA}"
-            echo "asset_fingerprints:"
-            cat /tmp/asset-hashes.txt
-          } > /tmp/live-fingerprint.txt
-          cat /tmp/live-fingerprint.txt
+            echo 'canonical_url=https://rheinschiffer-test.5dbp6h96ch.workers.dev/'
+            echo 'confirmed_good_worker_version=57cd69f3-d291-465f-b451-dbd8b4e46c88'
+            echo 'cloudflare_alias=clickfix'
+            echo 'snapshot_source=public_live_files'
+            echo 'files:'
+            for f in "$OUT"/*; do
+              [ -f "$f" ] || continue
+              printf '%s\t%s\t%s\n' "$(basename "$f")" "$(wc -c < "$f" | tr -d ' ')" "$(sha256sum "$f" | awk '{print $1}')"
+            done
+          } > "$OUT/SNAPSHOT.txt"
+          cat "$OUT/SNAPSHOT.txt"
 
-      - name: Record public live fingerprint
+      - name: Commit immutable frontend snapshot
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          {
-            echo "target=worker:rheinschiffer-test"
-            echo "url=https://rheinschiffer-test.5dbp6h96ch.workers.dev/"
-            echo "confirmed_good_version=57cd69f3-d291-465f-b451-dbd8b4e46c88"
-            echo "inspected_at=${TS}"
-            cat /tmp/live-fingerprint.txt
-          } > /tmp/receipt.txt
-          CONTENT=$(base64 -w0 /tmp/receipt.txt)
-          PATH_NAME='deploy-receipts/test-live-worker-fingerprint.txt'
-          CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
-          if [ -n "$CURRENT_SHA" ]; then
-            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record canonical test Worker live fingerprint" -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
-          else
-            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message="Record canonical test Worker live fingerprint" -f content="$CONTENT" -f branch=test
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add canonical-test-snapshot
+          if git diff --cached --quiet; then
+            echo 'Snapshot already identical.'
+            exit 0
           fi
+          git commit -m 'Snapshot confirmed good rheinschiffer-test frontend [skip ci]'
+          git push origin HEAD:test
