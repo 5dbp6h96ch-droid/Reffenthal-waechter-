@@ -1,0 +1,43 @@
+target=worker:rheinschiffer-test
+confirmed_good_version=57cd69f3-d291-465f-b451-dbd8b4e46c88
+inspected_at=2026-08-23T09:00:59Z
+{
+  "version": "57cd69f3-d291-465f-b451-dbd8b4e46c88",
+  "alias": "clickfix",
+  "source": "wrangler",
+  "created_on": "2026-08-23T04:52:37.798108Z",
+  "last_deployed_from": "wrangler",
+  "script_etag": "893cb6b6b9a12e1a319fe6c4e730d5926814c78d3918fa72066560e29bdc3498",
+  "script_handlers": [
+    "fetch",
+    "scheduled"
+  ],
+  "runtime_compatibility_date": "2026-08-19",
+  "runtime_compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "runtime_assets_type": "object",
+  "runtime_assets_keys": [
+    "raw_run_worker_first",
+    "serve_directly"
+  ],
+  "runtime_assets_structure": [
+    {
+      "key": "serve_directly",
+      "value_type": "boolean",
+      "value_keys": []
+    },
+    {
+      "key": "raw_run_worker_first",
+      "value_type": "boolean",
+      "value_keys": []
+    }
+  ],
+  "bindings_count": 7,
+  "binding_types": [
+    "assets",
+    "d1",
+    "plain_text",
+    "secret_text"
+  ]
+}
