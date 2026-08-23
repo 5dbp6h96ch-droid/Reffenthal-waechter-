@@ -1,0 +1,18 @@
+target=worker:rheinschiffer-test
+confirmed_good_version=57cd69f3-d291-465f-b451-dbd8b4e46c88
+inspected_at=2026-08-23T09:18:40Z
+{
+  "d1": {
+    "name": "DB",
+    "type": "d1",
+    "id": "51255b8b-b4f6-48f4-b630-82093749ea3a",
+    "database_id": "51255b8b-b4f6-48f4-b630-82093749ea3a",
+    "database_name": null
+  },
+  "app_env": {
+    "name": "APP_ENV",
+    "type": "plain_text",
+    "text": "test",
+    "value": null
+  }
+}
