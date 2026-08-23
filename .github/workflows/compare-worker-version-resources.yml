@@ -1,0 +1,54 @@
+name: Compare rheinschiffer-test Worker version resources
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - '.github/workflows/compare-worker-version-resources.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare safe version metadata
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rheinschiffer-test/versions"
+          for pair in 'active f2acaa6f-b4ce-4fb0-8302-9f56be3294c8' 'new 512c4b8b-3364-439b-afc8-d14fc127eb34'; do
+            NAME=$(echo "$pair" | awk '{print $1}')
+            ID=$(echo "$pair" | awk '{print $2}')
+            curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$API/$ID" > "/tmp/$NAME.json"
+            jq -e '.success==true' "/tmp/$NAME.json" >/dev/null
+          done
+          {
+            for NAME in active new; do
+              echo "[$NAME]"
+              jq -r '.result | "id=" + (.id // ""), "tag=" + (.annotations["workers/tag"] // ""), "message=" + (.annotations["workers/message"] // ""), "resource_keys=" + ((.resources|keys)|join(",")), "binding_types=" + ([.resources.bindings[]? | (.name + ":" + .type)]|sort|join(",")), "script_runtime_keys=" + ((.resources.script_runtime // {} | keys)|join(",")), "script_runtime_assets=" + ((.resources.script_runtime.assets // null)|tostring)' "/tmp/$NAME.json"
+            done
+          } > /tmp/receipt.txt
+      - name: Record receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          { echo "checked_at=$TS"; cat /tmp/receipt.txt; } > /tmp/final.txt
+          CONTENT=$(base64 -w0 /tmp/final.txt)
+          PATH_NAME='deploy-receipts/canonical-version-resource-compare.txt'
+          CURRENT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}?ref=test" --jq .sha 2>/dev/null || true)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Compare canonical Worker version resources' -f content="$CONTENT" -f branch=test -f sha="$CURRENT_SHA"
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${PATH_NAME}" -f message='Compare canonical Worker version resources' -f content="$CONTENT" -f branch=test
+          fi
