@@ -6,7 +6,7 @@ on:
       - tmp/gauge-alert-speyer-e2e-2026-08-23-run2
     paths:
       - '.github/workflows/tmp-wsv-news-e2e.yml'
-      - 'artifacts/.wsv-news-e2e-trigger'
+      - 'artifacts/.wsv-news-e2e-trigger-v2'
 
 permissions:
   contents: read
@@ -22,4 +22,4 @@ jobs:
             "https://azssnqabyefqplnoehty.supabase.co/functions/v1/send-event-push" \
             -H "Content-Type: application/json" \
             -H "apikey: ${{ secrets.SUPABASE_SECRET_KEY }}" \
-            --data '{"event_type":"wsv_news","title":"Neue WSV-Meldung","body":"TEST – WSV-Meldung im Testsystem","url":"#/news"}'
+            --data '{"event_type":"wsv_news","title":"Neue WSV-Meldung","body":"TEST – direkt zu WSV-Nachrichten","url":"#/wsv"}'
