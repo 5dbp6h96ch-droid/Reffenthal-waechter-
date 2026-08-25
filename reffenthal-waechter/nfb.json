@@ -241,8 +241,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2413",
       "expired": false,
       "first_seen": "2026-08-21T10:00:25.994361+00:00"
+    },
+    {
+      "nfb_id": "2026/2441",
+      "titel": "Nachricht wegen Veranstaltung",
+      "km_von": 383.3,
+      "km_bis": 386.7,
+      "gueltig_ab": "10. Okt. 2026 11:00\n                                Uhr",
+      "gueltig_bis": "10. Okt. 2026 16:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2441",
+      "expired": false,
+      "first_seen": "2026-08-25T08:04:00.016996+00:00"
     }
   ],
-  "count": 22,
-  "updated_at": "2026-08-25T05:19:23.073007+00:00"
+  "count": 23,
+  "updated_at": "2026-08-25T08:04:07.215824+00:00"
 }
