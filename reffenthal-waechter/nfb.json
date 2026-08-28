@@ -252,8 +252,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2441",
       "expired": false,
       "first_seen": "2026-08-25T08:04:00.016996+00:00"
+    },
+    {
+      "nfb_id": "2026/2463",
+      "titel": "Nachricht wegen Inspektion: Durchfahrtshöhe, besondere Vorsicht",
+      "km_von": 774.38,
+      "km_bis": 774.4,
+      "gueltig_ab": "7. Sep. 2026 08:00\n                                Uhr",
+      "gueltig_bis": "11. Sep. 2026 16:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2463",
+      "expired": false,
+      "first_seen": "2026-08-28T00:59:50.210088+00:00"
     }
   ],
-  "count": 23,
-  "updated_at": "2026-08-26T14:30:39.618029+00:00"
+  "count": 24,
+  "updated_at": "2026-08-28T01:00:01.081181+00:00"
 }
