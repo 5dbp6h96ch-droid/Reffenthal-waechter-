@@ -285,8 +285,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2485",
       "expired": false,
       "first_seen": "2026-08-31T09:51:10.835560+00:00"
+    },
+    {
+      "nfb_id": "2026/2495",
+      "titel": "Nachricht wegen lokal gültige Verkehrsvorschriften: Einbahnverkehr, Überholverbot, Sog und Wellenschlag vermeiden, besondere Vorsicht",
+      "km_von": 163.7,
+      "km_bis": 170.0,
+      "gueltig_ab": "18. Mai 2026 07:00\n                                Uhr",
+      "gueltig_bis": "30. Sep. 2026 08:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2495",
+      "expired": false,
+      "first_seen": "2026-08-31T15:51:03.184285+00:00"
     }
   ],
-  "count": 26,
-  "updated_at": "2026-08-31T15:21:22.254760+00:00"
+  "count": 27,
+  "updated_at": "2026-08-31T15:51:09.975423+00:00"
 }
