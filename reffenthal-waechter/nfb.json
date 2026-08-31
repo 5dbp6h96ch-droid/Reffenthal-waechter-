@@ -274,8 +274,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2483",
       "expired": false,
       "first_seen": "2026-08-31T08:50:59.592445+00:00"
+    },
+    {
+      "nfb_id": "2026/2485",
+      "titel": "Nachricht wegen Veranstaltung: Stillliegeverbot, besondere Vorsicht",
+      "km_von": 837.4,
+      "km_bis": 837.6,
+      "gueltig_ab": "29. Sep. 2026 18:00\n                                Uhr",
+      "gueltig_bis": "29. Sep. 2026 23:59\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2485",
+      "expired": false,
+      "first_seen": "2026-08-31T09:51:10.835560+00:00"
     }
   ],
-  "count": 25,
-  "updated_at": "2026-08-31T09:21:18.332313+00:00"
+  "count": 26,
+  "updated_at": "2026-08-31T09:51:18.405480+00:00"
 }
