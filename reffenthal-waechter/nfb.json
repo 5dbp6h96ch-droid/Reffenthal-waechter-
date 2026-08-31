@@ -263,8 +263,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2463",
       "expired": false,
       "first_seen": "2026-08-28T00:59:50.210088+00:00"
+    },
+    {
+      "nfb_id": "2026/2483",
+      "titel": "Nachricht wegen Peilarbeiten: Stillliegeverbot",
+      "km_von": 428.9,
+      "km_bis": 431.1,
+      "gueltig_ab": "2. Sep. 2026 09:00\n                                Uhr",
+      "gueltig_bis": "2. Sep. 2026 14:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2483",
+      "expired": false,
+      "first_seen": "2026-08-31T08:50:59.592445+00:00"
     }
   ],
-  "count": 24,
-  "updated_at": "2026-08-31T08:21:28.139423+00:00"
+  "count": 25,
+  "updated_at": "2026-08-31T08:51:06.017111+00:00"
 }
