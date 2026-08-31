@@ -1,8 +1,9 @@
 {
   "source": "MCK Kurpfalz Mannheim",
-  "petrol": 2.68,
-  "diesel": 2.04,
+  "petrol": null,
+  "diesel": null,
   "unit": "€/l",
-  "sourceDate": "18.08.2026",
-  "checkedAt": "2026-08-31T18:21:13+00:00"
+  "sourceDate": null,
+  "checkedAt": "2026-08-31T18:51:35+00:00",
+  "error": "HTTPSConnectionPool(host='www.mck-mannheim.de', port=443): Max retries exceeded with url: / (Caused by NewConnectionError(\"HTTPSConnection(host='www.mck-mannheim.de', port=443): Failed to establish a new connection: [Errno 101] Network is unreachable\"))"
 }
