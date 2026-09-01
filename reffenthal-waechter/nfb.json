@@ -296,8 +296,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2495",
       "expired": false,
       "first_seen": "2026-08-31T15:51:03.184285+00:00"
+    },
+    {
+      "nfb_id": "2026/2500",
+      "titel": "Nachricht wegen Arbeiten: teilweise Sperre",
+      "km_von": 333.9,
+      "km_bis": 333.9,
+      "gueltig_ab": "14. Sep. 2026 08:00\n                                Uhr",
+      "gueltig_bis": "9. Okt. 2026 16:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2500",
+      "expired": false,
+      "first_seen": "2026-09-01T09:28:32.958689+00:00"
     }
   ],
-  "count": 27,
-  "updated_at": "2026-09-01T08:53:59.796726+00:00"
+  "count": 28,
+  "updated_at": "2026-09-01T09:28:39.210059+00:00"
 }
