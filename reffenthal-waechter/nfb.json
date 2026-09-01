@@ -329,8 +329,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2506",
       "expired": false,
       "first_seen": "2026-09-01T11:26:40.996497+00:00"
+    },
+    {
+      "nfb_id": "2026/2510",
+      "titel": "Nachricht wegen Übungen",
+      "km_von": 291.6,
+      "km_bis": 311.5,
+      "gueltig_ab": "26. Sep. 2026 08:30\n                                Uhr",
+      "gueltig_bis": "26. Sep. 2026 18:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2510",
+      "expired": false,
+      "first_seen": "2026-09-01T12:56:40.530027+00:00"
     }
   ],
-  "count": 30,
-  "updated_at": "2026-09-01T12:33:12.281689+00:00"
+  "count": 31,
+  "updated_at": "2026-09-01T12:56:48.125463+00:00"
 }
