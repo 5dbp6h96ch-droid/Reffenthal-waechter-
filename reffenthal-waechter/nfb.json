@@ -362,8 +362,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2523",
       "expired": false,
       "first_seen": "2026-09-03T06:56:22.703935+00:00"
+    },
+    {
+      "nfb_id": "2026/2550",
+      "titel": "Informationsservice wegen Baggerarbeiten",
+      "km_von": 424.0,
+      "km_bis": 428.0,
+      "gueltig_ab": "4. Sep. 2026 14:17\n                                Uhr",
+      "gueltig_bis": "31. Dez. 2026 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2550",
+      "expired": false,
+      "first_seen": "2026-09-04T13:33:00.008520+00:00"
     }
   ],
-  "count": 33,
-  "updated_at": "2026-09-04T09:04:47.008967+00:00"
+  "count": 34,
+  "updated_at": "2026-09-04T13:33:10.058431+00:00"
 }
