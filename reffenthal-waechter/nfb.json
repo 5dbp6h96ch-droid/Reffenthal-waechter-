@@ -384,8 +384,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2570",
       "expired": false,
       "first_seen": "2026-09-07T12:33:02.834813+00:00"
+    },
+    {
+      "nfb_id": "2026/2590",
+      "titel": "Nachricht wegen Inspektion: Stillliegeverbot, Festmacheverbot",
+      "km_von": 380.7,
+      "km_bis": 381.0,
+      "gueltig_ab": "16. Sep. 2026 08:00\n                                Uhr",
+      "gueltig_bis": "16. Sep. 2026 15:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2590",
+      "expired": false,
+      "first_seen": "2026-09-08T11:45:20.197933+00:00"
     }
   ],
-  "count": 35,
-  "updated_at": "2026-09-08T06:32:51.540269+00:00"
+  "count": 36,
+  "updated_at": "2026-09-08T11:45:26.849674+00:00"
 }
