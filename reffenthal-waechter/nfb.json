@@ -395,8 +395,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2590",
       "expired": false,
       "first_seen": "2026-09-08T11:45:20.197933+00:00"
+    },
+    {
+      "nfb_id": "2026/2622",
+      "titel": "Nachricht wegen Einengung des Fahrwassers: verfügbare Breite",
+      "km_von": 388.2,
+      "km_bis": 388.6,
+      "gueltig_ab": "10. Sep. 2026 14:00\n                                Uhr",
+      "gueltig_bis": "1. Mrz. 2029 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2622",
+      "expired": false,
+      "first_seen": "2026-09-10T14:26:58.047037+00:00"
     }
   ],
-  "count": 36,
-  "updated_at": "2026-09-10T10:03:26.418871+00:00"
+  "count": 37,
+  "updated_at": "2026-09-10T14:27:06.074557+00:00"
 }
