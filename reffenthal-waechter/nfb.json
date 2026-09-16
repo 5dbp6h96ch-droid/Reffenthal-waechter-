@@ -417,8 +417,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2665",
       "expired": false,
       "first_seen": "2026-09-16T10:18:33.044588+00:00"
+    },
+    {
+      "nfb_id": "2026/2679",
+      "titel": "Nachricht wegen Arbeiten",
+      "km_von": 701.5,
+      "km_bis": 701.5,
+      "gueltig_ab": "19. Sep. 2026 08:00\n                                Uhr",
+      "gueltig_bis": "19. Sep. 2026 15:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2679",
+      "expired": false,
+      "first_seen": "2026-09-16T15:10:20.627641+00:00"
     }
   ],
-  "count": 38,
-  "updated_at": "2026-09-16T10:18:45.322766+00:00"
+  "count": 39,
+  "updated_at": "2026-09-16T15:10:29.489776+00:00"
 }
