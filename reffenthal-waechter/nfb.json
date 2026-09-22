@@ -472,8 +472,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2701",
       "expired": false,
       "first_seen": "2026-09-18T09:47:45.661322+00:00"
+    },
+    {
+      "nfb_id": "2026/2734",
+      "titel": "Nachricht wegen Arbeiten: besondere Vorsicht",
+      "km_von": 171.3,
+      "km_bis": 171.3,
+      "gueltig_ab": "26. Okt. 2026 08:00\n                                Uhr",
+      "gueltig_bis": "27. Okt. 2026 16:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2734",
+      "expired": false,
+      "first_seen": "2026-09-22T12:37:19.913813+00:00"
     }
   ],
-  "count": 43,
-  "updated_at": "2026-09-22T06:48:29.443454+00:00"
+  "count": 44,
+  "updated_at": "2026-09-22T12:37:28.609036+00:00"
 }
