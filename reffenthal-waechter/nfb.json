@@ -494,8 +494,30 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2772",
       "expired": false,
       "first_seen": "2026-09-28T12:00:26.937015+00:00"
+    },
+    {
+      "nfb_id": "2026/2773",
+      "titel": "Nachricht wegen Einengung des Fahrwassers: verfügbare Breite",
+      "km_von": 389.2,
+      "km_bis": 389.4,
+      "gueltig_ab": "28. Sep. 2026 14:00\n                                Uhr",
+      "gueltig_bis": "1. Mrz. 2029 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2773",
+      "expired": false,
+      "first_seen": "2026-09-28T19:41:07.086643+00:00"
+    },
+    {
+      "nfb_id": "2026/2774",
+      "titel": "Nachricht wegen Schifffahrtszeichen geändert: Begegnungsverbot",
+      "km_von": 163.7,
+      "km_bis": 170.0,
+      "gueltig_ab": "28. Sep. 2026 15:00\n                                Uhr",
+      "gueltig_bis": "28. Sep. 2027 07:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2774",
+      "expired": false,
+      "first_seen": "2026-09-28T19:41:07.435377+00:00"
     }
   ],
-  "count": 45,
-  "updated_at": "2026-09-28T12:00:33.138525+00:00"
+  "count": 47,
+  "updated_at": "2026-09-28T19:41:17.797034+00:00"
 }
