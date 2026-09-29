@@ -516,8 +516,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2774",
       "expired": false,
       "first_seen": "2026-09-28T19:41:07.435377+00:00"
+    },
+    {
+      "nfb_id": "2026/2802",
+      "titel": "Informationsservice wegen andere",
+      "km_von": 431.4,
+      "km_bis": 431.4,
+      "gueltig_ab": "29. Sep. 2026 00:00\n                                Uhr",
+      "gueltig_bis": "16. Okt. 2026 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2802",
+      "expired": false,
+      "first_seen": "2026-09-29T17:02:27.862093+00:00"
     }
   ],
-  "count": 47,
-  "updated_at": "2026-09-29T11:36:13.236273+00:00"
+  "count": 48,
+  "updated_at": "2026-09-29T17:02:35.825676+00:00"
 }
