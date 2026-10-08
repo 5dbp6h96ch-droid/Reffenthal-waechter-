@@ -615,8 +615,30 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2886",
       "expired": false,
       "first_seen": "2026-10-08T08:58:04.519342+00:00"
+    },
+    {
+      "nfb_id": "2026/2890",
+      "titel": "Nachricht wegen Einschränkungen: Begegnungsverbot, Überholverbot",
+      "km_von": 372.0,
+      "km_bis": 372.7,
+      "gueltig_ab": "8. Okt. 2026 13:00\n                                Uhr",
+      "gueltig_bis": "8. Okt. 2027 23:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2890",
+      "expired": false,
+      "first_seen": "2026-10-08T16:28:28.648330+00:00"
+    },
+    {
+      "nfb_id": "2026/2891",
+      "titel": "Nachricht wegen Übungen: besondere Vorsicht",
+      "km_von": 243.5,
+      "km_bis": 246.0,
+      "gueltig_ab": "10. Okt. 2026 10:00\n                                Uhr",
+      "gueltig_bis": "10. Okt. 2026 12:30\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2891",
+      "expired": false,
+      "first_seen": "2026-10-08T16:28:28.972724+00:00"
     }
   ],
-  "count": 56,
-  "updated_at": "2026-10-08T08:58:14.400744+00:00"
+  "count": 58,
+  "updated_at": "2026-10-08T16:28:37.119234+00:00"
 }
