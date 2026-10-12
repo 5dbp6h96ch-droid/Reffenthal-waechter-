@@ -648,8 +648,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2910",
       "expired": false,
       "first_seen": "2026-10-12T09:13:09.112377+00:00"
+    },
+    {
+      "nfb_id": "2026/2916",
+      "titel": "Nachricht wegen Veranstaltung: Sperre",
+      "km_von": 163.7,
+      "km_bis": 170.0,
+      "gueltig_ab": "14. Nov. 2026 10:00\n                                Uhr",
+      "gueltig_bis": "14. Nov. 2026 16:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2916",
+      "expired": false,
+      "first_seen": "2026-10-12T19:03:59.199760+00:00"
     }
   ],
-  "count": 59,
-  "updated_at": "2026-10-12T09:13:17.500274+00:00"
+  "count": 60,
+  "updated_at": "2026-10-12T19:04:08.146731+00:00"
 }
