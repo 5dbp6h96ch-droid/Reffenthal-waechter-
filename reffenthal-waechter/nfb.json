@@ -659,8 +659,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2916",
       "expired": false,
       "first_seen": "2026-10-12T19:03:59.199760+00:00"
+    },
+    {
+      "nfb_id": "2026/2942",
+      "titel": "Nachricht wegen Niedrigwasser",
+      "km_von": 493.5,
+      "km_bis": 557.0,
+      "gueltig_ab": "15. Okt. 2026 09:00\n                                Uhr",
+      "gueltig_bis": "31. Dez. 2026 23:59\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/2942",
+      "expired": false,
+      "first_seen": "2026-10-15T11:29:08.467181+00:00"
     }
   ],
-  "count": 60,
-  "updated_at": "2026-10-15T05:54:52.313858+00:00"
+  "count": 61,
+  "updated_at": "2026-10-15T11:29:17.991793+00:00"
 }
