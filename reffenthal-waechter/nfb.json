@@ -703,8 +703,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3005",
       "expired": false,
       "first_seen": "2026-10-23T10:03:59.246696+00:00"
+    },
+    {
+      "nfb_id": "2026/3013",
+      "titel": "Nachricht wegen Arbeiten: besondere Vorsicht, Sog und Wellenschlag vermeiden",
+      "km_von": 293.5,
+      "km_bis": 293.5,
+      "gueltig_ab": "29. Okt. 2026 10:00\n                                Uhr",
+      "gueltig_bis": "5. Nov. 2026 17:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3013",
+      "expired": false,
+      "first_seen": "2026-10-26T13:36:11.051599+00:00"
     }
   ],
-  "count": 64,
-  "updated_at": "2026-10-26T06:21:15.477133+00:00"
+  "count": 65,
+  "updated_at": "2026-10-26T13:36:20.984172+00:00"
 }
