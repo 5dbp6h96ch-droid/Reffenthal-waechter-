@@ -714,8 +714,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3013",
       "expired": false,
       "first_seen": "2026-10-26T13:36:11.051599+00:00"
+    },
+    {
+      "nfb_id": "2026/3034",
+      "titel": "Nachricht wegen Baggerarbeiten: teilweise Sperre",
+      "km_von": 333.9,
+      "km_bis": 333.9,
+      "gueltig_ab": "2. Nov. 2026 07:00\n                                Uhr",
+      "gueltig_bis": "6. Nov. 2026 16:30\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3034",
+      "expired": false,
+      "first_seen": "2026-10-28T09:00:08.588052+00:00"
     }
   ],
-  "count": 65,
-  "updated_at": "2026-10-28T02:37:02.912954+00:00"
+  "count": 66,
+  "updated_at": "2026-10-28T09:00:17.187269+00:00"
 }

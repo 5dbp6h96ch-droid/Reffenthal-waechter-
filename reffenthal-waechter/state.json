@@ -1,6 +1,6 @@
 {
-  "last_pegel_cm": 199,
-  "last_pegel_time": "2026-10-28T03:30:00+01:00",
+  "last_pegel_cm": 192,
+  "last_pegel_time": "2026-10-28T09:45:00+01:00",
   "history": [
     {
       "cm": 224,
@@ -15113,9 +15113,13 @@
     {
       "cm": 199,
       "ts": "2026-10-28T03:30:00+01:00"
+    },
+    {
+      "cm": 192,
+      "ts": "2026-10-28T09:45:00+01:00"
     }
   ],
-  "last_daily_report_date": "2026-10-27",
+  "last_daily_report_date": "2026-10-28",
   "gauges": {
     "57090802-c51a-4d09-8340-b4453cd0e1f5": {
       "last_pegel_cm": 76,
