@@ -747,8 +747,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3054",
       "expired": false,
       "first_seen": "2026-10-30T12:55:55.913877+00:00"
+    },
+    {
+      "nfb_id": "2026/3064",
+      "titel": "Nachricht wegen Einengung des Fahrwassers: Durchfahrtsbreite, Überholverbot, besondere Vorsicht",
+      "km_von": 760.1,
+      "km_bis": 760.9,
+      "gueltig_ab": "31. Okt. 2026 12:00\n                                Uhr",
+      "gueltig_bis": "31. Dez. 2026 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3064",
+      "expired": false,
+      "first_seen": "2026-10-31T18:49:41.064782+00:00"
     }
   ],
-  "count": 68,
-  "updated_at": "2026-10-31T14:46:28.007857+00:00"
+  "count": 69,
+  "updated_at": "2026-10-31T18:49:49.287786+00:00"
 }
