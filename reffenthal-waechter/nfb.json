@@ -769,8 +769,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3070",
       "expired": false,
       "first_seen": "2026-11-02T09:58:57.032756+00:00"
+    },
+    {
+      "nfb_id": "2026/3080",
+      "titel": "Nachricht wegen Sondertransport",
+      "km_von": 363.5,
+      "km_bis": 363.5,
+      "gueltig_ab": "16. Nov. 2026 07:00\n                                Uhr",
+      "gueltig_bis": "22. Nov. 2026 23:30\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3080",
+      "expired": false,
+      "first_seen": "2026-11-03T17:51:11.954495+00:00"
     }
   ],
-  "count": 70,
-  "updated_at": "2026-11-03T10:05:48.761671+00:00"
+  "count": 71,
+  "updated_at": "2026-11-03T17:51:19.678919+00:00"
 }
