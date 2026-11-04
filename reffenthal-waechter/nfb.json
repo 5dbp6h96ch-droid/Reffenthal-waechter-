@@ -780,8 +780,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3080",
       "expired": false,
       "first_seen": "2026-11-03T17:51:11.954495+00:00"
+    },
+    {
+      "nfb_id": "2026/3091",
+      "titel": "Nachricht wegen Taucher unter Wasser: besondere Vorsicht, Sog und Wellenschlag vermeiden",
+      "km_von": 293.0,
+      "km_bis": 293.5,
+      "gueltig_ab": "10. Nov. 2026 08:00\n                                Uhr",
+      "gueltig_bis": "10. Nov. 2026 17:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3091",
+      "expired": false,
+      "first_seen": "2026-11-04T18:53:28.715540+00:00"
     }
   ],
-  "count": 71,
-  "updated_at": "2026-11-04T11:36:05.087964+00:00"
+  "count": 72,
+  "updated_at": "2026-11-04T18:53:38.453023+00:00"
 }
