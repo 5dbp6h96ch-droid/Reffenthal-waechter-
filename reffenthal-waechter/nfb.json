@@ -791,8 +791,30 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3091",
       "expired": false,
       "first_seen": "2026-11-04T18:53:28.715540+00:00"
+    },
+    {
+      "nfb_id": "2026/3110",
+      "titel": "Nachricht wegen Einschränkungen: Durchfahrtshöhe",
+      "km_von": 403.2,
+      "km_bis": 403.2,
+      "gueltig_ab": "9. Nov. 2026 08:00\n                                Uhr",
+      "gueltig_bis": "9. Nov. 2026 16:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3110",
+      "expired": false,
+      "first_seen": "2026-11-06T17:29:48.106386+00:00"
+    },
+    {
+      "nfb_id": "2026/3111",
+      "titel": "Nachricht wegen Bauarbeiten: Landgangverbot",
+      "km_von": 780.5,
+      "km_bis": 780.5,
+      "gueltig_ab": "6. Nov. 2026 00:00\n                                Uhr",
+      "gueltig_bis": "31. Dez. 2026 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3111",
+      "expired": false,
+      "first_seen": "2026-11-06T17:29:48.506512+00:00"
     }
   ],
-  "count": 72,
-  "updated_at": "2026-11-06T09:55:10.425598+00:00"
+  "count": 74,
+  "updated_at": "2026-11-06T17:29:57.909464+00:00"
 }
