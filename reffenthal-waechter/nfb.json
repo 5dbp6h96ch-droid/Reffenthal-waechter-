@@ -813,8 +813,30 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3111",
       "expired": false,
       "first_seen": "2026-11-06T17:29:48.506512+00:00"
+    },
+    {
+      "nfb_id": "2026/3115",
+      "titel": "Nachricht wegen Versandung: Sperre",
+      "km_von": 162.7,
+      "km_bis": 162.7,
+      "gueltig_ab": "9. Nov. 2026 07:00\n                                Uhr",
+      "gueltig_bis": "31. Mrz. 2027 07:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3115",
+      "expired": false,
+      "first_seen": "2026-11-09T16:52:47.883894+00:00"
+    },
+    {
+      "nfb_id": "2026/3117",
+      "titel": "Nachricht wegen Arbeiten: Festmacheverbot",
+      "km_von": 333.9,
+      "km_bis": 333.9,
+      "gueltig_ab": "9. Nov. 2026 00:00\n                                Uhr",
+      "gueltig_bis": "7. Dez. 2026 00:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3117",
+      "expired": false,
+      "first_seen": "2026-11-09T16:52:50.811070+00:00"
     }
   ],
-  "count": 74,
-  "updated_at": "2026-11-09T06:27:43.447732+00:00"
+  "count": 76,
+  "updated_at": "2026-11-09T16:53:22.338084+00:00"
 }
