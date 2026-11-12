@@ -846,8 +846,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3132",
       "expired": false,
       "first_seen": "2026-11-11T17:28:26.017034+00:00"
+    },
+    {
+      "nfb_id": "2026/3140",
+      "titel": "Warnung wegen Bauarbeiten: Sperre",
+      "km_von": 590.9,
+      "km_bis": 590.9,
+      "gueltig_ab": "23. Nov. 2026 07:00\n                                Uhr",
+      "gueltig_bis": "24. Nov. 2026 20:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3140",
+      "expired": false,
+      "first_seen": "2026-11-12T13:17:28.074418+00:00"
     }
   ],
-  "count": 77,
-  "updated_at": "2026-11-12T04:18:52.909223+00:00"
+  "count": 78,
+  "updated_at": "2026-11-12T13:17:35.547205+00:00"
 }
