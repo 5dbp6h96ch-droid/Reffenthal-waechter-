@@ -868,8 +868,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3147",
       "expired": false,
       "first_seen": "2026-11-13T09:31:36.559038+00:00"
+    },
+    {
+      "nfb_id": "2026/3169",
+      "titel": "Informationsservice wegen Arbeiten",
+      "km_von": 593.0,
+      "km_bis": 605.0,
+      "gueltig_ab": "19. Nov. 2026 09:00\n                                Uhr",
+      "gueltig_bis": "19. Nov. 2026 17:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3169",
+      "expired": false,
+      "first_seen": "2026-11-16T17:28:05.776743+00:00"
     }
   ],
-  "count": 79,
-  "updated_at": "2026-11-16T07:19:35.051507+00:00"
+  "count": 80,
+  "updated_at": "2026-11-16T17:28:15.841344+00:00"
 }
