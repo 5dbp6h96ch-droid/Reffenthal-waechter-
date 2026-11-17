@@ -879,8 +879,52 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3169",
       "expired": false,
       "first_seen": "2026-11-16T17:28:05.776743+00:00"
+    },
+    {
+      "nfb_id": "2026/3180",
+      "titel": "Nachricht wegen Bauarbeiten: Sperre",
+      "km_von": 586.5,
+      "km_bis": 592.0,
+      "gueltig_ab": "23. Nov. 2026 08:00\n                                Uhr",
+      "gueltig_bis": "23. Nov. 2026 18:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3180",
+      "expired": false,
+      "first_seen": "2026-11-17T18:34:20.440154+00:00"
+    },
+    {
+      "nfb_id": "2026/3181",
+      "titel": "Informationsservice wegen Bauarbeiten",
+      "km_von": 586.5,
+      "km_bis": 592.0,
+      "gueltig_ab": "24. Nov. 2026 08:00\n                                Uhr",
+      "gueltig_bis": "24. Nov. 2026 18:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3181",
+      "expired": false,
+      "first_seen": "2026-11-17T18:34:20.824474+00:00"
+    },
+    {
+      "nfb_id": "2026/3182",
+      "titel": "Nachricht wegen Arbeiten: Sperre",
+      "km_von": 586.5,
+      "km_bis": 592.0,
+      "gueltig_ab": "24. Nov. 2026 08:00\n                                Uhr",
+      "gueltig_bis": "24. Nov. 2026 18:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3182",
+      "expired": false,
+      "first_seen": "2026-11-17T18:34:21.231206+00:00"
+    },
+    {
+      "nfb_id": "2026/3183",
+      "titel": "Nachricht wegen Arbeiten: Sperre",
+      "km_von": 586.5,
+      "km_bis": 592.0,
+      "gueltig_ab": "24. Nov. 2026 08:00\n                                Uhr",
+      "gueltig_bis": "24. Nov. 2026 18:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3183",
+      "expired": false,
+      "first_seen": "2026-11-17T18:34:21.617217+00:00"
     }
   ],
-  "count": 80,
-  "updated_at": "2026-11-17T09:13:01.321495+00:00"
+  "count": 84,
+  "updated_at": "2026-11-17T18:34:36.579689+00:00"
 }
