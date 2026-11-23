@@ -934,8 +934,19 @@
       "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3198",
       "expired": false,
       "first_seen": "2026-11-19T07:57:44.397355+00:00"
+    },
+    {
+      "nfb_id": "2026/3211",
+      "titel": "Nachricht wegen Arbeiten: Durchfahrtshöhe",
+      "km_von": 775.3,
+      "km_bis": 775.3,
+      "gueltig_ab": "7. Dez. 2026 08:00\n                                Uhr",
+      "gueltig_bis": "10. Dez. 2026 16:00\n                                    Uhr",
+      "url": "https://www.elwis.de/DE/dynamisch/Nfb/NfbDetailview:elwis_nfb_search:2026/3211",
+      "expired": false,
+      "first_seen": "2026-11-23T22:03:05.063019+00:00"
     }
   ],
-  "count": 85,
-  "updated_at": "2026-11-23T09:49:54.290011+00:00"
+  "count": 86,
+  "updated_at": "2026-11-23T22:03:11.729719+00:00"
 }
